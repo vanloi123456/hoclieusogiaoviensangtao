@@ -144,7 +144,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </span>
             </button>
             <p className="text-[11px] text-slate-500 text-center">
-              Dành cho Giáo viên · Nhận {DAILY_FREE_CREDITS} tín dụng AI miễn phí mỗi ngày
+              Dành cho Giáo viên (nhận {DAILY_FREE_CREDITS} tín dụng AI/ngày) &amp; Quản trị viên (đồng bộ vĩnh viễn đa máy tính)
             </p>
           </div>
 
@@ -152,15 +152,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="relative flex items-center">
             <div className="flex-grow border-t border-slate-200" />
             <span className="px-3 text-[11px] font-semibold text-slate-400 bg-white">
-              Quản trị viên
+              Quản trị viên (Email &amp; Mật khẩu)
             </span>
             <div className="flex-grow border-t border-slate-200" />
           </div>
 
           {/* Option 2: Admin-only Email & Password Sign-In */}
           <form onSubmit={handleEmailPasswordSubmit} className="space-y-3.5">
-            <p className="text-[11px] text-slate-600 text-center">
-              Đăng nhập bằng Email và mật khẩu chỉ dành cho Quản trị viên
+            <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+              Để dữ liệu &amp; mã nhúng được lưu trữ vĩnh viễn và hiển thị trên mọi máy tính, trình duyệt khác, Quản trị viên nên đăng nhập bằng nút <strong>Google</strong> ở trên.
             </p>
 
             <div>

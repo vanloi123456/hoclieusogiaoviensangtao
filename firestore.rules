@@ -133,6 +133,7 @@ service cloud.firestore {
           'type',
           'order',
           'embedCode',
+          'embedChunkCount',
           'instructions',
           'grade',
           'subject',
@@ -146,10 +147,19 @@ service cloud.firestore {
         data.type is string && data.type in ['app', 'game', 'simulation', 'management', 'guide'] &&
         data.order is int && data.order >= 0 && data.order <= 100000 &&
         (!('embedCode' in data) || (data.embedCode is string && data.embedCode.size() <= 750000)) &&
+        (!('embedChunkCount' in data) || (data.embedChunkCount is int && data.embedChunkCount >= 0 && data.embedChunkCount <= 30)) &&
         (!('instructions' in data) || (data.instructions is string && data.instructions.size() <= 5000)) &&
         (!('grade' in data) || (data.grade is string && data.grade.size() <= 40)) &&
         (!('subject' in data) || (data.subject is string && data.subject.size() <= 60)) &&
         data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidEmbedChunk(data) {
+      return data.keys().hasAll(['index', 'data', 'updatedAt']) &&
+        data.keys().hasOnly(['index', 'data', 'updatedAt']) &&
+        data.index is int && data.index >= 0 && data.index < 30 &&
+        data.data is string && data.data.size() > 0 && data.data.size() <= 450000 &&
         data.updatedAt is timestamp;
     }
 
@@ -354,6 +364,7 @@ service cloud.firestore {
           'type',
           'order',
           'embedCode',
+          'embedChunkCount',
           'instructions',
           'grade',
           'subject',
@@ -361,6 +372,31 @@ service cloud.firestore {
         ]);
 
       allow delete: if isValidId(itemId) && isAdmin();
+
+      match /embed_chunks/{chunkId} {
+        allow get: if isValidId(itemId) && isValidId(chunkId);
+        allow list: if isValidId(itemId) && resource.data.index is int && resource.data.index >= 0;
+
+        allow create: if isValidId(itemId) &&
+          isValidId(chunkId) &&
+          isAdmin() &&
+          isValidEmbedChunk(incoming()) &&
+          incoming().updatedAt == request.time &&
+          (
+            exists(/databases/$(database)/documents/content_items/$(itemId)) ||
+            existsAfter(/databases/$(database)/documents/content_items/$(itemId))
+          );
+
+        allow update: if isValidId(itemId) &&
+          isValidId(chunkId) &&
+          isAdmin() &&
+          isValidEmbedChunk(incoming()) &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['index', 'data', 'updatedAt']) &&
+          exists(/databases/$(database)/documents/content_items/$(itemId));
+
+        allow delete: if isValidId(itemId) && isValidId(chunkId) && isAdmin();
+      }
     }
 
     // --- Collection: /site_settings/{settingId} (Branding, catalog & accounts initialization state) ---

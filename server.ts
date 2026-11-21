@@ -1506,9 +1506,16 @@ async function startServer() {
     res.json({ success: true, branding });
   });
 
-  app.post('/api/branding', (req, res) => {
+  app.post('/api/branding', async (req, res) => {
     try {
-      const branding = req.body;
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ Quản trị viên mới có quyền cập nhật hình đại diện hệ thống.',
+        });
+      }
+      const branding = req.body && typeof req.body === 'object' ? req.body : {};
       saveStoredBranding(branding);
       broadcastRealtime({ type: 'branding_updated', branding, ts: Date.now() });
       res.json({ success: true, branding });
@@ -1518,6 +1525,9 @@ async function startServer() {
   });
 
   // 10. Content Items Endpoints (Kho Ứng Dụng, Học Liệu Số, Thí Nghiệm Mô Phỏng)
+  const ALLOWED_CONTENT_ZONES = new Set(['apps', 'games', 'simulations', 'management', 'guides']);
+  const VALID_ITEM_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
+
   app.get('/api/items', (req, res) => {
     try {
       const items = getStoredItems();
@@ -1528,10 +1538,25 @@ async function startServer() {
     }
   });
 
-  app.post('/api/items', (req, res) => {
+  app.post('/api/items', async (req, res) => {
     try {
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ Quản trị viên mới có quyền thêm hoặc chỉnh sửa nội dung.',
+        });
+      }
+
       const item = req.body;
-      if (!item || !item.id) {
+      if (
+        !item ||
+        typeof item.id !== 'string' ||
+        !VALID_ITEM_ID_REGEX.test(item.id.trim()) ||
+        typeof item.title !== 'string' ||
+        !item.title.trim() ||
+        !ALLOWED_CONTENT_ZONES.has(String(item.zone || ''))
+      ) {
         return res.status(400).json({ success: false, message: 'Dữ liệu học liệu không hợp lệ' });
       }
 
@@ -1551,9 +1576,21 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/items/:id', (req, res) => {
+  app.delete('/api/items/:id', async (req, res) => {
     try {
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ Quản trị viên mới có quyền xóa nội dung.',
+        });
+      }
+
       const { id } = req.params;
+      if (!VALID_ITEM_ID_REGEX.test(String(id || ''))) {
+        return res.status(400).json({ success: false, message: 'Mã nội dung không hợp lệ' });
+      }
+
       let items = getStoredItems();
       items = items.filter((i) => i.id !== id);
       saveStoredItems(items);
@@ -1565,8 +1602,16 @@ async function startServer() {
     }
   });
 
-  app.post('/api/items/batch', (req, res) => {
+  app.post('/api/items/batch', async (req, res) => {
     try {
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ Quản trị viên mới có quyền nhập danh sách học liệu.',
+        });
+      }
+
       const { items } = req.body;
       if (!Array.isArray(items)) {
         return res.status(400).json({ success: false, message: 'Danh sách học liệu không hợp lệ' });
@@ -1580,8 +1625,16 @@ async function startServer() {
     }
   });
 
-  app.post('/api/items/clear', (req, res) => {
+  app.post('/api/items/clear', async (req, res) => {
     try {
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ Quản trị viên mới có quyền làm trống danh sách học liệu.',
+        });
+      }
+
       saveStoredItems([]);
       broadcastRealtime({ type: 'items_updated', ts: Date.now() });
       res.json({ success: true, message: 'Đã xóa toàn bộ học liệu trên máy chủ' });

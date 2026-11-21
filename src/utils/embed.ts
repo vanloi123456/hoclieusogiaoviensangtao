@@ -97,6 +97,12 @@ export function isIframeBlockedHost(hostname: string): boolean {
   );
 }
 
+function isLikelyHtmlCode(raw: string): boolean {
+  return /<(?:!doctype|html|head|body|div|canvas|script|style|svg|section|main|article|h[1-6]|p|table|form|button)\b/i.test(
+    raw
+  );
+}
+
 export function classifyAppSource(input?: string): AppSourceInfo {
   const raw = (input || '').trim();
   if (!raw) {
@@ -135,15 +141,7 @@ export function classifyAppSource(input?: string): AppSourceInfo {
     }
   }
 
-  if (
-    raw.includes('<html') ||
-    raw.includes('<div') ||
-    raw.includes('<canvas') ||
-    raw.includes('<script') ||
-    raw.includes('<style') ||
-    raw.includes('<!DOCTYPE') ||
-    raw.includes('<!doctype')
-  ) {
+  if (isLikelyHtmlCode(raw)) {
     return {
       kind: 'html',
       label: 'HTML nhúng',
@@ -199,6 +197,78 @@ export function classifyAppSource(input?: string): AppSourceInfo {
   return { kind: 'unknown', label: 'Ứng dụng', iframeBlockedLikely: false };
 }
 
+export const INLINE_EMBED_MAX_UTF8_BYTES = 450_000;
+export const CHUNK_EMBED_MAX_UTF8_BYTES = 350_000;
+export const MAX_TOTAL_EMBED_UTF8_BYTES = 4_500_000;
+
+export function getUtf8ByteLength(value: string): number {
+  if (!value) return 0;
+  try {
+    if (typeof TextEncoder !== 'undefined') {
+      return new TextEncoder().encode(value).length;
+    }
+  } catch {}
+  let bytes = 0;
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x7f) bytes += 1;
+    else if (code <= 0x7ff) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      bytes += 4;
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+export function splitStringByUtf8Bytes(
+  value: string,
+  maxBytesPerChunk = CHUNK_EMBED_MAX_UTF8_BYTES
+): string[] {
+  if (!value) return [];
+  if (getUtf8ByteLength(value) <= maxBytesPerChunk) {
+    return [value];
+  }
+
+  const chunks: string[] = [];
+  let start = 0;
+  let currentBytes = 0;
+
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    let charUnits = 1;
+    let charBytes = 1;
+
+    if (code <= 0x7f) {
+      charBytes = 1;
+    } else if (code <= 0x7ff) {
+      charBytes = 2;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < value.length) {
+      charUnits = 2;
+      charBytes = 4;
+    } else {
+      charBytes = 3;
+    }
+
+    if (currentBytes + charBytes > maxBytesPerChunk && i > start) {
+      chunks.push(value.slice(start, i));
+      start = i;
+      currentBytes = 0;
+    }
+
+    currentBytes += charBytes;
+    if (charUnits === 2) {
+      i += 1;
+    }
+  }
+
+  if (start < value.length) {
+    chunks.push(value.slice(start));
+  }
+
+  return chunks;
+}
+
 export function validateAndFormatEmbed(input: string): EmbedValidationResult {
   if (!input || !input.trim()) {
     return {
@@ -210,13 +280,14 @@ export function validateAndFormatEmbed(input: string): EmbedValidationResult {
   }
 
   const raw = input.trim();
+  const totalBytes = getUtf8ByteLength(raw);
 
-  if (raw.length > 750000) {
+  if (totalBytes > MAX_TOTAL_EMBED_UTF8_BYTES) {
     return {
       isValid: false,
       type: 'invalid',
       errorMessage:
-        'Mã nhúng HTML quá lớn (tối đa 750.000 ký tự). Hãy rút gọn tài nguyên nhúng hoặc dùng link Google Gemini / Google AI Studio / Vercel.',
+        'Mã nhúng HTML vượt quá giới hạn tối đa 4,5 MB. Hãy rút gọn tài nguyên nhúng hoặc dùng link Google Gemini / Google AI Studio / Vercel.',
     };
   }
 
@@ -242,15 +313,7 @@ export function validateAndFormatEmbed(input: string): EmbedValidationResult {
   }
 
   // Check if it's general HTML (e.g., app/game written in HTML/CSS/JS exported by Gemini or AI Studio)
-  if (
-    raw.includes('<html') ||
-    raw.includes('<div') ||
-    raw.includes('<canvas') ||
-    raw.includes('<script') ||
-    raw.includes('<style') ||
-    raw.includes('<!DOCTYPE') ||
-    raw.includes('<!doctype')
-  ) {
+  if (isLikelyHtmlCode(raw)) {
     return {
       isValid: true,
       type: 'html',

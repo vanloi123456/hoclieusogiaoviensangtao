@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, ChevronRight, Play } from 'lucide-react';
+import { Home, ChevronRight, Play, Cloud, CloudOff, CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { LeftSidebar } from './components/LeftSidebar';
 import { ControlDeck } from './components/ControlDeck';
 import { ZoneAppsRepository } from './components/ZoneAppsRepository';
@@ -68,6 +68,17 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<'teachers' | 'branding'>('teachers');
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(() =>
+    storageService.isCloudAdminConnected()
+  );
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(() =>
+    storageService.getPendingCloudSyncCount()
+  );
+  const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
+  const [cloudNotice, setCloudNotice] = useState<{
+    type: 'success' | 'warning';
+    text: string;
+  } | null>(null);
 
   // AI Credits / Contact Admin modal
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
@@ -179,14 +190,31 @@ export default function App() {
     };
   }, []);
 
+  // Track pending Cloud Firestore sync count
+  useEffect(() => {
+    setPendingSyncCount(storageService.getPendingCloudSyncCount());
+    return storageService.subscribeSyncStatus(() => {
+      setPendingSyncCount(storageService.getPendingCloudSyncCount());
+    });
+  }, []);
+
   // Listen to Firebase Auth state & sync user profile on boot/login (including redirect return on Vercel)
   useEffect(() => {
-    authService.handleGoogleRedirectResult().then((redirectRes) => {
+    authService.handleGoogleRedirectResult().then(async (redirectRes) => {
+      setIsCloudConnected(authService.isFirebaseAdminConnected());
       if (redirectRes?.success && redirectRes.user) {
         setCurrentUser(redirectRes.user);
         setRole(authService.getCurrentRole());
-        if (redirectRes.user.role === 'admin') {
-          storageService.ensureCatalogSeededToFirestore().catch(() => {});
+        if (redirectRes.user.role === 'admin' && authService.isFirebaseAdminConnected()) {
+          await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+          const [latestItems, latestBranding] = await Promise.all([
+            storageService.getAllItems(),
+            storageService.fetchBrandingFromServer(),
+          ]);
+          setItems(normalizeItems(latestItems));
+          if (latestBranding && Object.keys(latestBranding).length > 0) {
+            setBranding(latestBranding);
+          }
         }
       }
     });
@@ -195,17 +223,27 @@ export default function App() {
       if (fbUser) {
         try {
           const synced = await authService.syncFirebaseUserProfile(fbUser);
+          setIsCloudConnected(authService.isFirebaseAdminConnected());
           if (synced.success && synced.user) {
             setCurrentUser(synced.user);
             setRole(authService.getCurrentRole());
-            if (synced.user.role === 'admin') {
-              storageService.ensureCatalogSeededToFirestore().catch(() => {});
+            if (synced.user.role === 'admin' && authService.isFirebaseAdminConnected()) {
+              await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+              const [latestItems, latestBranding] = await Promise.all([
+                storageService.getAllItems(),
+                storageService.fetchBrandingFromServer(),
+              ]);
+              setItems(normalizeItems(latestItems));
+              if (latestBranding && Object.keys(latestBranding).length > 0) {
+                setBranding(latestBranding);
+              }
             }
           }
         } catch (err) {
           console.error('Error syncing Google auth session:', err);
         }
       } else {
+        setIsCloudConnected(false);
         const existing = authService.getCurrentUser();
         if (existing && existing.role === 'teacher') {
           const refreshedUser = await authService.refreshCurrentUser(existing);
@@ -536,11 +574,19 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
-  const handleAuthSuccess = (user: UserAccount | null) => {
+  const showCloudNotice = useCallback((type: 'success' | 'warning', text: string) => {
+    setCloudNotice({ type, text });
+    window.setTimeout(() => {
+      setCloudNotice((curr) => (curr?.text === text ? null : curr));
+    }, 6500);
+  }, []);
+
+  const handleAuthSuccess = async (user: UserAccount | null) => {
     if (user) {
       authService.setCurrentUser(user);
     }
     setCurrentUser(user);
+    setIsCloudConnected(authService.isFirebaseAdminConnected());
     setRole(
       user
         ? user.role === 'admin'
@@ -550,6 +596,11 @@ export default function App() {
           : 'guest'
         : authService.getCurrentRole()
     );
+    if (user?.role === 'admin' && authService.isFirebaseAdminConnected()) {
+      await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+      const latest = await storageService.getAllItems();
+      setItems(normalizeItems(latest));
+    }
     if (user && pendingLaunch) {
       const nextLaunch = pendingLaunch;
       setPendingLaunch(null);
@@ -557,10 +608,74 @@ export default function App() {
     }
   };
 
+  const handleConnectCloudAdmin = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const res = await authService.signInWithGoogle();
+      const connected = authService.isFirebaseAdminConnected();
+      setIsCloudConnected(connected);
+      if (res.success && connected) {
+        if (res.user) {
+          setCurrentUser(res.user);
+          setRole(authService.getCurrentRole());
+        }
+        const flushRes = await storageService.syncPendingToFirestore();
+        await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+        const [latestItems, latestBranding] = await Promise.all([
+          storageService.getAllItems(),
+          storageService.fetchBrandingFromServer(),
+        ]);
+        setItems(normalizeItems(latestItems));
+        if (latestBranding && Object.keys(latestBranding).length > 0) {
+          setBranding(latestBranding);
+        }
+        const totalSynced = flushRes.syncedUpserts + flushRes.syncedDeletes + (flushRes.syncedBranding ? 1 : 0);
+        showCloudNotice(
+          'success',
+          totalSynced > 0
+            ? `Đã kết nối Đám mây và đồng bộ vĩnh viễn ${totalSynced} thay đổi cho mọi máy tính & trình duyệt.`
+            : 'Đã kết nối Đám mây Quản trị — mọi dữ liệu và mã nhúng từ nay được lưu vĩnh viễn trên Cloud Firestore.'
+        );
+      } else if (res.success && !connected) {
+        showCloudNotice(
+          'warning',
+          'Vui lòng chọn đúng tài khoản Google Quản trị (vanloiphuhiep.09@gmail.com) để đồng bộ dữ liệu hệ thống.'
+        );
+      } else if (res.message) {
+        showCloudNotice('warning', res.message);
+      }
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
+  const handleSyncPendingNow = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const flushRes = await storageService.syncPendingToFirestore();
+      const latestItems = await storageService.getAllItems();
+      setItems(normalizeItems(latestItems));
+      if (flushRes.failedCount === 0) {
+        showCloudNotice(
+          'success',
+          'Đã đồng bộ toàn bộ dữ liệu và mã nhúng lên Cloud Firestore vĩnh viễn.'
+        );
+      } else {
+        showCloudNotice(
+          'warning',
+          `Vẫn còn ${flushRes.failedCount} thay đổi chưa đồng bộ được. Vui lòng kiểm tra kết nối mạng và thử lại.`
+        );
+      }
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
   const handleLogout = () => {
     authService.logout();
     setCurrentUser(null);
     setRole('guest');
+    setIsCloudConnected(false);
     setPendingLaunch(null);
   };
 
@@ -641,15 +756,23 @@ export default function App() {
   const handleConfirmDelete = async () => {
     if (!isAdmin || !itemToDelete) return;
     try {
-      await storageService.deleteItem(itemToDelete.id);
+      const res = await storageService.deleteItem(itemToDelete.id);
       setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
       if (selectedItem?.id === itemToDelete.id) {
         setSelectedItem(null);
       }
       setItemToDelete(null);
+      if (res.firestoreSynced) {
+        showCloudNotice('success', 'Đã xóa vĩnh viễn nội dung trên Hệ thống Đám mây.');
+      } else {
+        showCloudNotice(
+          'warning',
+          'Đã xóa nội dung trên máy này. Hãy nhấn "Kết nối Google Đám mây" để cập nhật xóa trên mọi máy tính & trình duyệt khác.'
+        );
+      }
     } catch (err) {
       console.error('Lỗi khi xóa nội dung:', err);
-      alert('Không thể xóa nội dung. Vui lòng thử lại.');
+      showCloudNotice('warning', 'Không thể xóa nội dung trên Cloud Firestore. Vui lòng thử lại.');
     }
   };
 
@@ -666,12 +789,21 @@ export default function App() {
         updatedAt: now,
       } as ContentItem;
     } else {
+      const requestedZone = data.zone || 'guides';
+      if (
+        requestedZone === 'apps' ||
+        requestedZone === 'games' ||
+        requestedZone === 'simulations' ||
+        requestedZone === 'management'
+      ) {
+        throw new Error('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
+      }
       savedItem = {
         id: 'item_' + now + '_' + Math.random().toString(36).substr(2, 6),
-        zone: data.zone || 'apps',
+        zone: requestedZone,
         title: data.title || '',
         description: data.description || '',
-        type: data.type || 'app',
+        type: data.type || 'guide',
         createdAt: now,
         updatedAt: now,
         order: items.length + 1,
@@ -681,7 +813,7 @@ export default function App() {
       };
     }
 
-    await storageService.saveItem(savedItem);
+    const res = await storageService.saveItem(savedItem);
 
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === savedItem.id);
@@ -694,6 +826,18 @@ export default function App() {
     });
 
     setSelectedItem(savedItem);
+
+    if (res.firestoreSynced) {
+      showCloudNotice(
+        'success',
+        `Đã lưu vĩnh viễn "${savedItem.title}" và mã nhúng lên Hệ thống Đám mây — mọi máy tính & trình duyệt đều xem được.`
+      );
+    } else if (res.needsGoogleCloudAuth) {
+      showCloudNotice(
+        'warning',
+        `Đã lưu tạm "${savedItem.title}" trên máy này. Vui lòng nhấn "Kết nối Google Đám mây" để lưu vĩnh viễn cho mọi máy tính & trình duyệt khác.`
+      );
+    }
   };
 
   // Fullscreen & Reset View
@@ -847,6 +991,11 @@ export default function App() {
             role={role}
             currentUser={currentUser}
             isAboutPage={activePage === 'about'}
+            isCloudConnected={isCloudConnected}
+            pendingSyncCount={pendingSyncCount}
+            isSyncingCloud={isSyncingCloud}
+            onConnectCloud={handleConnectCloudAdmin}
+            onSyncPendingNow={handleSyncPendingNow}
             onOpenAbout={navigateToAbout}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
             onOpenAuth={handleOpenAuth}
@@ -998,6 +1147,72 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-8">
+        {isAdmin && (!isCloudConnected || pendingSyncCount > 0) && (
+          <div className="p-4 rounded-2xl bg-amber-50/95 backdrop-blur-xs border border-amber-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5 text-xs text-amber-950 leading-relaxed">
+              <CloudOff className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900">
+                  {!isCloudConnected
+                    ? 'Chưa kết nối tài khoản Google Đám mây để đồng bộ vĩnh viễn đa máy tính'
+                    : `Có ${pendingSyncCount} thay đổi dữ liệu/mã nhúng đang chờ đồng bộ lên Đám mây`}
+                </p>
+                <p className="text-amber-800 mt-0.5">
+                  {!isCloudConnected
+                    ? 'Để mọi nội dung và mã nhúng thêm vào Kho ứng dụng, Học liệu số, Thí nghiệm mô phỏng được lưu trữ vĩnh viễn và mở được trên mọi máy tính, mọi trình duyệt, vui lòng kết nối Google Quản trị (vanloiphuhiep.09@gmail.com).'
+                    : 'Nhấn "Đồng bộ lên Đám mây ngay" để đảm bảo toàn bộ dữ liệu xuất hiện đồng nhất trên mọi máy tính và trình duyệt.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={!isCloudConnected ? handleConnectCloudAdmin : handleSyncPendingNow}
+              disabled={isSyncingCloud}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-60"
+            >
+              {isSyncingCloud ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {isSyncingCloud
+                  ? 'Đang đồng bộ...'
+                  : !isCloudConnected
+                  ? `Kết nối Google Đám mây${pendingSyncCount > 0 ? ` & Đồng bộ (${pendingSyncCount})` : ''}`
+                  : `Đồng bộ lên Đám mây (${pendingSyncCount})`}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {cloudNotice && (
+          <div
+            className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-3 text-xs font-medium ${
+              cloudNotice.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {cloudNotice.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <CloudOff className="w-4 h-4 text-amber-600 shrink-0" />
+              )}
+              <span>{cloudNotice.text}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCloudNotice(null)}
+              className="p-1 rounded-lg hover:bg-black/5 cursor-pointer shrink-0"
+              aria-label="Đóng thông báo"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {activePage === 'about' ? (
           <AboutPage onBackHome={navigateToHome} />
         ) : activePage === 'author' ? (
@@ -1015,11 +1230,6 @@ export default function App() {
               currentUser={currentUser}
               onOpenAuth={handleOpenAuth}
               onSelectZone={() => navigateToZone('apps')}
-              onAddApp={() => {
-                setTargetZone('apps');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
-              }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
               avatarUrl={branding.appsAvatar}
@@ -1038,11 +1248,6 @@ export default function App() {
               role={role}
               currentUser={currentUser}
               onSelectZone={() => navigateToZone('games')}
-              onAddGame={() => {
-                setTargetZone('games');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
-              }}
               avatarUrl={branding.gamesAvatar}
               onUploadAvatar={(url) => handleUpdateBranding({ ...branding, gamesAvatar: url })}
               onRemoveAvatar={() => {
@@ -1062,11 +1267,6 @@ export default function App() {
               role={role}
               currentUser={currentUser}
               onSelectZone={() => navigateToZone('simulations')}
-              onAddSimulation={() => {
-                setTargetZone('simulations');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
-              }}
               avatarUrl={branding.simsAvatar}
               onUploadAvatar={(url) => handleUpdateBranding({ ...branding, simsAvatar: url })}
               onRemoveAvatar={() => {
@@ -1088,11 +1288,6 @@ export default function App() {
               role={role}
               currentUser={currentUser}
               onSelectZone={() => navigateToZone('management')}
-              onAddSoftware={() => {
-                setTargetZone('management');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
-              }}
               avatarUrl={branding.managementAvatar}
               onUploadAvatar={(url) =>
                 handleUpdateBranding({ ...branding, managementAvatar: url })
@@ -1174,6 +1369,7 @@ export default function App() {
         isOpen={isAddEditModalOpen}
         defaultZone={targetZone}
         editingItem={editingItem}
+        isCloudConnected={isCloudConnected}
         onSave={handleSaveItem}
         onClose={() => {
           setIsAddEditModalOpen(false);

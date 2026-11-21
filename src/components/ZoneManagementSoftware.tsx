@@ -8,12 +8,8 @@ import {
   RotateCcw,
   Eye,
   Plus,
-  Code2,
-  Globe,
-  ExternalLink,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
-import { classifyAppSource } from '../utils/embed';
 import { processImageFile } from '../utils/image';
 
 interface ZoneManagementSoftwareProps {
@@ -184,7 +180,9 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
             Khu vực ứng dụng tiện ích đang trống
           </h3>
           <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            Chưa có ứng dụng tiện ích nào được tải lên. Quản trị viên có thể thêm mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.
+            {onAddSoftware
+              ? 'Chưa có ứng dụng tiện ích nào được tải lên. Quản trị viên có thể thêm mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.'
+              : 'Chưa có ứng dụng tiện ích nào được tải lên. Chức năng thêm mới ứng dụng tiện ích hiện đang tạm tắt.'}
           </p>
           {isAdmin && onAddSoftware && (
             <button
@@ -199,30 +197,17 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((item) => {
-            const sourceInfo = classifyAppSource(item.embedCode);
-            return (
-              <div
-                key={item.id}
-                className="group bg-white/95 backdrop-blur-sm rounded-2xl border border-amber-100/90 hover:border-amber-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all p-5 flex flex-col justify-between gap-4"
-              >
-                <div className="space-y-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                      <FolderKanban className="w-6 h-6" />
-                    </div>
-
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
-                      {sourceInfo.kind === 'html' || sourceInfo.kind === 'iframe' ? (
-                        <Code2 className="w-3 h-3 text-sky-600" />
-                      ) : sourceInfo.iframeBlockedLikely ? (
-                        <ExternalLink className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <Globe className="w-3 h-3 text-emerald-600" />
-                      )}
-                      <span>{sourceInfo.label}</span>
-                    </span>
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="group bg-white/95 backdrop-blur-sm rounded-2xl border border-amber-100/90 hover:border-amber-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all p-5 flex flex-col justify-between gap-4"
+            >
+              <div className="space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <FolderKanban className="w-6 h-6" />
                   </div>
+                </div>
 
                   <div>
                     <h3
@@ -282,8 +267,7 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
                   )}
                 </div>
               </div>
-            );
-          })}
+          ))}
         </div>
       )}
     </section>

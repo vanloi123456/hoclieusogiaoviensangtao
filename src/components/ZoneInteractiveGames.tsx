@@ -9,8 +9,6 @@ import {
   RotateCcw,
   Eye,
   Plus,
-  Code2,
-  Globe,
   ExternalLink,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
@@ -185,7 +183,9 @@ export const ZoneInteractiveGames: React.FC<ZoneInteractiveGamesProps> = ({
             Khu vực học liệu số đang trống
           </h3>
           <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            Chưa có học liệu số nào được hiển thị. Quản trị viên có thể thêm học liệu mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.
+            {onAddGame
+              ? 'Chưa có học liệu số nào được hiển thị. Quản trị viên có thể thêm học liệu mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.'
+              : 'Chưa có học liệu số nào được hiển thị. Chức năng thêm mới học liệu số hiện đang tạm tắt.'}
           </p>
           {isAdmin && onAddGame && (
             <button
@@ -233,18 +233,6 @@ export const ZoneInteractiveGames: React.FC<ZoneInteractiveGamesProps> = ({
                       <Gamepad2 className="w-12 h-12" />
                     </div>
                   )}
-
-                  {/* Source Format Pill */}
-                  <div className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/75 text-white border border-white/15 backdrop-blur-xs">
-                    {sourceInfo.kind === 'html' || sourceInfo.kind === 'iframe' ? (
-                      <Code2 className="w-3 h-3 text-sky-400" />
-                    ) : sourceInfo.iframeBlockedLikely ? (
-                      <ExternalLink className="w-3 h-3 text-indigo-300" />
-                    ) : (
-                      <Globe className="w-3 h-3 text-emerald-400" />
-                    )}
-                    <span>{sourceInfo.label}</span>
-                  </div>
 
                   {/* Play Action Overlay */}
                   <div

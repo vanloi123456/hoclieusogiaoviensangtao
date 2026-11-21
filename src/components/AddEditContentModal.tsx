@@ -12,11 +12,14 @@ import {
   ExternalLink,
   Code2,
   Globe,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 import { ContentItem, ContentType, ZoneType } from '../types';
 import {
   classifyAppSource,
   generateSandboxHtml,
+  getUtf8ByteLength,
   validateAndFormatEmbed,
 } from '../utils/embed';
 
@@ -24,6 +27,7 @@ interface AddEditContentModalProps {
   isOpen: boolean;
   defaultZone: ZoneType;
   editingItem: ContentItem | null;
+  isCloudConnected?: boolean;
   onSave: (item: Partial<ContentItem>) => Promise<void>;
   onClose: () => void;
 }
@@ -32,6 +36,7 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
   isOpen,
   defaultZone,
   editingItem,
+  isCloudConnected = false,
   onSave,
   onClose,
 }) => {
@@ -56,7 +61,7 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
       setDescription(editingItem.description || '');
       setEmbedCode(editingItem.embedCode || '');
     } else {
-      setZone(defaultZone);
+      setZone('guides');
       setTitle('');
       setDescription('');
       setEmbedCode('');
@@ -87,6 +92,11 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!editingItem && zone !== 'guides') {
+      setFormError('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
+      return;
+    }
 
     if (!title.trim()) {
       setFormError('Vui lòng nhập tiêu đề nội dung.');
@@ -130,9 +140,18 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
         subject: undefined,
       });
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setFormError('Có lỗi xảy ra khi lưu nội dung. Vui lòng thử lại.');
+      let msg = 'Có lỗi xảy ra khi lưu nội dung lên hệ thống. Vui lòng thử lại.';
+      if (err instanceof Error && err.message) {
+        if (err.message.includes('insufficient permissions')) {
+          msg =
+            'Tài khoản hiện tại chưa được cấp quyền ghi lên Cloud Firestore. Vui lòng đăng nhập Google bằng tài khoản Quản trị (vanloiphuhiep.09@gmail.com).';
+        } else if (!err.message.startsWith('{')) {
+          msg = err.message;
+        }
+      }
+      setFormError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -195,11 +214,15 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setZone('apps')}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'apps'
-                    ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('apps')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'apps'
+                    ? 'bg-sky-600 text-white border-sky-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <Cpu className="w-4 h-4 shrink-0" />
@@ -208,11 +231,15 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setZone('games')}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'games'
-                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('games')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'games'
+                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <Gamepad2 className="w-4 h-4 shrink-0" />
@@ -221,11 +248,15 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setZone('simulations')}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'simulations'
-                    ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('simulations')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'simulations'
+                    ? 'bg-teal-600 text-white border-teal-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <FlaskConical className="w-4 h-4 shrink-0" />
@@ -234,11 +265,15 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setZone('management')}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'management'
-                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('management')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'management'
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <FolderKanban className="w-4 h-4 shrink-0" />
@@ -353,12 +388,26 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
             {zone !== 'guides' && (
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Hỗ trợ chạy trực tiếp trong khung với mã nhúng{' '}
-                <span className="font-semibold text-slate-700">HTML / &lt;iframe&gt;</span>, link{' '}
+                <span className="font-semibold text-slate-700">HTML / &lt;iframe&gt;</span> (lên tới 4,5 MB), link{' '}
                 <span className="font-semibold text-slate-700">Vercel (*.vercel.app)</span> và link{' '}
                 <span className="font-semibold text-slate-700">Google AI Studio App (*.run.app)</span>.
                 Với link chia sẻ trực tiếp <span className="font-semibold text-slate-700">gemini.google.com</span> hoặc{' '}
                 <span className="font-semibold text-slate-700">aistudio.google.com / ai.studio</span>, hệ thống sẽ cung cấp nút mở nội dung trong tab mới.
               </p>
+            )}
+
+            {embedCode.trim() && (sourceInfo.kind === 'html' || sourceInfo.kind === 'iframe') && (
+              <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+                <span>
+                  Dung lượng mã nhúng:{' '}
+                  <strong className="text-slate-800">
+                    {(getUtf8ByteLength(embedCode.trim()) / 1024).toFixed(1)} KB
+                  </strong>
+                  {getUtf8ByteLength(embedCode.trim()) > 450_000
+                    ? ' (Tự động chia mảnh để lưu vĩnh viễn trên Cloud Firestore)'
+                    : ' (Lưu vĩnh viễn trên Cloud Firestore)'}
+                </span>
+              </div>
             )}
 
             {embedValidation.isValid && sourceInfo.iframeBlockedLikely && sourceInfo.url && (
@@ -390,6 +439,31 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
                   />
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Cloud persistence indicator */}
+          <div
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-medium ${
+              isCloudConnected
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}
+          >
+            {isCloudConnected ? (
+              <>
+                <Cloud className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>
+                  Đang kết nối Đám mây — nội dung &amp; mã nhúng sẽ được lưu vĩnh viễn, xem được trên mọi máy tính và trình duyệt.
+                </span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="w-4 h-4 shrink-0 text-amber-600" />
+                <span>
+                  Đang ở chế độ Quản trị cục bộ — nội dung sẽ lưu vào hàng đợi và cần nhấn &ldquo;Kết nối Google Đám mây&rdquo; ở thanh trên cùng để đồng bộ sang mọi máy tính, trình duyệt khác.
+                </span>
+              </>
             )}
           </div>
 

@@ -13,6 +13,8 @@ import {
   Phone,
   Menu,
   BookOpen,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 import { UserRole, ContentItem, UserAccount, MIN_CREDIT_COST } from '../types';
 import { authService } from '../services/auth';
@@ -21,6 +23,11 @@ interface ControlDeckProps {
   role: UserRole;
   currentUser: UserAccount | null;
   isAboutPage?: boolean;
+  isCloudConnected?: boolean;
+  pendingSyncCount?: number;
+  isSyncingCloud?: boolean;
+  onConnectCloud?: () => void;
+  onSyncPendingNow?: () => void;
   onOpenAbout?: () => void;
   onOpenMobileMenu?: () => void;
   onOpenAuth: () => void;
@@ -40,6 +47,11 @@ export const ControlDeck: React.FC<ControlDeckProps> = ({
   role,
   currentUser,
   isAboutPage = false,
+  isCloudConnected = false,
+  pendingSyncCount = 0,
+  isSyncingCloud = false,
+  onConnectCloud,
+  onSyncPendingNow,
   onOpenAbout,
   onOpenMobileMenu,
   onOpenAuth,
@@ -111,6 +123,41 @@ export const ControlDeck: React.FC<ControlDeckProps> = ({
                 <ImageIcon className="w-3 h-3 text-sky-400" />
                 <span>Đổi hình đại diện</span>
               </button>
+              {isCloudConnected ? (
+                pendingSyncCount > 0 && onSyncPendingNow ? (
+                  <button
+                    type="button"
+                    onClick={onSyncPendingNow}
+                    disabled={isSyncingCloud}
+                    className="px-2.5 py-0.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-60"
+                    title="Đồng bộ các thay đổi đang chờ lên Cloud Firestore"
+                  >
+                    <Cloud className="w-3 h-3" />
+                    <span>{isSyncingCloud ? 'Đang đồng bộ...' : `Đồng bộ Đám mây (${pendingSyncCount})`}</span>
+                  </button>
+                ) : (
+                  <span
+                    className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold rounded-md flex items-center gap-1"
+                    title="Dữ liệu đang được lưu vĩnh viễn trên Cloud Firestore cho mọi máy tính & trình duyệt"
+                  >
+                    <Cloud className="w-3 h-3" />
+                    <span>Cloud Vĩnh viễn</span>
+                  </span>
+                )
+              ) : (
+                onConnectCloud && (
+                  <button
+                    type="button"
+                    onClick={onConnectCloud}
+                    disabled={isSyncingCloud}
+                    className="px-2.5 py-0.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-60"
+                    title="Kết nối tài khoản Google Quản trị để lưu vĩnh viễn lên Đám mây trên mọi thiết bị"
+                  >
+                    <CloudOff className="w-3 h-3" />
+                    <span>{isSyncingCloud ? 'Đang kết nối...' : 'Kết nối Đám mây'}</span>
+                  </button>
+                )
+              )}
             </div>
           ) : role === 'teacher' ? (
             <div className="flex items-center flex-wrap gap-2">

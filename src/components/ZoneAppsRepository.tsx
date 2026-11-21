@@ -11,12 +11,8 @@ import {
   Plus,
   Edit3,
   Trash2,
-  Code2,
-  Globe,
-  ExternalLink,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
-import { classifyAppSource } from '../utils/embed';
 import { processImageFile } from '../utils/image';
 
 interface ZoneAppsRepositoryProps {
@@ -237,7 +233,9 @@ export const ZoneAppsRepository: React.FC<ZoneAppsRepositoryProps> = ({
             Kho ứng dụng đang trống
           </h3>
           <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            Chưa có ứng dụng nào trong kho. Quản trị viên có thể thêm ứng dụng bằng mã nhúng HTML hoặc đường dẫn từ Google Gemini, Google AI Studio, Vercel.
+            {onAddApp
+              ? 'Chưa có ứng dụng nào trong kho. Quản trị viên có thể thêm ứng dụng bằng mã nhúng HTML hoặc đường dẫn từ Google Gemini, Google AI Studio, Vercel.'
+              : 'Chưa có ứng dụng nào trong kho. Chức năng thêm mới ứng dụng hiện đang tạm tắt.'}
           </p>
           {isAdmin && onAddApp && (
             <button
@@ -254,31 +252,19 @@ export const ZoneAppsRepository: React.FC<ZoneAppsRepositoryProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((item) => {
             const { Icon, bgClass, textClass, borderClass } = getAppIconConfig(item.title);
-            const sourceInfo = classifyAppSource(item.embedCode);
             return (
               <div
                 key={item.id}
                 className="group bg-white/95 backdrop-blur-sm rounded-2xl border border-sky-100/90 hover:border-sky-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all p-5 flex flex-col justify-between gap-4"
               >
-                {/* Top: Representative Icon, Source Badge & Title/Description */}
+                {/* Top: Representative Icon & Title/Description */}
                 <div className="space-y-3.5">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
                     <div
                       className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${bgClass} border ${borderClass} ${textClass} flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform`}
                     >
                       <Icon className="w-7 h-7" />
                     </div>
-
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
-                      {sourceInfo.kind === 'html' || sourceInfo.kind === 'iframe' ? (
-                        <Code2 className="w-3 h-3 text-sky-600" />
-                      ) : sourceInfo.iframeBlockedLikely ? (
-                        <ExternalLink className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <Globe className="w-3 h-3 text-emerald-600" />
-                      )}
-                      <span>{sourceInfo.label}</span>
-                    </span>
                   </div>
 
                   <div>

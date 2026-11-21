@@ -157,6 +157,10 @@
           "description": "Mã nhúng HTML hoặc iframe của nội dung",
           "maxLength": 750000
         },
+        "embedChunkCount": {
+          "type": "integer",
+          "description": "Số mảnh mã nhúng HTML lưu trong embed_chunks khi dung lượng lớn"
+        },
         "instructions": {
           "type": "string",
           "description": "Hướng dẫn sử dụng bổ sung",
@@ -192,6 +196,28 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ContentEmbedChunk": {
+      "title": "ContentEmbedChunk",
+      "description": "Mảnh lưu trữ mã nhúng HTML dung lượng lớn của một ContentItem",
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "description": "Thứ tự mảnh (bắt đầu từ 0)"
+        },
+        "data": {
+          "type": "string",
+          "description": "Dữ liệu chuỗi UTF-8 của mảnh mã nhúng",
+          "maxLength": 450000
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật mảnh"
+        }
+      },
+      "required": ["index", "data", "updatedAt"]
     },
     "SiteBrandingSetting": {
       "title": "SiteBrandingSetting",
@@ -284,6 +310,12 @@
         "$ref": "#/entities/ContentItem"
       },
       "description": "Lưu trữ vĩnh viễn toàn bộ ứng dụng, học liệu số và thí nghiệm mô phỏng"
+    },
+    "/content_items/{itemId}/embed_chunks/{chunkId}": {
+      "schema": {
+        "$ref": "#/entities/ContentEmbedChunk"
+      },
+      "description": "Lưu trữ các mảnh mã nhúng HTML dung lượng lớn của từng nội dung"
     },
     "/site_settings/{settingId}": {
       "schema": {

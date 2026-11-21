@@ -8,8 +8,6 @@ import {
   RotateCcw,
   Eye,
   Plus,
-  Code2,
-  Globe,
   ExternalLink,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
@@ -184,7 +182,9 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
             Khu vực thí nghiệm mô phỏng đang trống
           </h3>
           <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            Chưa có thí nghiệm mô phỏng nào được tải lên. Quản trị viên có thể thêm thí nghiệm mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.
+            {onAddSimulation
+              ? 'Chưa có thí nghiệm mô phỏng nào được tải lên. Quản trị viên có thể thêm thí nghiệm mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.'
+              : 'Chưa có thí nghiệm mô phỏng nào được tải lên. Chức năng thêm mới thí nghiệm hiện đang tạm tắt.'}
           </p>
           {isAdmin && onAddSimulation && (
             <button
@@ -232,18 +232,6 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
                       <FlaskConical className="w-12 h-12" />
                     </div>
                   )}
-
-                  {/* Source Format Pill */}
-                  <div className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/75 text-white border border-white/15 backdrop-blur-xs">
-                    {sourceInfo.kind === 'html' || sourceInfo.kind === 'iframe' ? (
-                      <Code2 className="w-3 h-3 text-sky-400" />
-                    ) : sourceInfo.iframeBlockedLikely ? (
-                      <ExternalLink className="w-3 h-3 text-teal-300" />
-                    ) : (
-                      <Globe className="w-3 h-3 text-emerald-400" />
-                    )}
-                    <span>{sourceInfo.label}</span>
-                  </div>
 
                   {/* Play Action Overlay */}
                   <div

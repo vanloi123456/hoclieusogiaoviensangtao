@@ -6,19 +6,32 @@ import {
   OperationType,
   handleFirestoreError,
 } from '../firebase';
+import { authService } from './auth';
+import {
+  INLINE_EMBED_MAX_UTF8_BYTES,
+  CHUNK_EMBED_MAX_UTF8_BYTES,
+  MAX_TOTAL_EMBED_UTF8_BYTES,
+  getUtf8ByteLength,
+  splitStringByUtf8Bytes,
+} from '../utils/embed';
 import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   query,
   where,
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  DocumentReference,
+  Query,
 } from 'firebase/firestore';
 
 const DB_NAME = 'HocLieuSo_DB';
@@ -38,9 +51,31 @@ const REMOVED_ITEM_IDS = new Set([
   'item_tungubietbay_vercel',
 ]);
 
-const BUNDLED_ADDON_IDS = new Set<string>();
+const BUNDLED_ADDON_IDS = new Set<string>([
+  'item_phong_trung_bay_3d_ai_beb7b05a',
+]);
 const DELETED_ADDON_STORAGE_KEY = 'hoclieuso_deleted_addon_ids_v1';
 const SEEN_FS_ADDON_STORAGE_KEY = 'hoclieuso_seen_fs_addon_ids_v1';
+const PENDING_UPSERTS_STORAGE_KEY = 'hoclieuso_pending_fs_upserts_v1';
+const PENDING_DELETES_STORAGE_KEY = 'hoclieuso_pending_fs_deletes_v1';
+const PENDING_BRANDING_STORAGE_KEY = 'hoclieuso_pending_fs_branding_v1';
+const BRANDING_LOCAL_STORAGE_KEY = 'hoclieuso_branding_v1';
+
+export interface CloudSaveResult {
+  cloudSynced: boolean;
+  firestoreSynced: boolean;
+  serverSynced: boolean;
+  pendingCloudSync: boolean;
+  needsGoogleCloudAuth: boolean;
+  errorMessage?: string;
+}
+
+export interface PendingSyncFlushResult {
+  syncedUpserts: number;
+  syncedDeletes: number;
+  syncedBranding: boolean;
+  failedCount: number;
+}
 
 function readIdSetFromLocalStorage(key: string): Set<string> {
   try {
@@ -50,6 +85,16 @@ function readIdSetFromLocalStorage(key: string): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+function writeIdSetToLocalStorage(key: string, set: Set<string>): void {
+  try {
+    if (set.size === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    }
+  } catch {}
 }
 
 function addIdToLocalStorageSet(key: string, id: string): void {
@@ -64,7 +109,31 @@ function removeIdFromLocalStorageSet(key: string, id: string): void {
   try {
     const set = readIdSetFromLocalStorage(key);
     if (set.delete(id)) {
-      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+      writeIdSetToLocalStorage(key, set);
+    }
+  } catch {}
+}
+
+function readPendingUpsertsMap(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(PENDING_UPSERTS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, number>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function writePendingUpsertsMap(map: Record<string, number>): void {
+  try {
+    if (Object.keys(map).length === 0) {
+      localStorage.removeItem(PENDING_UPSERTS_STORAGE_KEY);
+    } else {
+      localStorage.setItem(PENDING_UPSERTS_STORAGE_KEY, JSON.stringify(map));
     }
   } catch {}
 }
@@ -109,6 +178,22 @@ function isFirebaseAdminSignedIn(): boolean {
       user.email &&
       user.email.trim().toLowerCase() === ADMIN_EMAIL
   );
+}
+
+async function getDocPreferServer(ref: DocumentReference<any>) {
+  try {
+    return await getDocFromServer(ref);
+  } catch {
+    return await getDoc(ref);
+  }
+}
+
+async function getDocsPreferServer(q: Query<any>) {
+  try {
+    return await getDocsFromServer(q);
+  } catch {
+    return await getDocs(q);
+  }
 }
 
 function normalizeZone(rawZone: any): ZoneType | null {
@@ -175,7 +260,11 @@ function normalizeItem(raw: any, fallbackOrder = 0): ContentItem | null {
     item.description = raw.description.slice(0, 5000);
   }
   if (typeof raw.embedCode === 'string' && raw.embedCode.length > 0) {
-    item.embedCode = raw.embedCode.slice(0, 750000);
+    if (getUtf8ByteLength(raw.embedCode) <= MAX_TOTAL_EMBED_UTF8_BYTES) {
+      item.embedCode = raw.embedCode;
+    } else {
+      item.embedCode = raw.embedCode.slice(0, MAX_TOTAL_EMBED_UTF8_BYTES);
+    }
   }
   if (typeof raw.instructions === 'string' && raw.instructions.length > 0) {
     item.instructions = raw.instructions.slice(0, 5000);
@@ -201,37 +290,60 @@ function normalizeItemsArray(rawList: any): ContentItem[] {
   return list;
 }
 
-function buildFirestoreCreatePayload(item: ContentItem): Record<string, any> {
+function prepareEmbedForFirestore(embedCode?: string): {
+  inlineEmbed: string;
+  chunks: string[];
+} {
+  const raw = typeof embedCode === 'string' ? embedCode : '';
+  if (!raw) {
+    return { inlineEmbed: '', chunks: [] };
+  }
+  if (getUtf8ByteLength(raw) <= INLINE_EMBED_MAX_UTF8_BYTES) {
+    return { inlineEmbed: raw, chunks: [] };
+  }
+  const chunks = splitStringByUtf8Bytes(raw, CHUNK_EMBED_MAX_UTF8_BYTES).slice(0, 30);
+  return { inlineEmbed: '', chunks };
+}
+
+function buildFirestoreCreatePayload(
+  item: ContentItem,
+  inlineEmbed: string,
+  embedChunkCount: number
+): Record<string, any> {
   const payload: Record<string, any> = {
     id: item.id,
     zone: item.zone,
     title: item.title.trim().slice(0, 300),
     type: item.type,
     order: Math.max(0, Math.min(100000, Math.floor(item.order || 0))),
+    embedChunkCount,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
   if (item.description) payload.description = item.description.slice(0, 5000);
-  if (item.embedCode) payload.embedCode = item.embedCode.slice(0, 750000);
+  if (inlineEmbed) payload.embedCode = inlineEmbed;
   if (item.instructions) payload.instructions = item.instructions.slice(0, 5000);
   if (item.grade) payload.grade = item.grade.slice(0, 40);
   if (item.subject) payload.subject = item.subject.slice(0, 60);
   return payload;
 }
 
-function buildFirestoreUpdatePayload(item: ContentItem): Record<string, any> {
+function buildFirestoreUpdatePayload(
+  item: ContentItem,
+  inlineEmbed: string,
+  embedChunkCount: number
+): Record<string, any> {
   const payload: Record<string, any> = {
     zone: item.zone,
     title: item.title.trim().slice(0, 300),
     type: item.type,
     order: Math.max(0, Math.min(100000, Math.floor(item.order || 0))),
+    embedChunkCount,
+    embedCode: inlineEmbed,
     updatedAt: serverTimestamp(),
   };
   if (item.description !== undefined) {
     payload.description = item.description.slice(0, 5000);
-  }
-  if (item.embedCode !== undefined) {
-    payload.embedCode = item.embedCode.slice(0, 750000);
   }
   if (item.instructions !== undefined) {
     payload.instructions = item.instructions.slice(0, 5000);
@@ -248,9 +360,93 @@ function buildFirestoreUpdatePayload(item: ContentItem): Record<string, any> {
 class StorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private seedingPromise: Promise<void> | null = null;
+  private flushPromise: Promise<PendingSyncFlushResult> | null = null;
   private pendingAppWrites = new Map<string, Promise<void>>();
   private appDataSnapshots = new Map<string, Record<string, string>>();
   private pendingAddonItems = new Map<string, ContentItem>();
+  private pendingUpsertItemsMap = new Map<string, ContentItem>();
+  private chunkReadCache = new Map<string, string>();
+  private syncStatusListeners = new Set<() => void>();
+
+  private notifySyncStatus(): void {
+    for (const cb of this.syncStatusListeners) {
+      try {
+        cb();
+      } catch {}
+    }
+  }
+
+  subscribeSyncStatus(cb: () => void): () => void {
+    this.syncStatusListeners.add(cb);
+    return () => {
+      this.syncStatusListeners.delete(cb);
+    };
+  }
+
+  isCloudAdminConnected(): boolean {
+    return isFirebaseAdminSignedIn();
+  }
+
+  getPendingCloudSyncCount(): number {
+    const upserts = Object.keys(readPendingUpsertsMap()).length;
+    const deletes = readIdSetFromLocalStorage(PENDING_DELETES_STORAGE_KEY).size;
+    const branding = this.hasPendingBrandingSync() ? 1 : 0;
+    return upserts + deletes + branding;
+  }
+
+  private hasPendingBrandingSync(): boolean {
+    try {
+      return localStorage.getItem(PENDING_BRANDING_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private setPendingBrandingSync(pending: boolean): void {
+    try {
+      if (pending) {
+        localStorage.setItem(PENDING_BRANDING_STORAGE_KEY, '1');
+      } else {
+        localStorage.removeItem(PENDING_BRANDING_STORAGE_KEY);
+      }
+    } catch {}
+    this.notifySyncStatus();
+  }
+
+  private markItemPendingUpsert(item: ContentItem): void {
+    this.pendingUpsertItemsMap.set(item.id, item);
+    const map = readPendingUpsertsMap();
+    map[item.id] = item.updatedAt || Date.now();
+    writePendingUpsertsMap(map);
+    removeIdFromLocalStorageSet(PENDING_DELETES_STORAGE_KEY, item.id);
+    this.notifySyncStatus();
+  }
+
+  private clearItemPendingUpsert(id: string): void {
+    this.pendingUpsertItemsMap.delete(id);
+    const map = readPendingUpsertsMap();
+    if (Object.prototype.hasOwnProperty.call(map, id)) {
+      delete map[id];
+      writePendingUpsertsMap(map);
+      this.notifySyncStatus();
+    }
+  }
+
+  private markItemPendingDelete(id: string): void {
+    this.pendingUpsertItemsMap.delete(id);
+    const map = readPendingUpsertsMap();
+    if (Object.prototype.hasOwnProperty.call(map, id)) {
+      delete map[id];
+      writePendingUpsertsMap(map);
+    }
+    addIdToLocalStorageSet(PENDING_DELETES_STORAGE_KEY, id);
+    this.notifySyncStatus();
+  }
+
+  private clearItemPendingDelete(id: string): void {
+    removeIdFromLocalStorageSet(PENDING_DELETES_STORAGE_KEY, id);
+    this.notifySyncStatus();
+  }
 
   private getDB(): Promise<IDBDatabase> {
     if (this.dbPromise) return this.dbPromise;
@@ -288,15 +484,53 @@ class StorageService {
     return this.dbPromise;
   }
 
+  private async putLocalItem(item: ContentItem): Promise<void> {
+    try {
+      const idb = await this.getDB();
+      await new Promise<void>((resolve, reject) => {
+        const transaction = idb.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        store.put(item);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } catch (err) {
+      console.warn('Fallback save to IndexedDB failed:', err);
+      try {
+        const existing = await this.getLocalItems();
+        const filtered = existing.filter((i) => i.id !== item.id);
+        filtered.push(item);
+        localStorage.setItem('hoclieuso_items', JSON.stringify(filtered));
+      } catch {}
+    }
+  }
+
+  private async deleteLocalItem(id: string): Promise<void> {
+    try {
+      const idb = await this.getDB();
+      await new Promise<void>((resolve) => {
+        const transaction = idb.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        store.delete(id);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+      });
+    } catch {}
+  }
+
   private async syncLocalCache(items: ContentItem[]): Promise<void> {
     try {
       const idb = await this.getDB();
-      const transaction = idb.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      store.clear();
-      for (const item of items) {
-        store.put(item);
-      }
+      await new Promise<void>((resolve) => {
+        const transaction = idb.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        store.clear();
+        for (const item of items) {
+          store.put(item);
+        }
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+      });
     } catch {
       try {
         localStorage.setItem('hoclieuso_items', JSON.stringify(items));
@@ -333,7 +567,7 @@ class StorageService {
 
   private async fetchServerItems(): Promise<ContentItem[] | null> {
     try {
-      const res = await fetch('/api/items');
+      const res = await fetch('/api/items', { cache: 'no-store' });
       const data = await parseJsonSafe(res);
       if (res.ok && data?.success && Array.isArray(data.items)) {
         return normalizeItemsArray(data.items);
@@ -353,6 +587,55 @@ class StorageService {
     return null;
   }
 
+  private async hydrateFirestoreDocs(
+    docs: Array<{ id: string; data: () => any }>
+  ): Promise<ContentItem[]> {
+    const items: ContentItem[] = [];
+    for (const docSnap of docs) {
+      const rawData = docSnap.data();
+      const normalized = normalizeItem({ id: docSnap.id, ...rawData });
+      if (!normalized) continue;
+
+      const chunkCount =
+        typeof rawData?.embedChunkCount === 'number' ? rawData.embedChunkCount : 0;
+
+      if (chunkCount > 0 && !normalized.embedCode) {
+        const cacheKey = `${docSnap.id}:${normalized.updatedAt}:${chunkCount}`;
+        const cached = this.chunkReadCache.get(cacheKey);
+        if (cached !== undefined) {
+          normalized.embedCode = cached;
+        } else {
+          try {
+            const chunksSnap = await getDocsPreferServer(
+              collection(db, 'content_items', docSnap.id, 'embed_chunks')
+            );
+            const sortedChunks = chunksSnap.docs
+              .map((c) => {
+                const cd = c.data();
+                return {
+                  index: typeof cd?.index === 'number' ? cd.index : 0,
+                  data: typeof cd?.data === 'string' ? cd.data : '',
+                };
+              })
+              .sort((a, b) => a.index - b.index);
+            const assembled = sortedChunks.map((c) => c.data).join('');
+            if (assembled) {
+              normalized.embedCode = assembled;
+              this.chunkReadCache.set(cacheKey, assembled);
+            }
+          } catch (chunkErr) {
+            console.warn(`Could not hydrate embed_chunks for ${docSnap.id}:`, chunkErr);
+          }
+        }
+      }
+
+      items.push(normalized);
+    }
+
+    items.sort((a, b) => (a.order || 0) - (b.order || 0));
+    return items;
+  }
+
   private async fetchFirestoreItemsState(): Promise<{
     items: ContentItem[];
     initialized: boolean;
@@ -365,18 +648,14 @@ class StorageService {
         where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
       );
       const [catalogSnap, itemsSnap] = await Promise.all([
-        getDoc(catalogRef).catch(() => null),
-        getDocs(itemsQuery),
+        getDocPreferServer(catalogRef).catch(() => null),
+        getDocsPreferServer(itemsQuery),
       ]);
 
-      const items: ContentItem[] = [];
-      itemsSnap.forEach((docSnap) => {
-        const normalized = normalizeItem({ id: docSnap.id, ...docSnap.data() });
-        if (normalized) items.push(normalized);
-      });
-      items.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-      const initialized = Boolean(catalogSnap?.exists() && catalogSnap.data()?.initialized === true);
+      const items = await this.hydrateFirestoreDocs(itemsSnap.docs);
+      const initialized = Boolean(
+        catalogSnap?.exists() && catalogSnap.data()?.initialized === true
+      );
       return { items, initialized, reachable: true };
     } catch (err) {
       console.warn('Firestore content_items read fallback:', err);
@@ -384,29 +663,232 @@ class StorageService {
     }
   }
 
-  // Ensures existing bundled/server items are persisted into Firestore once Google Admin signs in
+  private async writeItemToFirestore(item: ContentItem): Promise<void> {
+    const path = `content_items/${item.id}`;
+    const ref = doc(db, 'content_items', item.id);
+    const { inlineEmbed, chunks } = prepareEmbedForFirestore(item.embedCode);
+    const chunkCount = chunks.length;
+
+    const snap = await getDocPreferServer(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, buildFirestoreUpdatePayload(item, inlineEmbed, chunkCount));
+    } else {
+      await setDoc(ref, buildFirestoreCreatePayload(item, inlineEmbed, chunkCount));
+    }
+
+    // Write chunk documents when embed exceeds inline limit (batch up to 4 per commit)
+    const chunksCol = collection(db, 'content_items', item.id, 'embed_chunks');
+    const BATCH_LIMIT = 4;
+    for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      const slice = chunks.slice(i, i + BATCH_LIMIT);
+      slice.forEach((chunkStr, offset) => {
+        const idx = i + offset;
+        const chunkRef = doc(chunksCol, `chunk_${idx}`);
+        batch.set(chunkRef, {
+          index: idx,
+          data: chunkStr,
+          updatedAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+
+    // Remove stale chunks if the embed got smaller or switched to inline/URL
+    try {
+      const existingChunksSnap = await getDocsPreferServer(chunksCol);
+      const validIds = new Set(chunks.map((_, idx) => `chunk_${idx}`));
+      for (const oldChunk of existingChunksSnap.docs) {
+        if (!validIds.has(oldChunk.id)) {
+          await deleteDoc(oldChunk.ref).catch(() => {});
+        }
+      }
+    } catch {}
+
+    // Bust stale chunk cache for this item
+    for (const key of Array.from(this.chunkReadCache.keys())) {
+      if (key.startsWith(`${item.id}:`)) {
+        this.chunkReadCache.delete(key);
+      }
+    }
+    if (chunkCount > 0 && item.embedCode) {
+      this.chunkReadCache.set(`${item.id}:${item.updatedAt}:${chunkCount}`, item.embedCode);
+    }
+
+    if (!path) return;
+  }
+
+  private async deleteItemFromFirestore(id: string): Promise<void> {
+    try {
+      const chunksCol = collection(db, 'content_items', id, 'embed_chunks');
+      const existingChunksSnap = await getDocsPreferServer(chunksCol);
+      for (const chunkDoc of existingChunksSnap.docs) {
+        await deleteDoc(chunkDoc.ref).catch(() => {});
+      }
+    } catch {}
+
+    await deleteDoc(doc(db, 'content_items', id));
+
+    for (const key of Array.from(this.chunkReadCache.keys())) {
+      if (key.startsWith(`${id}:`)) {
+        this.chunkReadCache.delete(key);
+      }
+    }
+  }
+
+  private async getPendingUpsertItems(): Promise<ContentItem[]> {
+    const pendingMap = readPendingUpsertsMap();
+    const pendingIds = Object.keys(pendingMap);
+    if (pendingIds.length === 0) return [];
+
+    const [localItems, serverItems] = await Promise.all([
+      this.getLocalItems(),
+      this.fetchServerItems(),
+    ]);
+
+    const localById = new Map(localItems.map((i) => [i.id, i]));
+    const serverById = new Map((serverItems || []).map((i) => [i.id, i]));
+
+    const result: ContentItem[] = [];
+    for (const id of pendingIds) {
+      const candidate =
+        this.pendingUpsertItemsMap.get(id) || localById.get(id) || serverById.get(id);
+      if (candidate && !isRemovedCatalogEntry(candidate.id, candidate.title)) {
+        result.push(candidate);
+      }
+    }
+    return result;
+  }
+
+  private async applyPendingMutations(baseItems: ContentItem[]): Promise<ContentItem[]> {
+    const pendingDeletes = readIdSetFromLocalStorage(PENDING_DELETES_STORAGE_KEY);
+    const pendingUpserts = await this.getPendingUpsertItems();
+
+    if (pendingDeletes.size === 0 && pendingUpserts.length === 0) {
+      return baseItems;
+    }
+
+    const byId = new Map<string, ContentItem>();
+    for (const item of baseItems) {
+      if (!pendingDeletes.has(item.id)) {
+        byId.set(item.id, item);
+      }
+    }
+
+    for (const pendingItem of pendingUpserts) {
+      if (pendingDeletes.has(pendingItem.id)) continue;
+      const existing = byId.get(pendingItem.id);
+      if (!existing || (pendingItem.updatedAt || 0) >= (existing.updatedAt || 0)) {
+        byId.set(pendingItem.id, pendingItem);
+      }
+    }
+
+    return Array.from(byId.values()).sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+
+  // Flushes any locally-queued upserts, deletes, or branding updates up to Cloud Firestore
+  async syncPendingToFirestore(): Promise<PendingSyncFlushResult> {
+    if (!isFirebaseAdminSignedIn()) {
+      return {
+        syncedUpserts: 0,
+        syncedDeletes: 0,
+        syncedBranding: false,
+        failedCount: this.getPendingCloudSyncCount(),
+      };
+    }
+
+    if (this.flushPromise) {
+      return this.flushPromise;
+    }
+
+    this.flushPromise = (async () => {
+      let syncedUpserts = 0;
+      let syncedDeletes = 0;
+      let syncedBranding = false;
+      let failedCount = 0;
+
+      try {
+        const pendingDeletes = readIdSetFromLocalStorage(PENDING_DELETES_STORAGE_KEY);
+        for (const deleteId of pendingDeletes) {
+          try {
+            await this.deleteItemFromFirestore(deleteId);
+            this.clearItemPendingDelete(deleteId);
+            syncedDeletes += 1;
+          } catch (err) {
+            failedCount += 1;
+            console.warn(`Pending delete sync failed for ${deleteId}:`, err);
+          }
+        }
+
+        const pendingUpserts = await this.getPendingUpsertItems();
+        for (const item of pendingUpserts) {
+          try {
+            await this.writeItemToFirestore(item);
+            this.clearItemPendingUpsert(item.id);
+            syncedUpserts += 1;
+          } catch (err) {
+            failedCount += 1;
+            console.warn(`Pending item sync failed for ${item.id}:`, err);
+          }
+        }
+
+        // Mark catalog initialized if we synced at least one item
+        if (syncedUpserts > 0 || syncedDeletes > 0) {
+          await setDoc(doc(db, 'site_settings', 'catalog'), {
+            initialized: true,
+            updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+
+        if (this.hasPendingBrandingSync()) {
+          const localBranding = this.getBranding();
+          try {
+            await this.writeBrandingDocToFirestore(localBranding);
+            this.setPendingBrandingSync(false);
+            syncedBranding = true;
+          } catch (err) {
+            failedCount += 1;
+            console.warn('Pending branding sync failed:', err);
+          }
+        }
+      } finally {
+        this.flushPromise = null;
+        this.notifySyncStatus();
+      }
+
+      return { syncedUpserts, syncedDeletes, syncedBranding, failedCount };
+    })();
+
+    return this.flushPromise;
+  }
+
+  // Ensures existing bundled/server items + pending changes are persisted into Firestore once Google Admin signs in
   async ensureCatalogSeededToFirestore(overrideSeed?: ContentItem[]): Promise<void> {
     if (!isFirebaseAdminSignedIn()) return;
     if (this.seedingPromise) return this.seedingPromise;
 
     this.seedingPromise = (async () => {
       try {
+        // First flush any pending local mutations created while signed in locally
+        await this.syncPendingToFirestore();
+
         for (const removedId of REMOVED_ITEM_IDS) {
-          await deleteDoc(doc(db, 'content_items', removedId)).catch(() => {});
+          await this.deleteItemFromFirestore(removedId).catch(() => {});
         }
-        const allSnap = await getDocs(collection(db, 'content_items'));
+        const allSnap = await getDocsPreferServer(collection(db, 'content_items'));
         for (const d of allSnap.docs) {
           if (isRemovedCatalogEntry(d.id, String(d.data()?.title || ''))) {
-            await deleteDoc(doc(db, 'content_items', d.id)).catch(() => {});
+            await this.deleteItemFromFirestore(d.id).catch(() => {});
           }
         }
+
         const catalogRef = doc(db, 'site_settings', 'catalog');
-        const catalogSnap = await getDoc(catalogRef);
+        const catalogSnap = await getDocPreferServer(catalogRef);
         const alreadyInitialized = Boolean(
           catalogSnap.exists() && catalogSnap.data()?.initialized === true
         );
 
-        const existingSnap = await getDocs(
+        const existingSnap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
             where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
@@ -457,8 +939,7 @@ class StorageService {
               !seenFsAddons.has(item.id) &&
               (!serverIds || serverIds.has(item.id))
             ) {
-              const ref = doc(db, 'content_items', item.id);
-              await setDoc(ref, buildFirestoreCreatePayload(item));
+              await this.writeItemToFirestore(item);
               addIdToLocalStorageSet(SEEN_FS_ADDON_STORAGE_KEY, item.id);
               this.pendingAddonItems.delete(item.id);
             } else if (
@@ -468,18 +949,21 @@ class StorageService {
             ) {
               const existingFsItem = existingById.get(item.id);
               if (existingFsItem && shouldUpgradeBundledAddon(existingFsItem, item)) {
-                const ref = doc(db, 'content_items', item.id);
-                await updateDoc(ref, buildFirestoreUpdatePayload(item));
+                await this.writeItemToFirestore(item);
               }
             }
           }
           return;
         }
 
+        const pendingDeletes = readIdSetFromLocalStorage(PENDING_DELETES_STORAGE_KEY);
         for (const item of candidates) {
-          if (!existingIds.has(item.id) && !deletedAddons.has(item.id)) {
-            const ref = doc(db, 'content_items', item.id);
-            await setDoc(ref, buildFirestoreCreatePayload(item));
+          if (
+            !existingIds.has(item.id) &&
+            !deletedAddons.has(item.id) &&
+            !pendingDeletes.has(item.id)
+          ) {
+            await this.writeItemToFirestore(item);
             if (BUNDLED_ADDON_IDS.has(item.id)) {
               addIdToLocalStorageSet(SEEN_FS_ADDON_STORAGE_KEY, item.id);
               this.pendingAddonItems.delete(item.id);
@@ -501,7 +985,7 @@ class StorageService {
     return this.seedingPromise;
   }
 
-  // Loads from shared Firestore first (works on Vercel + AI Studio), falling back to Express API / bundled seed
+  // Loads from shared Cloud Firestore first (works across every computer & browser), falling back to Express API / bundled seed
   async getAllItems(): Promise<ContentItem[]> {
     const [fsState, serverItems] = await Promise.all([
       this.fetchFirestoreItemsState(),
@@ -551,8 +1035,9 @@ class StorageService {
         }
       }
 
-      this.syncLocalCache(merged).catch(() => {});
-      return merged;
+      const withPending = await this.applyPendingMutations(merged);
+      this.syncLocalCache(withPending).catch(() => {});
+      return withPending;
     }
 
     // Case 2: Firestore is empty & not initialized yet -> use Express items, public seed, or bundled defaultItems
@@ -571,133 +1056,185 @@ class StorageService {
       mergedMap.set(item.id, item);
     }
     for (const localItem of localItems) {
-      if (!mergedMap.has(localItem.id)) {
+      const existing = mergedMap.get(localItem.id);
+      if (!existing || (localItem.updatedAt || 0) > (existing.updatedAt || 0)) {
         mergedMap.set(localItem.id, localItem);
       }
     }
 
-    const merged = Array.from(mergedMap.values()).sort(
+    const baseMerged = Array.from(mergedMap.values()).sort(
       (a, b) => (a.order || 0) - (b.order || 0)
     );
+    const withPending = await this.applyPendingMutations(baseMerged);
 
-    this.syncLocalCache(merged).catch(() => {});
+    this.syncLocalCache(withPending).catch(() => {});
     if (isFirebaseAdminSignedIn() && fsState.reachable) {
-      this.ensureCatalogSeededToFirestore(merged).catch(() => {});
+      this.ensureCatalogSeededToFirestore(withPending).catch(() => {});
     }
 
-    return merged;
+    return withPending;
   }
 
-  // Saves permanently to Firestore (cross-device / Vercel), Express server (if available), and local IndexedDB
-  async saveItem(item: ContentItem): Promise<{ cloudSynced: boolean }> {
-    let cloudSynced = false;
+  // Saves permanently to Cloud Firestore (cross-computer & cross-browser), Express server (if available), and local IndexedDB
+  async saveItem(item: ContentItem): Promise<CloudSaveResult> {
     if (BUNDLED_ADDON_IDS.has(item.id)) {
       removeIdFromLocalStorageSet(DELETED_ADDON_STORAGE_KEY, item.id);
     }
+
+    // Always persist locally & queue first so nothing is lost even if network fails
+    this.markItemPendingUpsert(item);
+    await this.putLocalItem(item);
+
+    let firestoreSynced = false;
+    let serverSynced = false;
+    let needsGoogleCloudAuth = !isFirebaseAdminSignedIn();
+    let firestoreErrorMessage: string | undefined;
 
     if (isFirebaseAdminSignedIn()) {
       const path = `content_items/${item.id}`;
       try {
         await this.ensureCatalogSeededToFirestore();
-        const ref = doc(db, 'content_items', item.id);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          await updateDoc(ref, buildFirestoreUpdatePayload(item));
-        } else {
-          await setDoc(ref, buildFirestoreCreatePayload(item));
+        await this.writeItemToFirestore(item);
+        await setDoc(doc(db, 'site_settings', 'catalog'), {
+          initialized: true,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+        this.clearItemPendingUpsert(item.id);
+        firestoreSynced = true;
+      } catch (err: any) {
+        firestoreErrorMessage =
+          err instanceof Error ? err.message : 'Không thể đồng bộ lên Cloud Firestore.';
+        try {
+          handleFirestoreError(err, OperationType.WRITE, path);
+        } catch (wrappedErr: any) {
+          firestoreErrorMessage = wrappedErr?.message || firestoreErrorMessage;
         }
-        cloudSynced = true;
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, path);
       }
     }
 
     try {
+      const headers = await authService.getAdminRequestHeaders();
       const res = await fetch('/api/items', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(item),
       });
       const json = await parseJsonSafe(res);
       if (res.ok && json?.success) {
-        cloudSynced = true;
+        serverSynced = true;
       }
     } catch {}
 
-    try {
-      const idb = await this.getDB();
-      const transaction = idb.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      store.put(item);
-    } catch (err) {
-      console.warn('Fallback save to IndexedDB failed:', err);
+    const cloudSynced = firestoreSynced;
+    const pendingCloudSync = !firestoreSynced;
+
+    if (isFirebaseAdminSignedIn() && !firestoreSynced) {
+      throw new Error(
+        firestoreErrorMessage ||
+          'Lỗi khi lưu nội dung lên Cloud Firestore. Dữ liệu đã được giữ lại tạm trên máy để thử đồng bộ lại.'
+      );
     }
 
-    return { cloudSynced };
+    return {
+      cloudSynced,
+      firestoreSynced,
+      serverSynced,
+      pendingCloudSync,
+      needsGoogleCloudAuth,
+      errorMessage: firestoreErrorMessage,
+    };
   }
 
-  // Deletes permanently from Firestore, Express server, and local IndexedDB
-  async deleteItem(id: string): Promise<{ cloudSynced: boolean }> {
-    let cloudSynced = false;
+  // Deletes permanently from Cloud Firestore, Express server, and local IndexedDB
+  async deleteItem(id: string): Promise<CloudSaveResult> {
     if (BUNDLED_ADDON_IDS.has(id)) {
       addIdToLocalStorageSet(DELETED_ADDON_STORAGE_KEY, id);
       this.pendingAddonItems.delete(id);
     }
 
+    this.markItemPendingDelete(id);
+    await this.deleteLocalItem(id);
+
+    let firestoreSynced = false;
+    let serverSynced = false;
+    const needsGoogleCloudAuth = !isFirebaseAdminSignedIn();
+    let firestoreErrorMessage: string | undefined;
+
     if (isFirebaseAdminSignedIn()) {
       const path = `content_items/${id}`;
       try {
         await this.ensureCatalogSeededToFirestore();
-        await deleteDoc(doc(db, 'content_items', id));
-        cloudSynced = true;
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, path);
+        await this.deleteItemFromFirestore(id);
+        this.clearItemPendingDelete(id);
+        firestoreSynced = true;
+      } catch (err: any) {
+        firestoreErrorMessage =
+          err instanceof Error ? err.message : 'Không thể xóa trên Cloud Firestore.';
+        try {
+          handleFirestoreError(err, OperationType.DELETE, path);
+        } catch (wrappedErr: any) {
+          firestoreErrorMessage = wrappedErr?.message || firestoreErrorMessage;
+        }
       }
     }
 
     try {
+      const headers = await authService.getAdminRequestHeaders();
       const res = await fetch(`/api/items/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        headers,
       });
       const json = await parseJsonSafe(res);
       if (res.ok && json?.success) {
-        cloudSynced = true;
+        serverSynced = true;
       }
     } catch {}
 
-    try {
-      const idb = await this.getDB();
-      const transaction = idb.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      store.delete(id);
-    } catch {}
+    if (isFirebaseAdminSignedIn() && !firestoreSynced) {
+      throw new Error(
+        firestoreErrorMessage ||
+          'Lỗi khi xóa nội dung trên Cloud Firestore. Thao tác xóa đang chờ đồng bộ lại.'
+      );
+    }
 
-    return { cloudSynced };
+    return {
+      cloudSynced: firestoreSynced,
+      firestoreSynced,
+      serverSynced,
+      pendingCloudSync: !firestoreSynced,
+      needsGoogleCloudAuth,
+      errorMessage: firestoreErrorMessage,
+    };
   }
 
   async clearAll(): Promise<void> {
     if (isFirebaseAdminSignedIn()) {
       try {
-        const snap = await getDocs(
+        const snap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
             where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
           )
         );
         for (const docSnap of snap.docs) {
-          await deleteDoc(doc(db, 'content_items', docSnap.id));
+          await this.deleteItemFromFirestore(docSnap.id);
         }
         await setDoc(doc(db, 'site_settings', 'catalog'), {
           initialized: true,
           updatedAt: serverTimestamp(),
         });
+        writePendingUpsertsMap({});
+        writeIdSetToLocalStorage(PENDING_DELETES_STORAGE_KEY, new Set());
+        this.pendingUpsertItemsMap.clear();
+        this.notifySyncStatus();
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, 'content_items');
       }
     }
 
     try {
-      await fetch('/api/items/clear', { method: 'POST' });
+      const headers = await authService.getAdminRequestHeaders();
+      await fetch('/api/items/clear', { method: 'POST', headers });
     } catch {}
 
     try {
@@ -734,9 +1271,14 @@ class StorageService {
 
     const normalized = normalizeItemsArray(parsed.items);
 
+    await this.syncLocalCache(normalized);
+    writePendingUpsertsMap({});
+    writeIdSetToLocalStorage(PENDING_DELETES_STORAGE_KEY, new Set());
+    this.pendingUpsertItemsMap.clear();
+
     if (isFirebaseAdminSignedIn()) {
       try {
-        const existingSnap = await getDocs(
+        const existingSnap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
             where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
@@ -745,18 +1287,12 @@ class StorageService {
         const importedIds = new Set(normalized.map((i) => i.id));
         for (const d of existingSnap.docs) {
           if (!importedIds.has(d.id)) {
-            await deleteDoc(doc(db, 'content_items', d.id));
+            await this.deleteItemFromFirestore(d.id);
           }
         }
 
-        const existingIds = new Set(existingSnap.docs.map((d) => d.id));
         for (const item of normalized) {
-          const ref = doc(db, 'content_items', item.id);
-          if (existingIds.has(item.id)) {
-            await updateDoc(ref, buildFirestoreUpdatePayload(item));
-          } else {
-            await setDoc(ref, buildFirestoreCreatePayload(item));
-          }
+          await this.writeItemToFirestore(item);
         }
 
         await setDoc(doc(db, 'site_settings', 'catalog'), {
@@ -764,30 +1300,41 @@ class StorageService {
           updatedAt: serverTimestamp(),
         });
       } catch (err) {
+        for (const item of normalized) {
+          this.markItemPendingUpsert(item);
+        }
         handleFirestoreError(err, OperationType.WRITE, 'content_items');
+      }
+    } else {
+      for (const item of normalized) {
+        this.markItemPendingUpsert(item);
       }
     }
 
     try {
+      const headers = await authService.getAdminRequestHeaders();
       await fetch('/api/items/batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ items: normalized }),
       });
     } catch {}
 
-    await this.syncLocalCache(normalized);
-
     if (parsed.branding) {
-      this.saveBranding(parsed.branding);
+      await this.saveBranding(parsed.branding);
     }
+    this.notifySyncStatus();
     return { items: normalized, branding: parsed.branding };
   }
 
   // Branding: syncs with Firestore /site_settings/branding + Express /api/branding + localStorage
   async fetchBrandingFromServer(): Promise<SiteBranding> {
+    if (this.hasPendingBrandingSync()) {
+      return this.getBranding();
+    }
+
     try {
-      const snap = await getDoc(doc(db, 'site_settings', 'branding'));
+      const snap = await getDocPreferServer(doc(db, 'site_settings', 'branding'));
       if (snap.exists()) {
         const d = snap.data();
         const fsBranding: SiteBranding = {};
@@ -800,18 +1347,18 @@ class StorageService {
         if (typeof d.guidesAvatar === 'string' && d.guidesAvatar)
           fsBranding.guidesAvatar = d.guidesAvatar;
         try {
-          localStorage.setItem('hoclieuso_branding_v1', JSON.stringify(fsBranding));
+          localStorage.setItem(BRANDING_LOCAL_STORAGE_KEY, JSON.stringify(fsBranding));
         } catch {}
         return fsBranding;
       }
     } catch {}
 
     try {
-      const res = await fetch('/api/branding');
+      const res = await fetch('/api/branding', { cache: 'no-store' });
       const data = await parseJsonSafe(res);
       if (res.ok && data?.success && data.branding) {
         try {
-          localStorage.setItem('hoclieuso_branding_v1', JSON.stringify(data.branding));
+          localStorage.setItem(BRANDING_LOCAL_STORAGE_KEY, JSON.stringify(data.branding));
         } catch {}
         if (isFirebaseAdminSignedIn() && Object.keys(data.branding).length > 0) {
           this.saveBrandingToFirestore(data.branding).catch(() => {});
@@ -825,7 +1372,7 @@ class StorageService {
 
   getBranding(): SiteBranding {
     try {
-      const data = localStorage.getItem('hoclieuso_branding_v1');
+      const data = localStorage.getItem(BRANDING_LOCAL_STORAGE_KEY);
       if (!data) return {};
       return JSON.parse(data);
     } catch {
@@ -833,8 +1380,7 @@ class StorageService {
     }
   }
 
-  private async saveBrandingToFirestore(branding: SiteBranding): Promise<void> {
-    if (!isFirebaseAdminSignedIn()) return;
+  private async writeBrandingDocToFirestore(branding: SiteBranding): Promise<void> {
     const payload: Record<string, any> = {
       updatedAt: serverTimestamp(),
     };
@@ -847,27 +1393,48 @@ class StorageService {
     if (branding.guidesAvatar)
       payload.guidesAvatar = branding.guidesAvatar.slice(0, 500000);
 
+    await setDoc(doc(db, 'site_settings', 'branding'), payload);
+  }
+
+  private async saveBrandingToFirestore(branding: SiteBranding): Promise<void> {
+    if (!isFirebaseAdminSignedIn()) return;
     try {
-      await setDoc(doc(db, 'site_settings', 'branding'), payload);
+      await this.writeBrandingDocToFirestore(branding);
+      this.setPendingBrandingSync(false);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'site_settings/branding');
     }
   }
 
-  saveBranding(branding: SiteBranding): void {
+  async saveBranding(branding: SiteBranding): Promise<{ firestoreSynced: boolean }> {
     try {
-      localStorage.setItem('hoclieuso_branding_v1', JSON.stringify(branding));
+      localStorage.setItem(BRANDING_LOCAL_STORAGE_KEY, JSON.stringify(branding));
     } catch {}
 
-    fetch('/api/branding', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(branding),
-    }).catch(() => {});
+    this.setPendingBrandingSync(true);
 
-    this.saveBrandingToFirestore(branding).catch((err) =>
-      console.warn('Firestore branding save warning:', err)
-    );
+    (async () => {
+      try {
+        const headers = await authService.getAdminRequestHeaders();
+        await fetch('/api/branding', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(branding),
+        });
+      } catch {}
+    })();
+
+    if (isFirebaseAdminSignedIn()) {
+      try {
+        await this.writeBrandingDocToFirestore(branding);
+        this.setPendingBrandingSync(false);
+        return { firestoreSynced: true };
+      } catch (err) {
+        console.warn('Firestore branding save warning:', err);
+      }
+    }
+
+    return { firestoreSynced: false };
   }
 
   public readonly clientId: string =
@@ -893,7 +1460,6 @@ class StorageService {
     const cacheKey = `hoclieuso_teacher_data_${teacherId}`;
     const merged: Record<string, Record<string, string>> = {};
 
-    // Start from local cache
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -904,8 +1470,9 @@ class StorageService {
       }
     } catch {}
 
-    // Fetch Express server data & Cloud Firestore data in parallel
-    const expressPromise = fetch(`/api/teacher-app-data/${encodeURIComponent(teacherId)}`)
+    const expressPromise = fetch(`/api/teacher-app-data/${encodeURIComponent(teacherId)}`, {
+      cache: 'no-store',
+    })
       .then(async (res) => {
         const json = await parseJsonSafe(res);
         return res.ok && json?.success && json.data && typeof json.data === 'object'
@@ -921,7 +1488,7 @@ class StorageService {
           teacherId === 'admin_root'
             ? collection(db, 'admin_app_data')
             : collection(db, 'users', teacherId, 'app_data');
-        const snap = await getDocs(colRef);
+        const snap = await getDocsPreferServer(colRef);
         const map: Record<string, Record<string, string>> = {};
         snap.forEach((docSnap) => {
           const entries = docSnap.data()?.entries;
@@ -945,11 +1512,9 @@ class StorageService {
     }
 
     if (fsMap) {
-      // Cloud Firestore takes precedence for cross-browser / cross-PC sync on Vercel & web
       for (const [k, v] of Object.entries(fsMap)) {
         merged[k] = { ...(merged[k] || {}), ...(v || {}) };
       }
-      // Mirror any Express-only saved work up to Firestore once
       for (const [itemId, itemEntries] of Object.entries(merged)) {
         if (itemEntries && Object.keys(itemEntries).length > 0 && !fsMap[itemId]) {
           this.appDataSnapshots.set(`${teacherId}:${itemId}`, { ...itemEntries });
@@ -958,7 +1523,6 @@ class StorageService {
       }
     }
 
-    // Update in-memory snapshots & localStorage cache
     for (const [itemId, itemEntries] of Object.entries(merged)) {
       this.appDataSnapshots.set(`${teacherId}:${itemId}`, { ...itemEntries });
     }
@@ -1040,11 +1604,12 @@ class StorageService {
     this.enqueueFirestoreAppWrite(teacherId, itemId);
 
     try {
+      const headers = await authService.getAdminRequestHeaders();
       const res = await fetch(
         `/api/teacher-app-data/${encodeURIComponent(teacherId)}/${encodeURIComponent(itemId)}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           keepalive: true,
           body: JSON.stringify({
             ...payload,
@@ -1070,11 +1635,7 @@ class StorageService {
       return onSnapshot(
         q,
         async (snap) => {
-          const items: ContentItem[] = [];
-          snap.forEach((docSnap) => {
-            const normalized = normalizeItem({ id: docSnap.id, ...docSnap.data() });
-            if (normalized) items.push(normalized);
-          });
+          const items = await this.hydrateFirestoreDocs(snap.docs);
 
           const itemIds = new Set(items.map((i) => i.id));
           for (const id of itemIds) {
@@ -1105,14 +1666,16 @@ class StorageService {
 
           items.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-          if (items.length > 0) {
-            this.syncLocalCache(items).catch(() => {});
-            onItems(items);
+          const withPending = await this.applyPendingMutations(items);
+
+          if (withPending.length > 0) {
+            this.syncLocalCache(withPending).catch(() => {});
+            onItems(withPending);
             return;
           }
 
           try {
-            const catalogSnap = await getDoc(doc(db, 'site_settings', 'catalog'));
+            const catalogSnap = await getDocPreferServer(doc(db, 'site_settings', 'catalog'));
             if (catalogSnap.exists() && catalogSnap.data()?.initialized === true) {
               this.syncLocalCache([]).catch(() => {});
               onItems([]);
@@ -1134,6 +1697,7 @@ class StorageService {
         doc(db, 'site_settings', 'branding'),
         (snap) => {
           if (!snap.exists()) return;
+          if (this.hasPendingBrandingSync()) return;
           const d = snap.data();
           const fsBranding: SiteBranding = {};
           if (typeof d.homeAvatar === 'string' && d.homeAvatar) fsBranding.homeAvatar = d.homeAvatar;
@@ -1145,7 +1709,7 @@ class StorageService {
           if (typeof d.guidesAvatar === 'string' && d.guidesAvatar)
             fsBranding.guidesAvatar = d.guidesAvatar;
           try {
-            localStorage.setItem('hoclieuso_branding_v1', JSON.stringify(fsBranding));
+            localStorage.setItem(BRANDING_LOCAL_STORAGE_KEY, JSON.stringify(fsBranding));
           } catch {}
           onBranding(fsBranding);
         },

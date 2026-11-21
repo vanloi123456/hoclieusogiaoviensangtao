@@ -252,6 +252,10 @@ class AuthService {
     return headers;
   }
 
+  async getAdminRequestHeaders(): Promise<Record<string, string>> {
+    return this.getAdminHeaders();
+  }
+
   getTotalCredits(user: UserAccount | null): number {
     if (!user) return 0;
     if (user.role === 'admin') return 999999;
