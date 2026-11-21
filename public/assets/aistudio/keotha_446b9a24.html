@@ -1,0 +1,3433 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THỬ TÀI KÉO THẢ – NỐI Ý</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Nunito (hỗ trợ đầy đủ dấu Tiếng Việt, tròn trịa thân thiện) -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Mammoth.js để đọc tệp Word (.docx) ngay trên trình duyệt -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Canvas Confetti cho hiệu ứng pháo hoa hoàn thành -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 50%, #FEFCE8 100%);
+            min-height: 100vh;
+            color: #1F2937;
+            overflow-x: hidden;
+        }
+
+        /* Hiệu ứng nút bấm thân thiện cho trẻ em */
+        .btn-kid {
+            transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+            box-shadow: 0 5px 0 rgba(0, 0, 0, 0.15);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-kid:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 rgba(0, 0, 0, 0.16);
+            filter: brightness(1.03);
+        }
+        .btn-kid:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+        }
+
+        /* Vùng kéo thả mượt mà trên chuột và màn hình cảm ứng */
+        .draggable-item {
+            touch-action: none;
+            user-select: none;
+            cursor: grab;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s ease, background-color 0.2s ease;
+        }
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+        .dragging-ghost {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.94;
+            transform: scale(1.04) rotate(1deg);
+            box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
+        }
+        .drop-target-hover {
+            border-color: #2563EB !important;
+            background-color: rgba(219, 234, 254, 0.8) !important;
+            transform: scale(1.015);
+        }
+
+        /* Vùng thả trên ảnh (Editor & Play) */
+        .editor-dropzone {
+            position: absolute;
+            border: 3px dashed #2563EB;
+            background: rgba(59, 130, 246, 0.22);
+            border-radius: 12px;
+            cursor: move;
+            touch-action: none;
+            user-select: none;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        .editor-dropzone:hover,
+        .editor-dropzone.active-zone {
+            border-color: #1D4ED8;
+            background: rgba(59, 130, 246, 0.34);
+            z-index: 20;
+        }
+        .zone-resize-handle {
+            position: absolute;
+            right: -9px;
+            bottom: -9px;
+            width: 20px;
+            height: 20px;
+            background: #2563EB;
+            border: 3px solid #FFFFFF;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            z-index: 30;
+            touch-action: none;
+        }
+        .zone-delete-btn {
+            position: absolute;
+            top: -11px;
+            right: -11px;
+            width: 24px;
+            height: 24px;
+            background: #EF4444;
+            color: #FFFFFF;
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            z-index: 30;
+        }
+        .zone-delete-btn:hover {
+            background: #DC2626;
+            transform: scale(1.1);
+        }
+
+        /* Hiệu ứng phản hồi Đúng / Sai nhẹ nhàng */
+        @keyframes popCorrect {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+        @keyframes softShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .correct-anim {
+            animation: popCorrect 0.38s ease;
+        }
+        .wrong-anim {
+            animation: softShake 0.35s ease;
+        }
+
+        /* Thanh cuộn gọn đẹp */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- ==================== THANH TIÊU ĐỀ CHUNG ==================== -->
+    <header class="bg-white/95 backdrop-blur-md border-b-2 border-blue-100 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- Logo & Tiêu đề -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="requestGoHome()">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-md text-xl">
+                    <i class="fa-solid fa-puzzle-piece"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-black text-blue-700 tracking-tight leading-tight">THỬ TÀI KÉO THẢ – NỐI Ý</h1>
+                    <p id="header-save-status" class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-cloud-check text-emerald-500"></i>
+                        <span>Sẵn sàng thiết kế</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Các nút điều hướng trên thanh tiêu đề -->
+            <div class="flex flex-wrap items-center gap-2">
+                <button id="btn-nav-home" onclick="requestGoHome()" class="hidden bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3.5 py-2 rounded-xl font-bold text-sm transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Trang chủ</span>
+                </button>
+                <button id="btn-header-sound" onclick="toggleGlobalSound()" class="hidden bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3.5 py-2 rounded-xl font-bold text-sm transition flex items-center gap-1.5" title="Bật / Tắt âm thanh">
+                    <i id="icon-header-sound" class="fa-solid fa-volume-high"></i>
+                    <span class="hidden sm:inline">Âm thanh</span>
+                </button>
+                <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl font-bold text-sm cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span>Mở tệp JSON</span>
+                    <input type="file" accept=".json,application/json" class="hidden" onchange="importGameJson(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==================== NỘI DUNG CHÍNH ==================== -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+
+        <!-- ==================== MÀN HÌNH 1: TRANG CHỦ ==================== -->
+        <section id="screen-home" class="flex flex-col items-center">
+            <!-- Khu vực chào mừng (nhân vật trang trí SVG nhỏ dễ thương, không chứa nội dung mẫu) -->
+            <div class="text-center mb-6 max-w-3xl">
+                <div class="inline-flex items-center gap-2 bg-white px-4 py-1.5 rounded-full shadow-sm border border-blue-100 text-blue-600 font-extrabold text-xs md:text-sm mb-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>
+                    <span>Nền tảng thiết kế trò chơi học tập tương tác</span>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-black text-gray-800 mb-3">Chào mừng Thầy/Cô!</h2>
+                <p class="text-base md:text-lg text-gray-600">Hãy chọn một dạng trò chơi bên dưới để tạo mới từ đầu, hoặc mở lại trò chơi đã lưu để chỉnh sửa và tổ chức cho học sinh tham gia.</p>
+            </div>
+
+            <!-- 4 nút tạo trò chơi mới -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full max-w-6xl mb-10">
+                <button onclick="createNewGame('matching')" class="btn-kid bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-3xl flex flex-col items-center text-center gap-3">
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl">
+                        <i class="fa-solid fa-link"></i>
+                    </div>
+                    <span class="text-xl font-extrabold">1. Kéo thả Nối Ý</span>
+                    <span class="text-sm font-semibold opacity-90">Ghép các cặp ý tương ứng giữa 2 cột</span>
+                </button>
+
+                <button onclick="createNewGame('imagemap')" class="btn-kid bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-6 rounded-3xl flex flex-col items-center text-center gap-3">
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl">
+                        <i class="fa-regular fa-image"></i>
+                    </div>
+                    <span class="text-xl font-extrabold">2. Thả vào Hình</span>
+                    <span class="text-sm font-semibold opacity-90">Kéo thẻ câu trả lời vào vùng trên ảnh</span>
+                </button>
+
+                <button onclick="createNewGame('categorize')" class="btn-kid bg-gradient-to-br from-amber-500 to-orange-500 text-white p-6 rounded-3xl flex flex-col items-center text-center gap-3">
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <span class="text-xl font-extrabold">3. Phân Loại</span>
+                    <span class="text-sm font-semibold opacity-90">Kéo thả thẻ văn bản, hình ảnh vào đúng nhóm</span>
+                </button>
+
+                <button onclick="createNewGame('ordering')" class="btn-kid bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-6 rounded-3xl flex flex-col items-center text-center gap-3">
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl">
+                        <i class="fa-solid fa-list-ol"></i>
+                    </div>
+                    <span class="text-xl font-extrabold">4. Sắp xếp Thứ Tự</span>
+                    <span class="text-sm font-semibold opacity-90">Kéo thả các thẻ theo đúng trình tự chuẩn</span>
+                </button>
+            </div>
+
+            <!-- Danh sách trò chơi đã lưu -->
+            <div class="w-full max-w-6xl bg-white/95 rounded-3xl shadow-md border-2 border-blue-100 p-5 md:p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-gray-100">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-folder-open text-blue-500"></i>
+                            <span>Trò chơi đã lưu</span>
+                        </h3>
+                        <p id="storage-info-note" class="text-xs text-gray-500 font-semibold mt-1">
+                            Dữ liệu tự động lưu trên trình duyệt/thiết bị hiện tại (và đồng bộ máy chủ nếu được kết nối).
+                        </p>
+                    </div>
+
+                    <!-- Bộ lọc cấp học, môn học & tìm kiếm -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="filter-level" onchange="onFilterLevelChange()" class="bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-xs md:text-sm font-bold text-gray-700 focus:border-blue-400 outline-none">
+                            <option value="">Tất cả cấp học</option>
+                        </select>
+                        <select id="filter-subject" onchange="renderSavedGames()" class="bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-xs md:text-sm font-bold text-gray-700 focus:border-blue-400 outline-none">
+                            <option value="">Tất cả môn học</option>
+                        </select>
+                        <input id="filter-search" type="text" oninput="renderSavedGames()" placeholder="Tìm tên trò chơi..." class="bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-xs md:text-sm font-bold text-gray-700 focus:border-blue-400 outline-none w-44">
+                    </div>
+                </div>
+
+                <div id="saved-games-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Danh sách trò chơi đã lưu được render động -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== MÀN HÌNH 2: THIẾT KẾ TRÒ CHƠI (GIÁO VIÊN) ==================== -->
+        <section id="screen-editor" class="hidden flex flex-col gap-6">
+            <!-- Thanh công cụ trên cùng của trình soạn thảo -->
+            <div class="bg-white rounded-3xl shadow-sm border-2 border-blue-100 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="createNewGame(gameState.type)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                        <span>Tạo trò chơi mới</span>
+                    </button>
+                    <button onclick="manualSaveGame()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Lưu ngay</span>
+                    </button>
+                    <button onclick="duplicateCurrentGame()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-clone"></i>
+                        <span>Tạo bản sao</span>
+                    </button>
+                    <button onclick="exportGameJson()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>Xuất JSON</span>
+                    </button>
+                </div>
+
+                <button onclick="preparePlay()" class="btn-kid bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-2.5 rounded-2xl font-extrabold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i>
+                    <span>Bắt đầu chơi</span>
+                </button>
+            </div>
+
+            <!-- Thông tin chung của trò chơi (để trống hoàn toàn khi tạo mới) -->
+            <div class="bg-white rounded-3xl shadow-sm border-2 border-blue-100 p-5 md:p-6">
+                <h3 class="text-lg font-extrabold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    <span>Thông tin trò chơi (không bắt buộc điền hết)</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="edit-title" class="block text-xs font-extrabold text-gray-600 mb-1">Tên trò chơi</label>
+                        <input id="edit-title" type="text" oninput="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none" placeholder="Nhập tên trò chơi...">
+                    </div>
+                    <div>
+                        <label for="edit-subject" class="block text-xs font-extrabold text-gray-600 mb-1">Tên bài học hoặc chủ đề</label>
+                        <input id="edit-subject" type="text" oninput="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none" placeholder="Nhập tên bài học hoặc chủ đề...">
+                    </div>
+                    <div>
+                        <label for="edit-time-limit" class="block text-xs font-extrabold text-gray-600 mb-1">Thời gian chơi (phút – không bắt buộc)</label>
+                        <input id="edit-time-limit" type="number" min="0" max="120" oninput="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none" placeholder="Để trống nếu không giới hạn">
+                    </div>
+
+                    <div>
+                        <label for="edit-edu-level" class="block text-xs font-extrabold text-gray-600 mb-1">Cấp học</label>
+                        <select id="edit-edu-level" onchange="onEduLevelChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none">
+                            <option value="">-- Chọn cấp học --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit-grade" class="block text-xs font-extrabold text-gray-600 mb-1">Khối / Lớp</label>
+                        <select id="edit-grade" onchange="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none">
+                            <option value="">-- Chọn khối/lớp --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit-course-subject" class="block text-xs font-extrabold text-gray-600 mb-1">Môn học / Lĩnh vực</label>
+                        <select id="edit-course-subject" onchange="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 focus:border-blue-500 focus:bg-white outline-none">
+                            <option value="">-- Chọn môn học --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="edit-instructions" class="block text-xs font-extrabold text-gray-600 mb-1">Hướng dẫn chơi cho học sinh</label>
+                    <textarea id="edit-instructions" rows="2" oninput="onFormFieldChange()" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3.5 py-2.5 font-semibold text-gray-800 focus:border-blue-500 focus:bg-white outline-none" placeholder="Nhập hướng dẫn thao tác cho học sinh..."></textarea>
+                </div>
+            </div>
+
+            <!-- Khu vực thiết kế nội dung riêng theo từng dạng trò chơi -->
+            <div id="editor-workspace" class="bg-white rounded-3xl shadow-sm border-2 border-blue-100 p-5 md:p-6 flex flex-col">
+                <!-- Nội dung trình soạn thảo được render động -->
+            </div>
+
+            <!-- Cài đặt Xáo trộn & Âm thanh phản hồi (Đúng / Chưa đúng / Giọng đọc AI Tiếng Việt) -->
+            <div class="bg-white rounded-3xl shadow-sm border-2 border-blue-100 p-5 md:p-6">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
+                    <h3 class="text-lg font-extrabold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-purple-500"></i>
+                        <span>Cài đặt Xáo trộn & Âm thanh phản hồi</span>
+                    </h3>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-bold text-sm text-gray-700 bg-blue-50 px-3.5 py-2 rounded-xl border border-blue-200">
+                            <input id="setting-shuffle" type="checkbox" onchange="onSoundSettingsChange()" class="w-4 h-4 accent-blue-600 rounded">
+                            <span>Xáo trộn thứ tự câu hỏi & thẻ</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-bold text-sm text-gray-700 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200">
+                            <input id="setting-sound-enabled" type="checkbox" onchange="onSoundSettingsChange()" class="w-4 h-4 accent-emerald-600 rounded">
+                            <span>Bật âm thanh phản hồi</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Cài đặt âm thanh KHI TRẢ LỜI ĐÚNG -->
+                    <div class="bg-emerald-50/60 border-2 border-emerald-200 rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-extrabold text-emerald-800 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                                <span>Âm thanh khi trả lời ĐÚNG</span>
+                            </h4>
+                            <button onclick="previewFeedbackSound('correct')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-volume-high"></i>
+                                <span>Nghe thử</span>
+                            </button>
+                        </div>
+
+                        <select id="setting-correct-type" onchange="onSoundSettingsChange()" class="w-full bg-white border-2 border-emerald-200 rounded-xl px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-emerald-500">
+                            <option value="default">Âm thanh mặc định êm dịu</option>
+                            <option value="upload">Tải tệp âm thanh từ máy (.mp3, .wav)</option>
+                            <option value="ai">Tạo giọng đọc Tiếng Việt từ AI</option>
+                        </select>
+
+                        <!-- Khối tải tệp âm thanh Đúng -->
+                        <div id="correct-upload-box" class="hidden flex flex-wrap items-center gap-2">
+                            <label class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                                <i class="fa-solid fa-upload mr-1"></i> Chọn tệp âm thanh
+                                <input type="file" accept="audio/*" class="hidden" onchange="handleAudioUpload(event, 'correct')">
+                            </label>
+                            <span id="correct-upload-status" class="text-xs font-semibold text-gray-600">Chưa có tệp âm thanh</span>
+                        </div>
+
+                        <!-- Khối tạo giọng đọc AI Tiếng Việt Đúng -->
+                        <div id="correct-ai-box" class="hidden flex flex-col gap-2">
+                            <input id="setting-correct-ai-text" type="text" oninput="onSoundSettingsChange()" class="w-full bg-white border-2 border-emerald-200 rounded-xl px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500" placeholder="Nhập lời khen Tiếng Việt để AI đọc...">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <select id="setting-correct-ai-voice" onchange="onSoundSettingsChange()" class="flex-1 min-w-[200px] bg-white border-2 border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none"></select>
+                                <button id="btn-gen-ai-correct" onclick="generateAiVoice('correct')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-microphone-lines"></i>
+                                    <span>Tạo giọng AI</span>
+                                </button>
+                            </div>
+                            <span id="correct-ai-status" class="text-xs font-semibold text-emerald-700"></span>
+                        </div>
+                    </div>
+
+                    <!-- Cài đặt âm thanh KHI CHƯA ĐÚNG -->
+                    <div class="bg-amber-50/60 border-2 border-amber-200 rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-extrabold text-amber-800 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-exclamation text-amber-600"></i>
+                                <span>Âm thanh khi CHƯA ĐÚNG</span>
+                            </h4>
+                            <button onclick="previewFeedbackSound('wrong')" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-volume-high"></i>
+                                <span>Nghe thử</span>
+                            </button>
+                        </div>
+
+                        <select id="setting-wrong-type" onchange="onSoundSettingsChange()" class="w-full bg-white border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-amber-500">
+                            <option value="default">Âm thanh mặc định nhẹ nhàng</option>
+                            <option value="upload">Tải tệp âm thanh từ máy (.mp3, .wav)</option>
+                            <option value="ai">Tạo giọng đọc Tiếng Việt từ AI</option>
+                        </select>
+
+                        <!-- Khối tải tệp âm thanh Sai -->
+                        <div id="wrong-upload-box" class="hidden flex flex-wrap items-center gap-2">
+                            <label class="bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                                <i class="fa-solid fa-upload mr-1"></i> Chọn tệp âm thanh
+                                <input type="file" accept="audio/*" class="hidden" onchange="handleAudioUpload(event, 'wrong')">
+                            </label>
+                            <span id="wrong-upload-status" class="text-xs font-semibold text-gray-600">Chưa có tệp âm thanh</span>
+                        </div>
+
+                        <!-- Khối tạo giọng đọc AI Tiếng Việt Sai -->
+                        <div id="wrong-ai-box" class="hidden flex flex-col gap-2">
+                            <input id="setting-wrong-ai-text" type="text" oninput="onSoundSettingsChange()" class="w-full bg-white border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-semibold outline-none focus:border-amber-500" placeholder="Nhập lời động viên Tiếng Việt để AI đọc...">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <select id="setting-wrong-ai-voice" onchange="onSoundSettingsChange()" class="flex-1 min-w-[200px] bg-white border-2 border-amber-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none"></select>
+                                <button id="btn-gen-ai-wrong" onclick="generateAiVoice('wrong')" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-microphone-lines"></i>
+                                    <span>Tạo giọng AI</span>
+                                </button>
+                            </div>
+                            <span id="wrong-ai-status" class="text-xs font-semibold text-amber-800"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== MÀN HÌNH 3: CHẾ ĐỘ HỌC SINH CHƠI ==================== -->
+        <section id="screen-play" class="hidden flex flex-col gap-5">
+            <!-- Thông tin đầu trang cho học sinh -->
+            <div class="bg-white/95 rounded-3xl shadow-sm border-2 border-blue-100 p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex-1">
+                    <div id="play-meta-badges" class="flex flex-wrap items-center gap-2 mb-1.5"></div>
+                    <h2 id="play-title" class="text-2xl md:text-3xl font-black text-blue-700"></h2>
+                    <p id="play-subject" class="text-sm font-bold text-indigo-600 mt-0.5"></p>
+                    <p id="play-instructions" class="text-sm md:text-base text-gray-600 font-semibold mt-1.5 bg-blue-50/70 px-3.5 py-2 rounded-xl border border-blue-100 hidden"></p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 shrink-0">
+                    <!-- Đồng hồ đếm ngược (chỉ hiện khi giáo viên có thiết lập thời gian) -->
+                    <div id="play-timer-box" class="hidden bg-amber-100 border-2 border-amber-300 text-amber-800 px-4 py-2 rounded-2xl font-black text-lg flex items-center gap-2">
+                        <i class="fa-regular fa-clock"></i>
+                        <span id="play-timer-display">00:00</span>
+                    </div>
+
+                    <button onclick="backToEditor()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-2xl font-bold text-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>Chế độ Giáo viên</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Khu vực hiển thị kết quả sau khi kiểm tra -->
+            <div id="play-result-banner" class="hidden rounded-3xl p-4 md:p-5 border-2 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div id="play-result-icon" class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"></div>
+                    <div>
+                        <h3 id="play-result-title" class="text-lg md:text-xl font-black"></h3>
+                        <p id="play-result-detail" class="text-sm font-bold opacity-90"></p>
+                    </div>
+                </div>
+                <div id="play-result-score" class="text-2xl md:text-3xl font-black px-4 py-1.5 rounded-2xl bg-white/80 shadow-sm"></div>
+            </div>
+
+            <!-- Khu vực tương tác chính của trò chơi -->
+            <div id="play-workspace" class="bg-white/95 rounded-3xl shadow-md border-2 border-blue-100 p-4 md:p-6 min-h-[380px]">
+                <!-- Nội dung trò chơi được render động -->
+            </div>
+
+            <!-- Hàng nút điều khiển nằm ngoài khu vực chơi -->
+            <div id="play-controls" class="flex flex-wrap items-center justify-center gap-3 py-2">
+                <button onclick="resetPlay(true)" class="btn-kid bg-purple-500 hover:bg-purple-600 text-white px-5 py-3 rounded-2xl font-extrabold text-sm md:text-base flex items-center gap-2">
+                    <i class="fa-solid fa-shuffle"></i>
+                    <span>Trộn lại</span>
+                </button>
+                <button onclick="resetPlay(false)" class="btn-kid bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-2xl font-extrabold text-sm md:text-base flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Làm lại</span>
+                </button>
+                <button onclick="checkPlayResults()" class="btn-kid bg-gradient-to-r from-emerald-500 to-green-600 text-white px-7 py-3 rounded-2xl font-extrabold text-base md:text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Kiểm tra kết quả</span>
+                </button>
+                <button onclick="resetPlay(gameState.settings?.shuffleQuestions !== false)" class="btn-kid bg-blue-500 hover:bg-blue-600 text-white px-5 py-3 rounded-2xl font-extrabold text-sm md:text-base flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i>
+                    <span>Chơi lại</span>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODAL XÁC NHẬN (THAY THẾ HOÀN TOÀN CONFIRM/ALERT) ==================== -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[90] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-blue-100">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 id="confirm-modal-title" class="text-xl font-black text-gray-800">Xác nhận</h3>
+            </div>
+            <p id="confirm-modal-message" class="text-gray-600 font-semibold mb-6"></p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeConfirmModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm transition">Hủy bỏ</button>
+                <button id="confirm-modal-ok" onclick="executeConfirmModal()" class="btn-kid bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODULE ĐỒNG BỘ MÁY CHỦ ĐÁM MÂY (NẾU CÓ CẤU HÌNH) ==================== -->
+    <script type="module">
+        window.cloudReady = false;
+        window.cloudGames = [];
+
+        async function initCloudStorage() {
+            try {
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) return;
+                const firebaseConfig = typeof __firebase_config === 'string'
+                    ? JSON.parse(__firebase_config)
+                    : __firebase_config;
+                if (!firebaseConfig || !firebaseConfig.apiKey) return;
+
+                const [{ initializeApp }, { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }, { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot }] = await Promise.all([
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js')
+                ]);
+
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+                const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'keotha-noiy-app';
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (!user) return;
+                    const gamesCol = collection(db, 'artifacts', appId, 'public', 'data', 'keotha_games');
+
+                    window.cloudSaveGame = async (gameObj) => {
+                        const ref = doc(gamesCol, gameObj.id);
+                        await setDoc(ref, { payload: JSON.stringify(gameObj), updatedAt: gameObj.updatedAt || Date.now() });
+                    };
+
+                    window.cloudDeleteGame = async (id) => {
+                        const ref = doc(gamesCol, id);
+                        await deleteDoc(ref);
+                    };
+
+                    onSnapshot(gamesCol, (snapshot) => {
+                        const list = [];
+                        snapshot.forEach((docSnap) => {
+                            try {
+                                const data = docSnap.data();
+                                if (data?.payload) {
+                                    list.push(JSON.parse(data.payload));
+                                }
+                            } catch (e) {}
+                        });
+                        window.cloudGames = list;
+                        window.cloudReady = true;
+                        const note = document.getElementById('storage-info-note');
+                        if (note) {
+                            note.textContent = 'Đã kết nối máy chủ đám mây: trò chơi được tự động lưu và đồng bộ trên mọi trình duyệt & máy tính.';
+                        }
+                        if (typeof window.onCloudGamesUpdated === 'function') {
+                            window.onCloudGamesUpdated();
+                        }
+                    }, () => {
+                        window.cloudReady = false;
+                    });
+                });
+            } catch (err) {
+                window.cloudReady = false;
+            }
+        }
+
+        initCloudStorage();
+    </script>
+
+    <!-- ==================== LOGIC CHÍNH CỦA TRÒ CHƠI ==================== -->
+    <script>
+        /**
+         * -----------------------------------------------------------------------------
+         * 1. TRẠNG THÁI CHUNG & DỮ LIỆU CẤP HỌC – MÔN HỌC (MẦM NON -> THPT)
+         * -----------------------------------------------------------------------------
+         */
+        const $ = (id) => document.getElementById(id);
+
+        let currentScreen = 'screen-home';
+        let autoSaveTimer = null;
+        let hasPendingChanges = false;
+        let undoStack = [];
+        let pendingConfirmCallback = null;
+        let playTimerInterval = null;
+        let remainingSeconds = 0;
+        let currentAudioEl = null;
+
+        const EDUCATION_DATA = {
+            mam_non: {
+                label: 'Mầm non',
+                badgeClass: 'bg-pink-50 text-pink-700 border-pink-200',
+                grades: ['Nhà trẻ (18–36 tháng)', 'Mẫu giáo bé (3–4 tuổi)', 'Mẫu giáo nhỡ (4–5 tuổi)', 'Mẫu giáo lớn (5–6 tuổi)'],
+                subjects: [
+                    'Phát triển thể chất',
+                    'Khám phá khoa học',
+                    'Làm quen với Toán',
+                    'Làm quen với Chữ cái',
+                    'Làm quen với Văn học',
+                    'Phát triển tình cảm & KNXH',
+                    'Âm nhạc',
+                    'Tạo hình',
+                    'Làm quen Tiếng Anh',
+                    'Kỹ năng sống'
+                ]
+            },
+            tieu_hoc: {
+                label: 'Tiểu học',
+                badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+                grades: ['Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5'],
+                subjects: [
+                    'Tiếng Việt',
+                    'Toán',
+                    'Tiếng Anh',
+                    'Đạo đức',
+                    'Tự nhiên và Xã hội',
+                    'Lịch sử và Địa lí',
+                    'Khoa học',
+                    'Tin học',
+                    'Công nghệ',
+                    'Giáo dục thể chất',
+                    'Âm nhạc',
+                    'Mĩ thuật',
+                    'Hoạt động trải nghiệm',
+                    'Tiếng dân tộc thiểu số'
+                ]
+            },
+            thcs: {
+                label: 'THCS',
+                badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                grades: ['Lớp 6', 'Lớp 7', 'Lớp 8', 'Lớp 9'],
+                subjects: [
+                    'Ngữ văn',
+                    'Toán',
+                    'Tiếng Anh',
+                    'Ngoại ngữ 2',
+                    'Giáo dục công dân',
+                    'Lịch sử và Địa lí',
+                    'Khoa học tự nhiên',
+                    'Vật lí',
+                    'Hóa học',
+                    'Sinh học',
+                    'Công nghệ',
+                    'Tin học',
+                    'Giáo dục thể chất',
+                    'Âm nhạc',
+                    'Mĩ thuật',
+                    'Hoạt động trải nghiệm, hướng nghiệp',
+                    'Nội dung giáo dục địa phương',
+                    'Tiếng dân tộc thiểu số'
+                ]
+            },
+            thpt: {
+                label: 'THPT',
+                badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+                grades: ['Lớp 10', 'Lớp 11', 'Lớp 12'],
+                subjects: [
+                    'Ngữ văn',
+                    'Toán',
+                    'Tiếng Anh',
+                    'Ngoại ngữ 2',
+                    'Lịch sử',
+                    'Địa lí',
+                    'Giáo dục kinh tế và pháp luật',
+                    'Vật lí',
+                    'Hóa học',
+                    'Sinh học',
+                    'Công nghệ',
+                    'Tin học',
+                    'Giáo dục thể chất',
+                    'Giáo dục quốc phòng và an ninh',
+                    'Âm nhạc',
+                    'Mĩ thuật',
+                    'Hoạt động trải nghiệm, hướng nghiệp',
+                    'Nội dung giáo dục địa phương'
+                ]
+            }
+        };
+
+        /**
+         * Danh sách giọng đọc Tiếng Việt AI (hỗ trợ giọng miền Nam, miền Bắc, miền Trung)
+         */
+        const AI_VOICE_OPTIONS = [
+            // Nhóm giọng miền Nam Việt Nam (Nam Bộ)
+            { id: 'south_female_teacher', group: 'Giọng người miền Nam Việt Nam', label: 'Cô giáo miền Nam (Truyền cảm, nhẹ nhàng)', geminiVoice: 'Kore', stylePrompt: 'Đọc bằng tiếng Việt giọng nữ miền Nam Việt Nam (giọng Sài Gòn – Nam Bộ) truyền cảm, dịu dàng, phát âm chuẩn dấu thanh như cô giáo đang dạy học sinh' },
+            { id: 'south_female_sweet', group: 'Giọng người miền Nam Việt Nam', label: 'Nữ miền Nam (Ngọt ngào, dịu dàng)', geminiVoice: 'Zephyr', stylePrompt: 'Đọc bằng tiếng Việt giọng nữ miền Nam Việt Nam ngọt ngào, ấm áp, thân thiện và tự nhiên' },
+            { id: 'south_female_cheerful', group: 'Giọng người miền Nam Việt Nam', label: 'Nữ miền Nam (Tươi vui, hào hứng)', geminiVoice: 'Zephyr', stylePrompt: 'Đọc bằng tiếng Việt giọng nữ miền Nam Việt Nam tươi vui, rạng rỡ, hào hứng khích lệ học sinh' },
+            { id: 'south_female_clear', group: 'Giọng người miền Nam Việt Nam', label: 'Nữ miền Nam (Rõ ràng, dễ nghe)', geminiVoice: 'Kore', stylePrompt: 'Đọc bằng tiếng Việt giọng nữ miền Nam Việt Nam phát âm chuẩn xác, tròn vành rõ chữ, tốc độ vừa phải dễ nghe' },
+            { id: 'south_male_teacher', group: 'Giọng người miền Nam Việt Nam', label: 'Thầy giáo miền Nam (Trầm ấm)', geminiVoice: 'Charon', stylePrompt: 'Đọc bằng tiếng Việt giọng nam miền Nam Việt Nam trầm ấm, gần gũi như thầy giáo đang khích lệ học sinh' },
+            { id: 'south_male_energetic', group: 'Giọng người miền Nam Việt Nam', label: 'Nam miền Nam (Năng động, vui tính)', geminiVoice: 'Puck', stylePrompt: 'Đọc bằng tiếng Việt giọng nam miền Nam Việt Nam năng động, vui vẻ, hào hứng và tự nhiên' },
+            { id: 'south_male_friendly', group: 'Giọng người miền Nam Việt Nam', label: 'Nam miền Nam (Thân thiện, tự nhiên)', geminiVoice: 'Fenrir', stylePrompt: 'Đọc bằng tiếng Việt giọng nam miền Nam Việt Nam tự nhiên, thân thiện và rõ ràng' },
+            { id: 'south_kid_girl', group: 'Giọng người miền Nam Việt Nam', label: 'Bé gái miền Nam (Hồn nhiên)', geminiVoice: 'Zephyr', stylePrompt: 'Đọc bằng tiếng Việt giọng bé gái miền Nam Việt Nam hồn nhiên, trong trẻo, vui tươi' },
+            { id: 'south_kid_boy', group: 'Giọng người miền Nam Việt Nam', label: 'Bé trai miền Nam (Nhanh nhẹn)', geminiVoice: 'Puck', stylePrompt: 'Đọc bằng tiếng Việt giọng bé trai miền Nam Việt Nam nhanh nhẹn, dễ thương, hào hứng' },
+            // Nhóm giọng Tiếng Việt tiêu chuẩn (Miền Bắc / Miền Trung)
+            { id: 'std_female_warm', group: 'Giọng Tiếng Việt tiêu chuẩn', label: 'Cô giáo Tiếng Việt chuẩn (Miền Bắc, ấm áp)', geminiVoice: 'Kore', stylePrompt: 'Đọc bằng tiếng Việt chuẩn giọng nữ miền Bắc (Hà Nội), phát âm chuẩn từng dấu thanh, ấm áp và rõ ràng' },
+            { id: 'std_male_clear', group: 'Giọng Tiếng Việt tiêu chuẩn', label: 'Thầy giáo Tiếng Việt chuẩn (Miền Bắc, rõ ràng)', geminiVoice: 'Charon', stylePrompt: 'Đọc bằng tiếng Việt chuẩn giọng nam miền Bắc (Hà Nội), phát âm rõ ràng, thân thiện và khích lệ học sinh' },
+            { id: 'central_female_gentle', group: 'Giọng Tiếng Việt tiêu chuẩn', label: 'Nữ miền Trung (Nhẹ nhàng, truyền cảm)', geminiVoice: 'Zephyr', stylePrompt: 'Đọc bằng tiếng Việt giọng nữ miền Trung nhẹ nhàng, truyền cảm, phát âm rõ ràng dễ nghe' }
+        ];
+
+        function createDefaultSettings() {
+            return {
+                shuffleQuestions: true,
+                soundEnabled: true,
+                correctSoundType: 'default',
+                wrongSoundType: 'default',
+                correctAudioBase64: '',
+                wrongAudioBase64: '',
+                correctAiText: '',
+                wrongAiText: '',
+                correctAiVoice: 'south_female_teacher',
+                wrongAiVoice: 'south_female_sweet',
+                correctAiGenSig: '',
+                wrongAiGenSig: ''
+            };
+        }
+
+        function createEmptyGameState(type = 'matching') {
+            return {
+                id: generateId('game'),
+                type: type,
+                title: '',
+                subject: '',
+                timeLimit: '',
+                eduLevel: '',
+                grade: '',
+                courseSubject: '',
+                instructions: '',
+                updatedAt: Date.now(),
+                settings: createDefaultSettings(),
+                matchingPairs: [],
+                imageMap: { imageData: '', imageScale: 100, zones: [], extraCards: [] },
+                categorize: { categories: [], cards: [] },
+                ordering: { items: [], direction: 'vertical', labelStart: '', labelEnd: '' }
+            };
+        }
+
+        function normalizeGameState(raw) {
+            const base = createEmptyGameState(raw?.type || 'matching');
+            return {
+                ...base,
+                ...raw,
+                settings: { ...createDefaultSettings(), ...(raw?.settings || {}) },
+                matchingPairs: Array.isArray(raw?.matchingPairs) ? raw.matchingPairs : [],
+                imageMap: {
+                    imageData: raw?.imageMap?.imageData || '',
+                    imageScale: Number(raw?.imageMap?.imageScale) || 100,
+                    zones: Array.isArray(raw?.imageMap?.zones) ? raw.imageMap.zones : [],
+                    extraCards: Array.isArray(raw?.imageMap?.extraCards) ? raw.imageMap.extraCards : []
+                },
+                categorize: {
+                    categories: Array.isArray(raw?.categorize?.categories) ? raw.categorize.categories : [],
+                    cards: Array.isArray(raw?.categorize?.cards) ? raw.categorize.cards : []
+                },
+                ordering: {
+                    items: Array.isArray(raw?.ordering?.items) ? raw.ordering.items : [],
+                    direction: raw?.ordering?.direction === 'horizontal' ? 'horizontal' : 'vertical',
+                    labelStart: raw?.ordering?.labelStart || '',
+                    labelEnd: raw?.ordering?.labelEnd || ''
+                }
+            };
+        }
+
+        let gameState = createEmptyGameState('matching');
+        let playState = {
+            matching: { leftOrder: [], rightOrder: [], connections: {}, selectedLeftId: null },
+            imagemap: { placements: {}, cards: [] },
+            categorize: { placements: {}, cardsOrder: [] },
+            ordering: { correctItems: [], slots: [], bankCards: [] }
+        };
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 2. CÁC HÀM TIỆN ÍCH CƠ BẢN (ID, ESCAPE, SHUFFLE, TOAST, MODAL, UNDO)
+         * -----------------------------------------------------------------------------
+         */
+        function generateId(prefix = 'id') {
+            return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function showToast(message, type = 'info') {
+            let container = $('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed bottom-5 right-5 z-[100] flex flex-col gap-2 max-w-sm';
+                document.body.appendChild(container);
+            }
+            const styles = {
+                success: 'bg-emerald-600 text-white border-emerald-400',
+                warning: 'bg-amber-500 text-white border-amber-300',
+                error: 'bg-red-600 text-white border-red-400',
+                info: 'bg-indigo-600 text-white border-indigo-400'
+            };
+            const toast = document.createElement('div');
+            toast.className = `${styles[type] || styles.info} px-4 py-3 rounded-2xl shadow-xl border-2 font-bold text-sm flex items-center gap-2 transition-all duration-300`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function openConfirmModal(title, message, onConfirm) {
+            $('confirm-modal-title').textContent = title || 'Xác nhận';
+            $('confirm-modal-message').textContent = message || '';
+            pendingConfirmCallback = onConfirm;
+            $('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            $('confirm-modal').classList.add('hidden');
+            pendingConfirmCallback = null;
+        }
+
+        function executeConfirmModal() {
+            const cb = pendingConfirmCallback;
+            closeConfirmModal();
+            if (typeof cb === 'function') cb();
+        }
+
+        function pushUndoSnapshot() {
+            undoStack.push(JSON.stringify(gameState));
+            if (undoStack.length > 25) undoStack.shift();
+        }
+
+        function undoLastAction() {
+            if (undoStack.length === 0) {
+                showToast('Không có thao tác nào để hoàn tác.', 'info');
+                return;
+            }
+            const prev = undoStack.pop();
+            gameState = normalizeGameState(JSON.parse(prev));
+            loadEditorDataToForm();
+            renderEditorWorkspace();
+            scheduleAutoSave();
+            showToast('Đã hoàn tác thao tác gần nhất.', 'info');
+        }
+
+        function setSaveStatus(text, iconClass = 'fa-cloud-check text-emerald-500') {
+            const el = $('header-save-status');
+            if (!el) return;
+            el.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${escapeHtml(text)}</span>`;
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 3. ĐIỀU HƯỚNG MÀN HÌNH & BỘ LỌC CẤP HỌC – MÔN HỌC
+         * -----------------------------------------------------------------------------
+         */
+        function switchScreen(screenId) {
+            ['screen-home', 'screen-editor', 'screen-play'].forEach(id => {
+                const el = $(id);
+                if (el) el.classList.toggle('hidden', id !== screenId);
+            });
+            currentScreen = screenId;
+            $('btn-nav-home').classList.toggle('hidden', screenId === 'screen-home');
+            $('btn-header-sound').classList.toggle('hidden', screenId !== 'screen-play');
+            if (screenId !== 'screen-play') stopPlayTimer();
+            if (screenId === 'screen-home') renderSavedGames();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function requestGoHome() {
+            if (currentScreen === 'screen-home') return;
+            if (currentScreen === 'screen-editor' && hasAnyGameContent(gameState)) {
+                await persistCurrentGame(false);
+            }
+            switchScreen('screen-home');
+        }
+
+        function populateEducationSelectors() {
+            const levelSel = $('edit-edu-level');
+            const filterLevel = $('filter-level');
+            const levelOpts = Object.entries(EDUCATION_DATA)
+                .map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`)
+                .join('');
+
+            if (levelSel) levelSel.innerHTML = `<option value="">-- Chọn cấp học --</option>${levelOpts}`;
+            if (filterLevel) filterLevel.innerHTML = `<option value="">Tất cả cấp học</option>${levelOpts}`;
+            populateSubjectFilter('');
+        }
+
+        function populateSubjectFilter(levelKey) {
+            const filterSubj = $('filter-subject');
+            if (!filterSubj) return;
+            const set = new Set();
+            if (levelKey && EDUCATION_DATA[levelKey]) {
+                EDUCATION_DATA[levelKey].subjects.forEach(s => set.add(s));
+            } else {
+                Object.values(EDUCATION_DATA).forEach(lvl => lvl.subjects.forEach(s => set.add(s)));
+            }
+            const prev = filterSubj.value;
+            filterSubj.innerHTML = `<option value="">Tất cả môn học</option>` +
+                Array.from(set).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+            if (Array.from(set).includes(prev)) filterSubj.value = prev;
+        }
+
+        function onFilterLevelChange() {
+            const lvl = $('filter-level')?.value || '';
+            populateSubjectFilter(lvl);
+            renderSavedGames();
+        }
+
+        function updateGradeAndSubjectDropdowns(levelKey, selectedGrade = '', selectedSubject = '') {
+            const gradeSel = $('edit-grade');
+            const subjSel = $('edit-course-subject');
+            if (!gradeSel || !subjSel) return;
+
+            const info = EDUCATION_DATA[levelKey];
+            if (!info) {
+                gradeSel.innerHTML = `<option value="">-- Chọn khối/lớp --</option>`;
+                subjSel.innerHTML = `<option value="">-- Chọn môn học --</option>`;
+                return;
+            }
+            gradeSel.innerHTML = `<option value="">-- Chọn khối/lớp --</option>` +
+                info.grades.map(g => `<option value="${escapeHtml(g)}" ${g === selectedGrade ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('');
+            subjSel.innerHTML = `<option value="">-- Chọn môn học --</option>` +
+                info.subjects.map(s => `<option value="${escapeHtml(s)}" ${s === selectedSubject ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+        }
+
+        function onEduLevelChange() {
+            const levelKey = $('edit-edu-level')?.value || '';
+            updateGradeAndSubjectDropdowns(levelKey, '', '');
+            onFormFieldChange();
+        }
+
+        function populateAiVoiceDropdowns() {
+            const groups = {};
+            AI_VOICE_OPTIONS.forEach(v => {
+                if (!groups[v.group]) groups[v.group] = [];
+                groups[v.group].push(v);
+            });
+            const html = Object.entries(groups).map(([grp, list]) => `
+                <optgroup label="${escapeHtml(grp)}">
+                    ${list.map(v => `<option value="${v.id}">${escapeHtml(v.label)}</option>`).join('')}
+                </optgroup>
+            `).join('');
+
+            if ($('setting-correct-ai-voice')) $('setting-correct-ai-voice').innerHTML = html;
+            if ($('setting-wrong-ai-voice')) $('setting-wrong-ai-voice').innerHTML = html;
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 4. LƯU TRỮ TỰ ĐỘNG (INDEXEDDB + LOCALSTORAGE FALLBACK + CLOUD SYNC)
+         * -----------------------------------------------------------------------------
+         */
+        const IDB_NAME = 'KeoThaNoiY_DB';
+        const IDB_STORE = 'games';
+        const LS_KEY = 'keotha_noiy_saved_games_v2';
+
+        function openGamesDB() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) return reject(new Error('IndexedDB không được hỗ trợ'));
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(IDB_STORE)) {
+                        db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function saveLocalGame(gameObj) {
+            try {
+                const db = await openGamesDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(IDB_STORE, 'readwrite');
+                    tx.objectStore(IDB_STORE).put(gameObj);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch (e) {
+                try {
+                    const list = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+                    const idx = list.findIndex(g => g.id === gameObj.id);
+                    if (idx >= 0) list[idx] = gameObj;
+                    else list.push(gameObj);
+                    localStorage.setItem(LS_KEY, JSON.stringify(list));
+                } catch (err) {}
+            }
+        }
+
+        async function getAllLocalGames() {
+            try {
+                const db = await openGamesDB();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(IDB_STORE, 'readonly');
+                    const req = tx.objectStore(IDB_STORE).getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (e) {
+                try {
+                    return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+                } catch (err) {
+                    return [];
+                }
+            }
+        }
+
+        async function deleteLocalGame(id) {
+            try {
+                const db = await openGamesDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(IDB_STORE, 'readwrite');
+                    tx.objectStore(IDB_STORE).delete(id);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch (e) {
+                try {
+                    const list = JSON.parse(localStorage.getItem(LS_KEY) || '[]').filter(g => g.id !== id);
+                    localStorage.setItem(LS_KEY, JSON.stringify(list));
+                } catch (err) {}
+            }
+        }
+
+        function hasAnyGameContent(g) {
+            if (!g) return false;
+            if ((g.title || '').trim() || (g.subject || '').trim() || (g.instructions || '').trim()) return true;
+            if (g.type === 'matching' && (g.matchingPairs || []).length > 0) return true;
+            if (g.type === 'imagemap' && (g.imageMap?.imageData || (g.imageMap?.zones || []).length > 0)) return true;
+            if (g.type === 'categorize' && ((g.categorize?.categories || []).length > 0 || (g.categorize?.cards || []).length > 0)) return true;
+            if (g.type === 'ordering' && (g.ordering?.items || []).length > 0) return true;
+            return false;
+        }
+
+        function scheduleAutoSave() {
+            hasPendingChanges = true;
+            setSaveStatus('Đang tự động lưu...', 'fa-arrows-rotate fa-spin text-blue-500');
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                persistCurrentGame(false);
+            }, 650);
+        }
+
+        async function persistCurrentGame(showNotification = false) {
+            saveFormToState();
+            if (!hasAnyGameContent(gameState)) {
+                setSaveStatus('Trò chơi mới (chưa có nội dung)', 'fa-circle-info text-gray-400');
+                return;
+            }
+            gameState.updatedAt = Date.now();
+            await saveLocalGame(gameState);
+
+            // Gửi thông điệp tự động lưu nếu đang chạy trong iframe
+            try {
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'KEOTHA_AUTOSAVE', game: gameState }, '*');
+                }
+            } catch (e) {}
+
+            if (window.cloudReady && typeof window.cloudSaveGame === 'function') {
+                try {
+                    await window.cloudSaveGame(gameState);
+                    setSaveStatus('Đã tự động lưu lên máy chủ', 'fa-cloud-check text-emerald-500');
+                } catch (e) {
+                    setSaveStatus('Đã tự động lưu trên thiết bị', 'fa-hard-drive text-emerald-500');
+                }
+            } else {
+                setSaveStatus('Đã tự động lưu trên thiết bị', 'fa-hard-drive text-emerald-500');
+            }
+
+            hasPendingChanges = false;
+            if (showNotification) showToast('Đã lưu trò chơi thành công!', 'success');
+        }
+
+        function manualSaveGame() {
+            if (!hasAnyGameContent(gameState)) {
+                showToast('Hãy nhập tên hoặc thêm nội dung trước khi lưu.', 'warning');
+                return;
+            }
+            persistCurrentGame(true);
+        }
+
+        async function duplicateCurrentGame() {
+            saveFormToState();
+            const copy = normalizeGameState(JSON.parse(JSON.stringify(gameState)));
+            copy.id = generateId('game');
+            copy.title = copy.title ? `${copy.title} (Bản sao)` : 'Bản sao trò chơi';
+            copy.updatedAt = Date.now();
+            gameState = copy;
+            loadEditorDataToForm();
+            renderEditorWorkspace();
+            await persistCurrentGame(false);
+            showToast('Đã tạo bản sao trò chơi!', 'success');
+        }
+
+        window.onCloudGamesUpdated = () => {
+            if (currentScreen === 'screen-home') renderSavedGames();
+        };
+
+        async function getMergedSavedGames() {
+            const localList = await getAllLocalGames();
+            const cloudList = Array.isArray(window.cloudGames) ? window.cloudGames : [];
+            const map = new Map();
+            [...localList, ...cloudList].forEach(raw => {
+                if (!raw || !raw.id) return;
+                const g = normalizeGameState(raw);
+                const prev = map.get(g.id);
+                if (!prev || (g.updatedAt || 0) >= (prev.updatedAt || 0)) {
+                    map.set(g.id, g);
+                }
+            });
+            return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        }
+
+        async function renderSavedGames() {
+            const container = $('saved-games-list');
+            if (!container) return;
+
+            const allGames = await getMergedSavedGames();
+            const filterLvl = $('filter-level')?.value || '';
+            const filterSubj = $('filter-subject')?.value || '';
+            const keyword = ($('filter-search')?.value || '').trim().toLowerCase();
+
+            const filtered = allGames.filter(g => {
+                if (filterLvl && g.eduLevel !== filterLvl) return false;
+                if (filterSubj && g.courseSubject !== filterSubj) return false;
+                if (keyword) {
+                    const hay = `${g.title || ''} ${g.subject || ''} ${g.courseSubject || ''} ${g.grade || ''}`.toLowerCase();
+                    if (!hay.includes(keyword)) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 text-gray-500">
+                        <i class="fa-regular fa-folder-open text-4xl text-gray-300 mb-2"></i>
+                        <p class="font-bold">Chưa có trò chơi nào được lưu phù hợp.</p>
+                        <p class="text-xs mt-1">Thầy/Cô hãy chọn một dạng trò chơi ở phía trên để bắt đầu tạo mới.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const typeMeta = {
+                matching: { label: 'Nối Ý', color: 'bg-blue-100 text-blue-700', icon: 'fa-link' },
+                imagemap: { label: 'Thả vào Hình', color: 'bg-emerald-100 text-emerald-700', icon: 'fa-image' },
+                categorize: { label: 'Phân Loại', color: 'bg-amber-100 text-amber-700', icon: 'fa-boxes-stacked' },
+                ordering: { label: 'Sắp xếp Thứ Tự', color: 'bg-purple-100 text-purple-700', icon: 'fa-list-ol' }
+            };
+
+            container.innerHTML = filtered.map(g => {
+                const tm = typeMeta[g.type] || typeMeta.matching;
+                const edu = EDUCATION_DATA[g.eduLevel];
+                const updatedStr = g.updatedAt ? new Date(g.updatedAt).toLocaleString('vi-VN') : '';
+                return `
+                    <div class="bg-white border-2 border-gray-100 hover:border-blue-300 rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-3 transition">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                                <span class="${tm.color} text-xs font-extrabold px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
+                                    <i class="fa-solid ${tm.icon}"></i> ${tm.label}
+                                </span>
+                                ${edu ? `<span class="${edu.badgeClass} border text-xs font-bold px-2 py-0.5 rounded-lg">${escapeHtml(edu.label)}</span>` : ''}
+                                ${g.grade ? `<span class="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-0.5 rounded-lg">${escapeHtml(g.grade)}</span>` : ''}
+                                ${g.courseSubject ? `<span class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-lg">${escapeHtml(g.courseSubject)}</span>` : ''}
+                            </div>
+                            <h4 class="font-extrabold text-gray-800 text-base line-clamp-2">${escapeHtml(g.title || '(Chưa đặt tên trò chơi)')}</h4>
+                            ${g.subject ? `<p class="text-xs font-semibold text-gray-500 mt-0.5 line-clamp-1">${escapeHtml(g.subject)}</p>` : ''}
+                            <p class="text-[11px] text-gray-400 mt-2"><i class="fa-regular fa-clock mr-1"></i>${escapeHtml(updatedStr)}</p>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 pt-2 border-t border-gray-100">
+                            <button onclick="openSavedGame('${g.id}', true)" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-extrabold transition">
+                                <i class="fa-solid fa-play mr-1"></i> Chơi
+                            </button>
+                            <button onclick="openSavedGame('${g.id}', false)" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-xl text-xs font-extrabold transition">
+                                <i class="fa-solid fa-pen mr-1"></i> Sửa
+                            </button>
+                            <button onclick="confirmDeleteSavedGame('${g.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-xl text-xs font-extrabold transition" title="Xóa trò chơi">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openSavedGame(id, playImmediately = false) {
+            const allGames = await getMergedSavedGames();
+            const found = allGames.find(g => g.id === id);
+            if (!found) {
+                showToast('Không tìm thấy trò chơi này.', 'error');
+                return;
+            }
+            gameState = normalizeGameState(JSON.parse(JSON.stringify(found)));
+            undoStack = [];
+            hasPendingChanges = false;
+            loadEditorDataToForm();
+            renderEditorWorkspace();
+            if (playImmediately) {
+                preparePlay();
+            } else {
+                switchScreen('screen-editor');
+            }
+        }
+
+        function confirmDeleteSavedGame(id) {
+            openConfirmModal(
+                'Xóa trò chơi đã lưu?',
+                'Bạn có chắc chắn muốn xóa vĩnh viễn trò chơi này không?',
+                async () => {
+                    await deleteLocalGame(id);
+                    if (window.cloudReady && typeof window.cloudDeleteGame === 'function') {
+                        try { await window.cloudDeleteGame(id); } catch (e) {}
+                    }
+                    renderSavedGames();
+                    showToast('Đã xóa trò chơi thành công!', 'info');
+                }
+            );
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 5. XUẤT / NHẬP JSON & TẢI MẪU / TẢI LÊN FILE WORD (.DOCX)
+         * -----------------------------------------------------------------------------
+         */
+        async function exportGameJson() {
+            await persistCurrentGame(false);
+            const blob = new Blob([JSON.stringify(gameState, null, 2)], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const safeName = (gameState.title || 'tro-choi-keo-tha').replace(/[^a-zA-Z0-9\u00C0-\u1EF9_-]+/g, '_');
+            a.href = url;
+            a.download = `${safeName}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Đã xuất tệp JSON trò chơi!', 'success');
+        }
+
+        function importGameJson(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed || !parsed.type) throw new Error('Tệp JSON không đúng định dạng trò chơi.');
+                    gameState = normalizeGameState(parsed);
+                    undoStack = [];
+                    loadEditorDataToForm();
+                    renderEditorWorkspace();
+                    await persistCurrentGame(false);
+                    switchScreen('screen-editor');
+                    showToast('Đã mở trò chơi từ tệp JSON!', 'success');
+                } catch (err) {
+                    showToast('Không thể đọc tệp JSON này. Vui lòng kiểm tra lại.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function downloadWordTemplate(type) {
+            let fileName = 'mau-bai-tap.doc';
+            let tableHtml = '';
+
+            if (type === 'matching') {
+                fileName = 'mau-noi-y.doc';
+                tableHtml = `
+                    <h3>MẪU NHẬP NỘI DUNG – TRÒ CHƠI KÉO THẢ NỐI Ý</h3>
+                    <p>Thầy/Cô điền nội dung Cột Trái và Cột Phải tương ứng vào bảng bên dưới (không xóa dòng tiêu đề):</p>
+                    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                        <tr style="background:#DBEAFE;"><th>Cột Trái (Ý nguồn)</th><th>Cột Phải (Đáp án tương ứng)</th></tr>
+                        <tr><td></td><td></td></tr>
+                        <tr><td></td><td></td></tr>
+                        <tr><td></td><td></td></tr>
+                    </table>
+                `;
+            } else if (type === 'categorize') {
+                fileName = 'mau-phan-loai.doc';
+                tableHtml = `
+                    <h3>MẪU NHẬP NỘI DUNG – TRÒ CHƠI PHÂN LOẠI</h3>
+                    <p>Thầy/Cô điền tên Nhóm và Thẻ từ tương ứng vào bảng bên dưới (không xóa dòng tiêu đề):</p>
+                    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                        <tr style="background:#FEF3C7;"><th>Tên Nhóm (Khu vực thả)</th><th>Nội dung Thẻ từ</th></tr>
+                        <tr><td></td><td></td></tr>
+                        <tr><td></td><td></td></tr>
+                        <tr><td></td><td></td></tr>
+                    </table>
+                `;
+            } else if (type === 'ordering') {
+                fileName = 'mau-sap-xep-thu-tu.doc';
+                tableHtml = `
+                    <h3>MẪU NHẬP NỘI DUNG – TRÒ CHƠI SẮP XẾP THỨ TỰ</h3>
+                    <p>Thầy/Cô điền các thẻ theo ĐÚNG THỨ TỰ CHUẨN từ trên xuống dưới vào bảng bên dưới (không xóa dòng tiêu đề):</p>
+                    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                        <tr style="background:#F3E8FF;"><th>Thứ tự đúng</th><th>Nội dung thẻ</th></tr>
+                        <tr><td>1</td><td></td></tr>
+                        <tr><td>2</td><td></td></tr>
+                        <tr><td>3</td><td></td></tr>
+                    </table>
+                `;
+            }
+
+            const docContent = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset="utf-8"><title>Mẫu Word</title></head>
+                <body style="font-family: Arial, sans-serif;">${tableHtml}</body>
+                </html>
+            `;
+            const blob = new Blob(['\ufeff', docContent], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Đã tải xuống tệp mẫu Word! Lưu lại dưới dạng .docx sau khi điền để tải lên.', 'info');
+        }
+
+        function handleWordUpload(event, type) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (typeof mammoth === 'undefined') {
+                showToast('Thư viện đọc Word chưa sẵn sàng. Vui lòng thử lại.', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const result = await mammoth.convertToHtml({ arrayBuffer: e.target.result });
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(result.value, 'text/html');
+                    const rows = Array.from(doc.querySelectorAll('table tr'));
+                    if (rows.length <= 1) {
+                        showToast('Không tìm thấy bảng dữ liệu hợp lệ trong tệp Word.', 'warning');
+                        return;
+                    }
+
+                    pushUndoSnapshot();
+                    let added = 0;
+
+                    if (type === 'matching') {
+                        rows.slice(1).forEach(tr => {
+                            const cells = tr.querySelectorAll('td, th');
+                            const left = (cells[0]?.textContent || '').trim();
+                            const right = (cells[1]?.textContent || '').trim();
+                            if (left || right) {
+                                gameState.matchingPairs.push({ id: generateId('pair'), left, right });
+                                added++;
+                            }
+                        });
+                    } else if (type === 'categorize') {
+                        rows.slice(1).forEach(tr => {
+                            const cells = tr.querySelectorAll('td, th');
+                            const catName = (cells[0]?.textContent || '').trim();
+                            const cardText = (cells[1]?.textContent || '').trim();
+                            if (!catName && !cardText) return;
+                            let catId = '';
+                            if (catName) {
+                                let existing = gameState.categorize.categories.find(c => c.name.trim().toLowerCase() === catName.toLowerCase());
+                                if (!existing) {
+                                    existing = { id: generateId('cat'), name: catName };
+                                    gameState.categorize.categories.push(existing);
+                                }
+                                catId = existing.id;
+                            }
+                            if (cardText) {
+                                gameState.categorize.cards.push({ id: generateId('card'), text: cardText, categoryId: catId, imageData: '' });
+                                added++;
+                            }
+                        });
+                    } else if (type === 'ordering') {
+                        rows.slice(1).forEach(tr => {
+                            const cells = tr.querySelectorAll('td, th');
+                            const text = cells.length >= 2
+                                ? (cells[1]?.textContent || '').trim()
+                                : (cells[0]?.textContent || '').trim();
+                            if (text) {
+                                gameState.ordering.items.push({ id: generateId('ord'), text, imageData: '' });
+                                added++;
+                            }
+                        });
+                    }
+
+                    renderEditorWorkspace();
+                    scheduleAutoSave();
+                    showToast(`Đã nhập thành công ${added} mục từ tệp Word!`, 'success');
+                } catch (err) {
+                    showToast('Lỗi khi đọc tệp .docx. Hãy đảm bảo tệp được lưu đúng định dạng .docx.', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 6. FORM THIẾT KẾ CHUNG & 4 TRÌNH SOẠN THẢO TRÒ CHƠI
+         * -----------------------------------------------------------------------------
+         */
+        function createNewGame(type) {
+            gameState = createEmptyGameState(type);
+            undoStack = [];
+            hasPendingChanges = false;
+            loadEditorDataToForm();
+            renderEditorWorkspace();
+            setSaveStatus('Trò chơi mới (chưa có nội dung)', 'fa-circle-info text-gray-400');
+            switchScreen('screen-editor');
+        }
+
+        function onFormFieldChange() {
+            saveFormToState();
+            scheduleAutoSave();
+        }
+
+        function saveFormToState() {
+            if ($('edit-title')) gameState.title = $('edit-title').value;
+            if ($('edit-subject')) gameState.subject = $('edit-subject').value;
+            if ($('edit-time-limit')) gameState.timeLimit = $('edit-time-limit').value;
+            if ($('edit-edu-level')) gameState.eduLevel = $('edit-edu-level').value;
+            if ($('edit-grade')) gameState.grade = $('edit-grade').value;
+            if ($('edit-course-subject')) gameState.courseSubject = $('edit-course-subject').value;
+            if ($('edit-instructions')) gameState.instructions = $('edit-instructions').value;
+        }
+
+        function loadEditorDataToForm() {
+            if ($('edit-title')) $('edit-title').value = gameState.title || '';
+            if ($('edit-subject')) $('edit-subject').value = gameState.subject || '';
+            if ($('edit-time-limit')) $('edit-time-limit').value = gameState.timeLimit || '';
+            if ($('edit-edu-level')) $('edit-edu-level').value = gameState.eduLevel || '';
+            updateGradeAndSubjectDropdowns(gameState.eduLevel || '', gameState.grade || '', gameState.courseSubject || '');
+            if ($('edit-instructions')) $('edit-instructions').value = gameState.instructions || '';
+            syncSoundSettingsUI();
+        }
+
+        function renderEditorWorkspace() {
+            const ws = $('editor-workspace');
+            if (!ws) return;
+
+            if (gameState.type === 'matching') {
+                renderMatchingEditor(ws);
+            } else if (gameState.type === 'imagemap') {
+                renderImageMapEditor(ws);
+            } else if (gameState.type === 'categorize') {
+                renderCategorizeEditor(ws);
+            } else if (gameState.type === 'ordering') {
+                renderOrderingEditor(ws);
+            }
+        }
+
+        function clearAllEditorContent() {
+            openConfirmModal(
+                'Xóa toàn bộ nội dung?',
+                'Thao tác này sẽ xóa toàn bộ câu hỏi, hình ảnh và đáp án trong trò chơi hiện tại.',
+                () => {
+                    pushUndoSnapshot();
+                    if (gameState.type === 'matching') gameState.matchingPairs = [];
+                    else if (gameState.type === 'imagemap') gameState.imageMap = { imageData: '', imageScale: 100, zones: [], extraCards: [] };
+                    else if (gameState.type === 'categorize') gameState.categorize = { categories: [], cards: [] };
+                    else if (gameState.type === 'ordering') gameState.ordering = { items: [], direction: 'vertical', labelStart: '', labelEnd: '' };
+                    renderEditorWorkspace();
+                    scheduleAutoSave();
+                    showToast('Đã xóa toàn bộ nội dung trò chơi.', 'info');
+                }
+            );
+        }
+
+        // ==================== EDITOR 1: KÉO THẢ NỐI Ý (MATCHING) ====================
+        function renderMatchingEditor(ws) {
+            const pairs = gameState.matchingPairs || [];
+            ws.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-blue-700"><i class="fa-solid fa-link mr-2"></i>Thiết kế: Kéo thả Nối Ý</h3>
+                        <p class="text-sm text-gray-500">Tạo các cặp ý tương ứng giữa Cột Trái và Cột Phải. Để trống Cột Phải nếu chưa muốn thiết lập đáp án.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadWordTemplate('matching')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-file-word mr-1"></i> Tải mẫu Word
+                        </button>
+                        <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                            <i class="fa-solid fa-upload mr-1"></i> Tải lên Word (.docx)
+                            <input type="file" accept=".docx" class="hidden" onchange="handleWordUpload(event, 'matching')">
+                        </label>
+                        <button onclick="undoLastAction()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Hoàn tác
+                        </button>
+                        <button onclick="clearAllEditorContent()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-trash mr-1"></i> Xóa hết
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 mb-4">
+                    ${pairs.length === 0 ? `
+                        <div class="text-center py-10 bg-blue-50/50 rounded-2xl border-2 border-dashed border-blue-200 text-gray-500">
+                            <i class="fa-solid fa-link text-4xl text-blue-300 mb-3"></i>
+                            <p class="font-bold">Chưa có cặp nối ý nào.</p>
+                            <p class="text-sm">Nhấn nút "Thêm cặp nối ý mới" bên dưới để bắt đầu thiết kế.</p>
+                        </div>
+                    ` : pairs.map((p, idx) => `
+                        <div class="bg-white border-2 border-blue-100 rounded-2xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                            <span class="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center shrink-0 text-sm">${idx + 1}</span>
+                            <input type="text" value="${escapeHtml(p.left)}" oninput="updateMatchingPair('${p.id}', 'left', this.value)" class="flex-1 bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 focus:border-blue-500 focus:bg-white outline-none font-semibold" placeholder="Nội dung Cột Trái...">
+                            <i class="fa-solid fa-arrows-left-right text-blue-400 self-center hidden md:inline"></i>
+                            <input type="text" value="${escapeHtml(p.right)}" oninput="updateMatchingPair('${p.id}', 'right', this.value)" class="flex-1 bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 focus:border-emerald-500 focus:bg-white outline-none font-semibold" placeholder="Đáp án tương ứng Cột Phải...">
+                            <div class="flex items-center gap-1 shrink-0 justify-end">
+                                <button onclick="moveMatchingPair(${idx}, -1)" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Đưa lên"><i class="fa-solid fa-arrow-up"></i></button>
+                                <button onclick="moveMatchingPair(${idx}, 1)" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Đưa xuống"><i class="fa-solid fa-arrow-down"></i></button>
+                                <button onclick="duplicateMatchingPair('${p.id}')" class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Nhân bản"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="deleteMatchingPair('${p.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Xóa cặp"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button onclick="addMatchingPair()" class="btn-kid bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold self-start">
+                    <i class="fa-solid fa-plus mr-2"></i> Thêm cặp nối ý mới
+                </button>
+            `;
+        }
+
+        function addMatchingPair() {
+            pushUndoSnapshot();
+            gameState.matchingPairs.push({ id: generateId('pair'), left: '', right: '' });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateMatchingPair(id, field, val) {
+            const p = gameState.matchingPairs.find(x => x.id === id);
+            if (p) {
+                p[field] = val;
+                scheduleAutoSave();
+            }
+        }
+
+        function deleteMatchingPair(id) {
+            pushUndoSnapshot();
+            gameState.matchingPairs = gameState.matchingPairs.filter(x => x.id !== id);
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function duplicateMatchingPair(id) {
+            const idx = gameState.matchingPairs.findIndex(x => x.id === id);
+            if (idx < 0) return;
+            pushUndoSnapshot();
+            const src = gameState.matchingPairs[idx];
+            gameState.matchingPairs.splice(idx + 1, 0, { id: generateId('pair'), left: src.left, right: src.right });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function moveMatchingPair(idx, delta) {
+            const target = idx + delta;
+            if (target < 0 || target >= gameState.matchingPairs.length) return;
+            pushUndoSnapshot();
+            [gameState.matchingPairs[idx], gameState.matchingPairs[target]] = [gameState.matchingPairs[target], gameState.matchingPairs[idx]];
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        // ==================== EDITOR 2: THẢ VÀO HÌNH (IMAGEMAP) ====================
+        function renderImageMapEditor(ws) {
+            const im = gameState.imageMap || { imageData: '', imageScale: 100, zones: [], extraCards: [] };
+            const zones = im.zones || [];
+            const extraCards = im.extraCards || [];
+            const scale = Number(im.imageScale) || 100;
+
+            ws.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-emerald-700"><i class="fa-regular fa-image mr-2"></i>Thiết kế: Kéo thả câu trả lời vào Hình ảnh</h3>
+                        <p class="text-sm text-gray-500">Tải ảnh từ thiết bị, nhấn "Thêm vùng thả", kéo di chuyển hoặc kéo góc tròn màu xanh để đổi kích thước vùng thả.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="undoLastAction()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Hoàn tác
+                        </button>
+                        <button onclick="clearAllEditorContent()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-trash mr-1"></i> Xóa hết
+                        </button>
+                    </div>
+                </div>
+
+                ${!im.imageData ? `
+                    <div class="text-center py-14 bg-emerald-50/50 rounded-3xl border-3 border-dashed border-emerald-300 flex flex-col items-center justify-center gap-4">
+                        <i class="fa-regular fa-image text-5xl text-emerald-400"></i>
+                        <p class="font-bold text-gray-600">Chưa có hình ảnh nào được tải lên.</p>
+                        <label class="btn-kid bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-2xl font-extrabold cursor-pointer inline-flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Tải ảnh lên (PNG, JPG, JPEG)</span>
+                            <input type="file" accept="image/png,image/jpeg,image/jpg" class="hidden" onchange="handleImageMapUpload(event)">
+                        </label>
+                    </div>
+                ` : `
+                    <!-- Thanh công cụ ảnh & vùng thả -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="addImageMapZone()" class="btn-kid bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-extrabold flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Thêm vùng thả</span>
+                            </button>
+                            <label class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                                <i class="fa-solid fa-image mr-1"></i> Đổi ảnh khác
+                                <input type="file" accept="image/png,image/jpeg,image/jpg" class="hidden" onchange="handleImageMapUpload(event)">
+                            </label>
+                            <button onclick="removeImageMapPhoto()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                                <i class="fa-solid fa-xmark mr-1"></i> Gỡ ảnh
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                            <span>Kích thước ảnh:</span>
+                            <input type="range" min="40" max="100" value="${scale}" oninput="updateImageMapScale(this.value)" class="accent-emerald-600 w-28">
+                            <span id="imagemap-scale-label">${scale}%</span>
+                        </div>
+                    </div>
+
+                    <!-- Khung ảnh chứa các vùng thả tương tác -->
+                    <div class="w-full flex justify-center bg-gray-100/80 rounded-2xl p-4 border-2 border-gray-200 mb-5 overflow-hidden">
+                        <div id="editor-imagemap-stage" class="relative inline-block select-none" style="width: ${scale}%; max-width: 100%;">
+                            <img id="editor-imagemap-img" src="${im.imageData}" alt="Ảnh trò chơi" class="w-full h-auto block rounded-xl shadow-md pointer-events-none select-none">
+                            <div id="editor-imagemap-zones-layer" class="absolute inset-0"></div>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách thiết lập đáp án cho từng vùng thả -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div class="bg-blue-50/50 border-2 border-blue-100 rounded-2xl p-4">
+                            <h4 class="font-extrabold text-blue-800 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-bullseye"></i>
+                                <span>Đáp án đúng cho từng vùng thả (${zones.length})</span>
+                            </h4>
+                            ${zones.length === 0 ? `
+                                <p class="text-sm text-gray-500 italic">Chưa có vùng thả nào. Hãy nhấn "Thêm vùng thả" ở phía trên.</p>
+                            ` : `
+                                <div class="flex flex-col gap-2.5">
+                                    ${zones.map((z, idx) => `
+                                        <div class="bg-white border border-blue-200 rounded-xl p-2.5 flex items-center gap-2">
+                                            <span class="w-7 h-7 rounded-lg bg-blue-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0">${idx + 1}</span>
+                                            <input type="text" value="${escapeHtml(z.answer)}" oninput="updateImageMapZoneAnswer('${z.id}', this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" placeholder="Nhập đáp án đúng cho vùng #${idx + 1}...">
+                                            <button onclick="deleteImageMapZone('${z.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Xóa vùng thả"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Thẻ trả lời bổ sung (thẻ nhiễu hoặc thẻ tự tạo) -->
+                        <div class="bg-amber-50/50 border-2 border-amber-100 rounded-2xl p-4">
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <h4 class="font-extrabold text-amber-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-tags"></i>
+                                    <span>Thẻ trả lời bổ sung (tùy chọn)</span>
+                                </h4>
+                                <button onclick="addImageMapExtraCard()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl text-xs font-extrabold transition">
+                                    <i class="fa-solid fa-plus mr-1"></i> Thêm thẻ
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-3">Các đáp án ở vùng thả tự động tạo thành thẻ kéo thả. Thầy/Cô có thể thêm thẻ phụ/nhiễu tại đây.</p>
+                            ${extraCards.length === 0 ? `
+                                <p class="text-sm text-gray-400 italic">Chưa có thẻ bổ sung nào.</p>
+                            ` : `
+                                <div class="flex flex-col gap-2">
+                                    ${extraCards.map(c => `
+                                        <div class="bg-white border border-amber-200 rounded-xl p-2 flex items-center gap-2">
+                                            <input type="text" value="${escapeHtml(c.text)}" oninput="updateImageMapExtraCard('${c.id}', this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:border-amber-500 focus:bg-white outline-none" placeholder="Nhập nội dung thẻ trả lời...">
+                                            <button onclick="deleteImageMapExtraCard('${c.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `}
+            `;
+
+            if (im.imageData) {
+                renderImageMapZonesOverlay();
+            }
+        }
+
+        function handleImageMapUpload(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxDim = 1100;
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        const r = Math.min(maxDim / w, maxDim / h);
+                        w = Math.round(w * r);
+                        h = Math.round(h * r);
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    pushUndoSnapshot();
+                    gameState.imageMap.imageData = canvas.toDataURL('image/jpeg', 0.85);
+                    renderEditorWorkspace();
+                    scheduleAutoSave();
+                    showToast('Đã tải ảnh lên thành công!', 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function removeImageMapPhoto() {
+            openConfirmModal('Gỡ hình ảnh hiện tại?', 'Các vùng thả trên ảnh cũng sẽ được xóa cùng hình ảnh.', () => {
+                pushUndoSnapshot();
+                gameState.imageMap.imageData = '';
+                gameState.imageMap.zones = [];
+                renderEditorWorkspace();
+                scheduleAutoSave();
+            });
+        }
+
+        function updateImageMapScale(val) {
+            const scale = Number(val) || 100;
+            gameState.imageMap.imageScale = scale;
+            const stage = $('editor-imagemap-stage');
+            const lbl = $('imagemap-scale-label');
+            if (stage) stage.style.width = `${scale}%`;
+            if (lbl) lbl.textContent = `${scale}%`;
+            scheduleAutoSave();
+        }
+
+        function addImageMapZone() {
+            pushUndoSnapshot();
+            const count = (gameState.imageMap.zones || []).length;
+            const offset = (count * 5) % 45;
+            gameState.imageMap.zones.push({
+                id: generateId('zone'),
+                x: 10 + offset,
+                y: 10 + offset,
+                w: 22,
+                h: 12,
+                answer: ''
+            });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateImageMapZoneAnswer(zoneId, val) {
+            const z = (gameState.imageMap.zones || []).find(item => item.id === zoneId);
+            if (z) {
+                z.answer = val;
+                const badge = document.querySelector(`[data-zone-label="${zoneId}"]`);
+                if (badge) badge.textContent = val.trim() ? val : `#${gameState.imageMap.zones.indexOf(z) + 1}`;
+                scheduleAutoSave();
+            }
+        }
+
+        function deleteImageMapZone(zoneId) {
+            pushUndoSnapshot();
+            gameState.imageMap.zones = (gameState.imageMap.zones || []).filter(z => z.id !== zoneId);
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function addImageMapExtraCard() {
+            pushUndoSnapshot();
+            if (!Array.isArray(gameState.imageMap.extraCards)) gameState.imageMap.extraCards = [];
+            gameState.imageMap.extraCards.push({ id: generateId('ecard'), text: '' });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateImageMapExtraCard(cardId, val) {
+            const c = (gameState.imageMap.extraCards || []).find(item => item.id === cardId);
+            if (c) {
+                c.text = val;
+                scheduleAutoSave();
+            }
+        }
+
+        function deleteImageMapExtraCard(cardId) {
+            pushUndoSnapshot();
+            gameState.imageMap.extraCards = (gameState.imageMap.extraCards || []).filter(c => c.id !== cardId);
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function renderImageMapZonesOverlay() {
+            const layer = $('editor-imagemap-zones-layer');
+            if (!layer) return;
+            layer.innerHTML = '';
+
+            (gameState.imageMap.zones || []).forEach((z, idx) => {
+                const el = document.createElement('div');
+                el.className = 'editor-dropzone';
+                el.style.left = `${z.x}%`;
+                el.style.top = `${z.y}%`;
+                el.style.width = `${z.w}%`;
+                el.style.height = `${z.h}%`;
+
+                const label = document.createElement('span');
+                label.dataset.zoneLabel = z.id;
+                label.className = 'px-2 py-0.5 bg-white/90 text-blue-800 rounded-md font-extrabold text-xs shadow-xs pointer-events-none truncate max-w-[92%]';
+                label.textContent = (z.answer || '').trim() || `#${idx + 1}`;
+                el.appendChild(label);
+
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'zone-delete-btn';
+                delBtn.title = 'Xóa vùng thả';
+                delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                delBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+                delBtn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    deleteImageMapZone(z.id);
+                });
+                el.appendChild(delBtn);
+
+                const handle = document.createElement('div');
+                handle.className = 'zone-resize-handle';
+                handle.title = 'Kéo để đổi kích thước';
+                el.appendChild(handle);
+
+                // Kéo di chuyển vùng thả (tính theo % để không lệch khi resize màn hình)
+                el.addEventListener('pointerdown', (ev) => {
+                    if (ev.target === handle || ev.target === delBtn || delBtn.contains(ev.target)) return;
+                    ev.preventDefault();
+                    el.classList.add('active-zone');
+                    const rect = layer.getBoundingClientRect();
+                    const startX = ev.clientX;
+                    const startY = ev.clientY;
+                    const origX = z.x;
+                    const origY = z.y;
+
+                    const onMove = (moveEv) => {
+                        const dxPct = ((moveEv.clientX - startX) / rect.width) * 100;
+                        const dyPct = ((moveEv.clientY - startY) / rect.height) * 100;
+                        z.x = Math.max(0, Math.min(100 - z.w, +(origX + dxPct).toFixed(2)));
+                        z.y = Math.max(0, Math.min(100 - z.h, +(origY + dyPct).toFixed(2)));
+                        el.style.left = `${z.x}%`;
+                        el.style.top = `${z.y}%`;
+                    };
+
+                    const onUp = () => {
+                        el.classList.remove('active-zone');
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        scheduleAutoSave();
+                    };
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                });
+
+                // Kéo thay đổi kích thước vùng thả
+                handle.addEventListener('pointerdown', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    el.classList.add('active-zone');
+                    const rect = layer.getBoundingClientRect();
+                    const startX = ev.clientX;
+                    const startY = ev.clientY;
+                    const origW = z.w;
+                    const origH = z.h;
+
+                    const onMove = (moveEv) => {
+                        const dwPct = ((moveEv.clientX - startX) / rect.width) * 100;
+                        const dhPct = ((moveEv.clientY - startY) / rect.height) * 100;
+                        z.w = Math.max(8, Math.min(100 - z.x, +(origW + dwPct).toFixed(2)));
+                        z.h = Math.max(6, Math.min(100 - z.y, +(origH + dhPct).toFixed(2)));
+                        el.style.width = `${z.w}%`;
+                        el.style.height = `${z.h}%`;
+                    };
+
+                    const onUp = () => {
+                        el.classList.remove('active-zone');
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        scheduleAutoSave();
+                    };
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                });
+
+                layer.appendChild(el);
+            });
+        }
+
+        // ==================== EDITOR 3: PHÂN LOẠI (CATEGORIZE) ====================
+        function renderCategorizeEditor(ws) {
+            const cats = gameState.categorize?.categories || [];
+            const cards = gameState.categorize?.cards || [];
+
+            ws.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-amber-600"><i class="fa-solid fa-boxes-stacked mr-2"></i>Thiết kế: Kéo thả Phân Loại</h3>
+                        <p class="text-sm text-gray-500">Tạo các khu vực phân loại (Nhóm) và các thẻ từ/hình ảnh để học sinh kéo vào đúng nhóm.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadWordTemplate('categorize')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-file-word mr-1"></i> Tải mẫu Word
+                        </button>
+                        <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                            <i class="fa-solid fa-upload mr-1"></i> Tải lên Word (.docx)
+                            <input type="file" accept=".docx" class="hidden" onchange="handleWordUpload(event, 'categorize')">
+                        </label>
+                        <button onclick="undoLastAction()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Hoàn tác
+                        </button>
+                        <button onclick="clearAllEditorContent()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-trash mr-1"></i> Xóa hết
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Cột 1: Danh sách Nhóm (Khu vực thả) -->
+                    <div class="bg-amber-50/50 border-2 border-amber-200 rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-extrabold text-amber-800"><i class="fa-solid fa-layer-group mr-1.5"></i>Các Nhóm / Khu vực thả (${cats.length})</h4>
+                            <button onclick="addCategoryGroup()" class="btn-kid bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold">
+                                <i class="fa-solid fa-plus mr-1"></i> Thêm Nhóm
+                            </button>
+                        </div>
+
+                        ${cats.length === 0 ? `
+                            <p class="text-sm text-gray-500 text-center py-6 italic">Chưa có nhóm phân loại nào.</p>
+                        ` : cats.map((cat, idx) => `
+                            <div class="bg-white border border-amber-200 rounded-xl p-2.5 flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 font-extrabold text-xs flex items-center justify-center shrink-0">${idx + 1}</span>
+                                <input type="text" value="${escapeHtml(cat.name)}" oninput="updateCategoryGroup('${cat.id}', this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:border-amber-500 focus:bg-white outline-none" placeholder="Nhập tên nhóm...">
+                                <button onclick="deleteCategoryGroup('${cat.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Xóa nhóm"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Cột 2: Danh sách Thẻ từ / Thẻ hình ảnh -->
+                    <div class="bg-emerald-50/50 border-2 border-emerald-200 rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-extrabold text-emerald-800"><i class="fa-solid fa-clone mr-1.5"></i>Các Thẻ kéo thả (${cards.length})</h4>
+                            <button onclick="addCategorizeCard()" class="btn-kid bg-emerald-500 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold">
+                                <i class="fa-solid fa-plus mr-1"></i> Thêm Thẻ từ
+                            </button>
+                        </div>
+
+                        ${cards.length === 0 ? `
+                            <p class="text-sm text-gray-500 text-center py-6 italic">Chưa có thẻ kéo thả nào.</p>
+                        ` : cards.map(c => `
+                            <div class="bg-white border border-emerald-200 rounded-xl p-2.5 flex flex-col gap-2">
+                                <div class="flex items-center gap-2">
+                                    ${c.imageData ? `<img src="${c.imageData}" class="w-10 h-10 object-cover rounded-lg border shrink-0">` : ''}
+                                    <input type="text" value="${escapeHtml(c.text)}" oninput="updateCategorizeCard('${c.id}', 'text', this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:border-emerald-500 focus:bg-white outline-none" placeholder="Nhập nội dung thẻ...">
+                                    <label class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer" title="Thêm ảnh cho thẻ">
+                                        <i class="fa-regular fa-image"></i>
+                                        <input type="file" accept="image/png,image/jpeg,image/jpg" class="hidden" onchange="uploadCategorizeCardImage(event, '${c.id}')">
+                                    </label>
+                                    <button onclick="duplicateCategorizeCard('${c.id}')" class="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg" title="Nhân bản"><i class="fa-regular fa-copy"></i></button>
+                                    <button onclick="deleteCategorizeCard('${c.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Xóa thẻ"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-gray-500 shrink-0">Đáp án đúng:</span>
+                                    <select onchange="updateCategorizeCard('${c.id}', 'categoryId', this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 outline-none">
+                                        <option value="">-- Chưa thiết lập đáp án --</option>
+                                        ${cats.map(cat => `<option value="${cat.id}" ${c.categoryId === cat.id ? 'selected' : ''}>${escapeHtml(cat.name || '(Nhóm chưa đặt tên)')}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function addCategoryGroup() {
+            pushUndoSnapshot();
+            gameState.categorize.categories.push({ id: generateId('cat'), name: '' });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateCategoryGroup(id, val) {
+            const cat = gameState.categorize.categories.find(c => c.id === id);
+            if (cat) {
+                cat.name = val;
+                scheduleAutoSave();
+            }
+        }
+
+        function deleteCategoryGroup(id) {
+            pushUndoSnapshot();
+            gameState.categorize.categories = gameState.categorize.categories.filter(c => c.id !== id);
+            gameState.categorize.cards.forEach(c => {
+                if (c.categoryId === id) c.categoryId = '';
+            });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function addCategorizeCard() {
+            pushUndoSnapshot();
+            gameState.categorize.cards.push({ id: generateId('card'), text: '', categoryId: '', imageData: '' });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateCategorizeCard(id, field, val) {
+            const c = gameState.categorize.cards.find(x => x.id === id);
+            if (c) {
+                c[field] = val;
+                scheduleAutoSave();
+            }
+        }
+
+        function duplicateCategorizeCard(id) {
+            const idx = gameState.categorize.cards.findIndex(x => x.id === id);
+            if (idx < 0) return;
+            pushUndoSnapshot();
+            const src = gameState.categorize.cards[idx];
+            gameState.categorize.cards.splice(idx + 1, 0, {
+                id: generateId('card'),
+                text: src.text,
+                categoryId: src.categoryId,
+                imageData: src.imageData || ''
+            });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function deleteCategorizeCard(id) {
+            pushUndoSnapshot();
+            gameState.categorize.cards = gameState.categorize.cards.filter(x => x.id !== id);
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function uploadCategorizeCardImage(event, cardId) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxDim = 320;
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        const r = Math.min(maxDim / w, maxDim / h);
+                        w = Math.round(w * r);
+                        h = Math.round(h * r);
+                    }
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const card = gameState.categorize.cards.find(x => x.id === cardId);
+                    if (card) {
+                        card.imageData = c.toDataURL('image/jpeg', 0.8);
+                        renderEditorWorkspace();
+                        scheduleAutoSave();
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        // ==================== EDITOR 4: SẮP XẾP THỨ TỰ (ORDERING) ====================
+        function renderOrderingEditor(ws) {
+            if (!gameState.ordering) {
+                gameState.ordering = { items: [], direction: 'vertical', labelStart: '', labelEnd: '' };
+            }
+            const ord = gameState.ordering;
+            const items = ord.items || [];
+
+            ws.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-purple-700"><i class="fa-solid fa-list-ol mr-2"></i>Thiết kế: Sắp xếp các thẻ theo thứ tự đúng</h3>
+                        <p class="text-sm text-gray-500">Nhập các thẻ theo <strong>đúng thứ tự chuẩn</strong> (từ vị trí 1 đến hết). Khi chơi, hệ thống sẽ xáo trộn để học sinh kéo thả sắp xếp lại.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadWordTemplate('ordering')" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-file-word mr-1"></i> Tải mẫu Word
+                        </button>
+                        <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition">
+                            <i class="fa-solid fa-upload mr-1"></i> Tải lên Word (.docx)
+                            <input type="file" accept=".docx" class="hidden" onchange="handleWordUpload(event, 'ordering')">
+                        </label>
+                        <button onclick="undoLastAction()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Hoàn tác
+                        </button>
+                        <button onclick="clearAllEditorContent()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-trash mr-1"></i> Xóa hết
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tùy chọn hướng sắp xếp & nhãn đầu/cuối -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5 bg-purple-50/60 p-4 rounded-2xl border border-purple-200">
+                    <div>
+                        <label class="block text-xs font-bold text-purple-800 mb-1">Kiểu sắp xếp khi chơi:</label>
+                        <select onchange="updateOrderingOption('direction', this.value)" class="w-full bg-white border-2 border-purple-200 rounded-xl px-3 py-2 text-sm font-bold text-gray-700 focus:border-purple-500 outline-none">
+                            <option value="vertical" ${ord.direction !== 'horizontal' ? 'selected' : ''}>Hàng dọc (Từ trên xuống dưới)</option>
+                            <option value="horizontal" ${ord.direction === 'horizontal' ? 'selected' : ''}>Hàng ngang (Từ trái sang phải)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-purple-800 mb-1">Nhãn vị trí đầu (không bắt buộc):</label>
+                        <input type="text" value="${escapeHtml(ord.labelStart || '')}" oninput="updateOrderingOption('labelStart', this.value)" class="w-full bg-white border-2 border-purple-200 rounded-xl px-3 py-2 text-sm font-semibold focus:border-purple-500 outline-none" placeholder="Nhập nhãn bắt đầu...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-purple-800 mb-1">Nhãn vị trí cuối (không bắt buộc):</label>
+                        <input type="text" value="${escapeHtml(ord.labelEnd || '')}" oninput="updateOrderingOption('labelEnd', this.value)" class="w-full bg-white border-2 border-purple-200 rounded-xl px-3 py-2 text-sm font-semibold focus:border-purple-500 outline-none" placeholder="Nhập nhãn kết thúc...">
+                    </div>
+                </div>
+
+                <div id="ordering-items-list" class="flex flex-col gap-3 mb-4">
+                    ${items.length === 0 ? `
+                        <div class="text-center py-10 bg-purple-50/50 rounded-2xl border-2 border-dashed border-purple-200 text-gray-500">
+                            <i class="fa-solid fa-arrow-down-1-9 text-4xl text-purple-300 mb-3"></i>
+                            <p class="font-bold">Chưa có thẻ thứ tự nào.</p>
+                            <p class="text-sm">Nhấn nút "Thêm thẻ thứ tự mới" bên dưới và nhập theo đúng thứ tự chuẩn.</p>
+                        </div>
+                    ` : items.map((item, idx) => `
+                        <div class="bg-white border-2 border-purple-100 rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <span class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 font-extrabold flex items-center justify-center shrink-0 text-sm border border-purple-200">#${idx + 1}</span>
+                            ${item.imageData ? `<img src="${item.imageData}" class="w-12 h-12 object-cover rounded-xl border shrink-0">` : ''}
+                            <input type="text" value="${escapeHtml(item.text)}" oninput="updateOrderingItem('${item.id}', this.value)" class="flex-1 bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 focus:border-purple-500 focus:bg-white outline-none font-semibold" placeholder="Nhập nội dung thẻ ở vị trí thứ ${idx + 1}...">
+                            <div class="flex items-center gap-1 shrink-0 justify-end">
+                                <label class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg cursor-pointer" title="Thêm/đổi ảnh cho thẻ">
+                                    <i class="fa-regular fa-image"></i>
+                                    <input type="file" accept="image/png,image/jpeg,image/jpg" class="hidden" onchange="uploadOrderingCardImage(event, '${item.id}')">
+                                </label>
+                                ${item.imageData ? `<button onclick="removeOrderingCardImage('${item.id}')" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Xóa ảnh khỏi thẻ"><i class="fa-solid fa-image-slash"></i></button>` : ''}
+                                <button onclick="moveOrderingItem(${idx}, -1)" class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Đưa lên trên"><i class="fa-solid fa-arrow-up"></i></button>
+                                <button onclick="moveOrderingItem(${idx}, 1)" class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Đưa xuống dưới"><i class="fa-solid fa-arrow-down"></i></button>
+                                <button onclick="duplicateOrderingItem('${item.id}')" class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Nhân bản"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="deleteOrderingItem('${item.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Xóa thẻ"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button onclick="addOrderingItem()" class="btn-kid bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-2xl font-bold self-start">
+                    <i class="fa-solid fa-plus mr-2"></i> Thêm thẻ thứ tự mới
+                </button>
+            `;
+        }
+
+        function updateOrderingOption(field, value) {
+            if (!gameState.ordering) gameState.ordering = { items: [], direction: 'vertical', labelStart: '', labelEnd: '' };
+            gameState.ordering[field] = value;
+            scheduleAutoSave();
+        }
+
+        function addOrderingItem() {
+            pushUndoSnapshot();
+            if (!gameState.ordering) gameState.ordering = { items: [], direction: 'vertical', labelStart: '', labelEnd: '' };
+            gameState.ordering.items.push({ id: generateId('ord'), text: '', imageData: '' });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function updateOrderingItem(id, val) {
+            const item = (gameState.ordering?.items || []).find(x => x.id === id);
+            if (item) {
+                item.text = val;
+                scheduleAutoSave();
+            }
+        }
+
+        function deleteOrderingItem(id) {
+            pushUndoSnapshot();
+            gameState.ordering.items = (gameState.ordering?.items || []).filter(x => x.id !== id);
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function duplicateOrderingItem(id) {
+            const idx = (gameState.ordering?.items || []).findIndex(x => x.id === id);
+            if (idx < 0) return;
+            pushUndoSnapshot();
+            const src = gameState.ordering.items[idx];
+            gameState.ordering.items.splice(idx + 1, 0, {
+                id: generateId('ord'),
+                text: src.text,
+                imageData: src.imageData || ''
+            });
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function moveOrderingItem(idx, delta) {
+            const target = idx + delta;
+            const list = gameState.ordering?.items || [];
+            if (target < 0 || target >= list.length) return;
+            pushUndoSnapshot();
+            [list[idx], list[target]] = [list[target], list[idx]];
+            renderEditorWorkspace();
+            scheduleAutoSave();
+        }
+
+        function uploadOrderingCardImage(event, itemId) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxDim = 320;
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        const r = Math.min(maxDim / w, maxDim / h);
+                        w = Math.round(w * r);
+                        h = Math.round(h * r);
+                    }
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const item = (gameState.ordering?.items || []).find(x => x.id === itemId);
+                    if (item) {
+                        item.imageData = c.toDataURL('image/jpeg', 0.8);
+                        renderEditorWorkspace();
+                        scheduleAutoSave();
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function removeOrderingCardImage(itemId) {
+            const item = (gameState.ordering?.items || []).find(x => x.id === itemId);
+            if (item) {
+                pushUndoSnapshot();
+                item.imageData = '';
+                renderEditorWorkspace();
+                scheduleAutoSave();
+            }
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 7. HỆ THỐNG ÂM THANH & TẠO GIỌNG ĐỌC TIẾNG VIỆT AI (GEMINI TTS + FALLBACK)
+         * -----------------------------------------------------------------------------
+         */
+        function syncSoundSettingsUI() {
+            const s = gameState.settings || createDefaultSettings();
+            if ($('setting-shuffle')) $('setting-shuffle').checked = s.shuffleQuestions !== false;
+            if ($('setting-sound-enabled')) $('setting-sound-enabled').checked = s.soundEnabled !== false;
+            if ($('setting-correct-type')) $('setting-correct-type').value = s.correctSoundType || 'default';
+            if ($('setting-wrong-type')) $('setting-wrong-type').value = s.wrongSoundType || 'default';
+            if ($('setting-correct-ai-text')) $('setting-correct-ai-text').value = s.correctAiText || '';
+            if ($('setting-wrong-ai-text')) $('setting-wrong-ai-text').value = s.wrongAiText || '';
+            if ($('setting-correct-ai-voice')) $('setting-correct-ai-voice').value = s.correctAiVoice || 'south_female_teacher';
+            if ($('setting-wrong-ai-voice')) $('setting-wrong-ai-voice').value = s.wrongAiVoice || 'south_female_sweet';
+
+            $('correct-upload-box')?.classList.toggle('hidden', s.correctSoundType !== 'upload');
+            $('correct-ai-box')?.classList.toggle('hidden', s.correctSoundType !== 'ai');
+            $('wrong-upload-box')?.classList.toggle('hidden', s.wrongSoundType !== 'upload');
+            $('wrong-ai-box')?.classList.toggle('hidden', s.wrongSoundType !== 'ai');
+
+            if ($('correct-upload-status')) {
+                $('correct-upload-status').textContent = s.correctAudioBase64 ? 'Đã lưu tệp âm thanh Đúng' : 'Chưa có tệp âm thanh';
+            }
+            if ($('wrong-upload-status')) {
+                $('wrong-upload-status').textContent = s.wrongAudioBase64 ? 'Đã lưu tệp âm thanh Chưa đúng' : 'Chưa có tệp âm thanh';
+            }
+            if ($('correct-ai-status')) {
+                const sig = `${s.correctAiVoice || 'south_female_teacher'}::${(s.correctAiText || '').trim()}`;
+                if (s.correctSoundType === 'ai' && s.correctAudioBase64) {
+                    $('correct-ai-status').textContent = (s.correctAiGenSig && s.correctAiGenSig !== sig)
+                        ? 'Nội dung hoặc giọng đọc đã thay đổi — bấm "Tạo giọng AI" để tạo lại.'
+                        : 'Đã có giọng đọc AI Tiếng Việt sẵn sàng.';
+                } else {
+                    $('correct-ai-status').textContent = '';
+                }
+            }
+            if ($('wrong-ai-status')) {
+                const sig = `${s.wrongAiVoice || 'south_female_sweet'}::${(s.wrongAiText || '').trim()}`;
+                if (s.wrongSoundType === 'ai' && s.wrongAudioBase64) {
+                    $('wrong-ai-status').textContent = (s.wrongAiGenSig && s.wrongAiGenSig !== sig)
+                        ? 'Nội dung hoặc giọng đọc đã thay đổi — bấm "Tạo giọng AI" để tạo lại.'
+                        : 'Đã có giọng đọc AI Tiếng Việt sẵn sàng.';
+                } else {
+                    $('wrong-ai-status').textContent = '';
+                }
+            }
+            updateHeaderSoundIcon();
+        }
+
+        function onSoundSettingsChange() {
+            const s = gameState.settings;
+            s.shuffleQuestions = $('setting-shuffle')?.checked !== false;
+            s.soundEnabled = $('setting-sound-enabled')?.checked !== false;
+            s.correctSoundType = $('setting-correct-type')?.value || 'default';
+            s.wrongSoundType = $('setting-wrong-type')?.value || 'default';
+            s.correctAiText = $('setting-correct-ai-text')?.value || '';
+            s.wrongAiText = $('setting-wrong-ai-text')?.value || '';
+            s.correctAiVoice = $('setting-correct-ai-voice')?.value || 'south_female_teacher';
+            s.wrongAiVoice = $('setting-wrong-ai-voice')?.value || 'south_female_sweet';
+            syncSoundSettingsUI();
+            scheduleAutoSave();
+        }
+
+        function toggleGlobalSound() {
+            gameState.settings.soundEnabled = !gameState.settings.soundEnabled;
+            syncSoundSettingsUI();
+            scheduleAutoSave();
+            showToast(gameState.settings.soundEnabled ? 'Đã bật âm thanh' : 'Đã tắt âm thanh', 'info');
+        }
+
+        function updateHeaderSoundIcon() {
+            const icon = $('icon-header-sound');
+            if (!icon) return;
+            const on = gameState.settings?.soundEnabled !== false;
+            icon.className = on ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark text-gray-400';
+        }
+
+        function handleAudioUpload(event, kind) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (file.size > 3 * 1024 * 1024) {
+                showToast('Tệp âm thanh nên nhỏ hơn 3MB để lưu nhanh và mượt.', 'warning');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (kind === 'correct') {
+                    gameState.settings.correctAudioBase64 = e.target.result;
+                    gameState.settings.correctAiGenSig = '';
+                } else {
+                    gameState.settings.wrongAudioBase64 = e.target.result;
+                    gameState.settings.wrongAiGenSig = '';
+                }
+                syncSoundSettingsUI();
+                scheduleAutoSave();
+                showToast('Đã tải tệp âm thanh thành công!', 'success');
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function playDefaultTone(kind) {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+                const notes = kind === 'correct' ? [523.25, 659.25, 783.99] : [330, 261.63];
+
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = kind === 'correct' ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.11);
+                    gain.gain.setValueAtTime(0.001, now + i * 0.11);
+                    gain.gain.exponentialRampToValueAtTime(0.16, now + i * 0.11 + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.11 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.11);
+                    osc.stop(now + i * 0.11 + 0.26);
+                });
+            } catch (e) {}
+        }
+
+        function playBase64Audio(dataUrl) {
+            if (!dataUrl) return false;
+            try {
+                if (currentAudioEl) {
+                    currentAudioEl.pause();
+                    currentAudioEl = null;
+                }
+                currentAudioEl = new Audio(dataUrl);
+                const playPromise = currentAudioEl.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(() => {});
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function speakVietnameseFallback(text, voiceId) {
+            if (!text || !('speechSynthesis' in window)) return false;
+            try {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = 'vi-VN';
+                utter.rate = 0.96;
+                utter.pitch = (voiceId && voiceId.includes('kid')) ? 1.2 : (voiceId && voiceId.includes('male') ? 0.9 : 1.05);
+                const voices = window.speechSynthesis.getVoices();
+                const viVoice = voices.find(v => v.lang && v.lang.toLowerCase().includes('vi'));
+                if (viVoice) utter.voice = viVoice;
+                window.speechSynthesis.speak(utter);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function previewFeedbackSound(kind) {
+            const s = gameState.settings || createDefaultSettings();
+            const isCorrect = kind === 'correct';
+            const type = isCorrect ? s.correctSoundType : s.wrongSoundType;
+            const audioData = isCorrect ? s.correctAudioBase64 : s.wrongAudioBase64;
+            const aiText = (isCorrect ? s.correctAiText : s.wrongAiText || '').trim();
+            const aiVoice = isCorrect ? s.correctAiVoice : s.wrongAiVoice;
+            const savedSig = isCorrect ? s.correctAiGenSig : s.wrongAiGenSig;
+            const currentSig = `${aiVoice || ''}::${aiText}`;
+
+            if (type === 'ai') {
+                if (!aiText) {
+                    showToast('Hãy nhập câu Tiếng Việt và bấm "Tạo giọng AI" để nghe thử.', 'warning');
+                    return;
+                }
+                if (!audioData || (savedSig && savedSig !== currentSig)) {
+                    generateAiVoice(kind);
+                    return;
+                }
+            }
+            playFeedbackSound(kind, true);
+        }
+
+        function playFeedbackSound(kind, forcePlay = false) {
+            const s = gameState.settings || createDefaultSettings();
+            if (!forcePlay && s.soundEnabled === false) return;
+
+            const type = kind === 'correct' ? s.correctSoundType : s.wrongSoundType;
+            const audioData = kind === 'correct' ? s.correctAudioBase64 : s.wrongAudioBase64;
+            const aiText = kind === 'correct' ? s.correctAiText : s.wrongAiText;
+            const aiVoice = kind === 'correct' ? s.correctAiVoice : s.wrongAiVoice;
+
+            if (type === 'upload' && audioData) {
+                playBase64Audio(audioData);
+            } else if (type === 'ai') {
+                if (audioData) {
+                    playBase64Audio(audioData);
+                } else if ((aiText || '').trim()) {
+                    speakVietnameseFallback(aiText.trim(), aiVoice);
+                } else {
+                    playDefaultTone(kind);
+                }
+            } else {
+                playDefaultTone(kind);
+            }
+        }
+
+        function pcmToWav(pcmBase64, sampleRate = 24000) {
+            const binary = atob(pcmBase64);
+            const pcmLen = binary.length;
+            const buffer = new ArrayBuffer(44 + pcmLen);
+            const view = new DataView(buffer);
+
+            const writeStr = (offset, str) => {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            };
+
+            writeStr(0, 'RIFF');
+            view.setUint32(4, 36 + pcmLen, true);
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(36, 'data');
+            view.setUint32(40, pcmLen, true);
+
+            const bytes = new Uint8Array(buffer, 44);
+            for (let i = 0; i < pcmLen; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            let wavBinary = '';
+            const fullBytes = new Uint8Array(buffer);
+            const chunkSize = 0x8000;
+            for (let i = 0; i < fullBytes.length; i += chunkSize) {
+                wavBinary += String.fromCharCode.apply(null, fullBytes.subarray(i, i + chunkSize));
+            }
+            return `data:audio/wav;base64,${btoa(wavBinary)}`;
+        }
+
+        function getGeminiTtsEndpoint() {
+            try {
+                if (window.location && window.location.origin && window.location.origin !== 'null' && window.location.origin.startsWith('http')) {
+                    return `${window.location.origin}/api/gemini/tts`;
+                }
+            } catch (e) {}
+            try {
+                if (window.parent && window.parent !== window && window.parent.location && window.parent.location.origin && window.parent.location.origin !== 'null' && window.parent.location.origin.startsWith('http')) {
+                    return `${window.parent.location.origin}/api/gemini/tts`;
+                }
+            } catch (e) {}
+            return '/api/gemini/tts';
+        }
+
+        async function requestGeminiTts(text, geminiVoiceName, stylePrompt) {
+            const endpoint = getGeminiTtsEndpoint();
+            const payload = {
+                text,
+                voiceName: geminiVoiceName || 'Kore',
+                stylePrompt: stylePrompt || ''
+            };
+
+            let lastErr = null;
+            for (let attempt = 0; attempt <= 2; attempt++) {
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    let data = null;
+                    try {
+                        data = await res.json();
+                    } catch (parseErr) {
+                        data = null;
+                    }
+
+                    if (res.ok && data?.success && data?.audioBase64) {
+                        return {
+                            data: data.audioBase64,
+                            mimeType: data.mimeType || 'audio/wav'
+                        };
+                    }
+
+                    const errMsg = data?.message || `Lỗi máy chủ (HTTP ${res.status})`;
+                    const err = new Error(errMsg);
+                    err.status = res.status;
+                    // Only retry transient rate limits or temporary gateway errors
+                    if ((res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < 2) {
+                        lastErr = err;
+                    } else {
+                        throw err;
+                    }
+                } catch (err) {
+                    lastErr = err;
+                    if (err && typeof err.status === 'number' && err.status >= 400 && err.status < 500 && err.status !== 429) {
+                        throw err;
+                    }
+                    if (attempt >= 2) {
+                        throw err;
+                    }
+                }
+                await new Promise(r => setTimeout(r, 700 * Math.pow(2, attempt)));
+            }
+            throw lastErr || new Error('Không thể kết nối dịch vụ tạo giọng đọc AI.');
+        }
+
+        function base64ToAudioDataUrl(base64Data, mimeType) {
+            const cleanMime = String(mimeType || 'audio/wav').trim();
+            const baseMime = cleanMime.split(';')[0].toLowerCase();
+            let hasRiffHeader = false;
+            try {
+                const head = atob(base64Data.slice(0, 16));
+                hasRiffHeader = head.startsWith('RIFF');
+            } catch (e) {}
+
+            if (hasRiffHeader || baseMime.includes('wav') || baseMime.includes('mp3') || baseMime.includes('mpeg') || baseMime.includes('ogg')) {
+                const finalMime = hasRiffHeader && !baseMime.includes('wav') ? 'audio/wav' : baseMime;
+                return `data:${finalMime};base64,${base64Data}`;
+            }
+            const rateMatch = cleanMime.match(/rate=(\d+)/i);
+            const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+            return pcmToWav(base64Data, sampleRate);
+        }
+
+        async function generateAiVoice(kind) {
+            onSoundSettingsChange();
+            const isCorrect = kind === 'correct';
+            const text = (isCorrect ? gameState.settings.correctAiText : gameState.settings.wrongAiText).trim();
+            const voiceId = isCorrect ? gameState.settings.correctAiVoice : gameState.settings.wrongAiVoice;
+            const statusEl = $(isCorrect ? 'correct-ai-status' : 'wrong-ai-status');
+            const btnEl = $(isCorrect ? 'btn-gen-ai-correct' : 'btn-gen-ai-wrong');
+
+            if (!text) {
+                showToast('Hãy nhập câu Tiếng Việt trước khi tạo giọng đọc AI.', 'warning');
+                return;
+            }
+
+            const voiceMeta = AI_VOICE_OPTIONS.find(v => v.id === voiceId) || AI_VOICE_OPTIONS[0];
+            if (btnEl) btnEl.disabled = true;
+            if (statusEl) statusEl.textContent = 'Đang tạo giọng đọc AI Tiếng Việt...';
+
+            try {
+                const inlineData = await requestGeminiTts(text, voiceMeta.geminiVoice, voiceMeta.stylePrompt);
+                if (inlineData && inlineData.data) {
+                    const audioDataUrl = base64ToAudioDataUrl(inlineData.data, inlineData.mimeType);
+                    const genSig = `${voiceMeta.id}::${text}`;
+
+                    if (isCorrect) {
+                        gameState.settings.correctAudioBase64 = audioDataUrl;
+                        gameState.settings.correctAiGenSig = genSig;
+                    } else {
+                        gameState.settings.wrongAudioBase64 = audioDataUrl;
+                        gameState.settings.wrongAiGenSig = genSig;
+                    }
+
+                    if (statusEl) statusEl.textContent = `Đã tạo xong giọng đọc AI Tiếng Việt (${voiceMeta.label}).`;
+                    scheduleAutoSave();
+                    playBase64Audio(audioDataUrl);
+                    showToast('Đã tạo giọng đọc Tiếng Việt AI thành công!', 'success');
+                } else {
+                    throw new Error('Không nhận được dữ liệu âm thanh AI');
+                }
+            } catch (err) {
+                const errMsg = (err && err.message) ? err.message : 'Không thể kết nối dịch vụ tạo giọng đọc AI lúc này.';
+                if (statusEl) {
+                    statusEl.textContent = `Lỗi tạo giọng AI: ${errMsg}`;
+                }
+                showToast(errMsg, 'error');
+            } finally {
+                if (btnEl) btnEl.disabled = false;
+            }
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 8. CHẾ ĐỘ HỌC SINH THAM GIA (4 DẠNG TRÒ CHƠI)
+         * -----------------------------------------------------------------------------
+         */
+        async function preparePlay() {
+            saveFormToState();
+
+            if (gameState.type === 'matching') {
+                const validPairs = (gameState.matchingPairs || []).filter(p => (p.left || '').trim() || (p.right || '').trim());
+                if (validPairs.length === 0) {
+                    showToast('Giáo viên cần tạo ít nhất 1 cặp nối ý trước khi bắt đầu chơi!', 'warning');
+                    return;
+                }
+            } else if (gameState.type === 'imagemap') {
+                if (!gameState.imageMap?.imageData || (gameState.imageMap?.zones || []).length === 0) {
+                    showToast('Giáo viên cần tải ảnh lên và thêm ít nhất 1 vùng thả trước khi bắt đầu chơi!', 'warning');
+                    return;
+                }
+            } else if (gameState.type === 'categorize') {
+                if ((gameState.categorize?.categories || []).length === 0 || (gameState.categorize?.cards || []).length === 0) {
+                    showToast('Giáo viên cần tạo ít nhất 1 nhóm và 1 thẻ từ trước khi bắt đầu chơi!', 'warning');
+                    return;
+                }
+            } else if (gameState.type === 'ordering') {
+                const validItems = (gameState.ordering?.items || []).filter(i => (i.text || '').trim() || i.imageData);
+                if (validItems.length < 2) {
+                    showToast('Giáo viên cần tạo ít nhất 2 thẻ để học sinh sắp xếp thứ tự!', 'warning');
+                    return;
+                }
+            }
+
+            await persistCurrentGame(false);
+            renderPlayHeader();
+            switchScreen('screen-play');
+            resetPlay(gameState.settings?.shuffleQuestions !== false);
+        }
+
+        function backToEditor() {
+            stopPlayTimer();
+            switchScreen('screen-editor');
+            renderEditorWorkspace();
+        }
+
+        function renderPlayHeader() {
+            $('play-title').textContent = gameState.title || 'THỬ TÀI KÉO THẢ – NỐI Ý';
+            $('play-subject').textContent = gameState.subject || '';
+
+            const instEl = $('play-instructions');
+            if ((gameState.instructions || '').trim()) {
+                instEl.textContent = gameState.instructions;
+                instEl.classList.remove('hidden');
+            } else {
+                instEl.classList.add('hidden');
+            }
+
+            const badges = [];
+            const edu = EDUCATION_DATA[gameState.eduLevel];
+            if (edu) badges.push(`<span class="${edu.badgeClass} border text-xs font-extrabold px-2.5 py-0.5 rounded-lg">${escapeHtml(edu.label)}</span>`);
+            if (gameState.grade) badges.push(`<span class="bg-gray-100 text-gray-700 text-xs font-extrabold px-2.5 py-0.5 rounded-lg">${escapeHtml(gameState.grade)}</span>`);
+            if (gameState.courseSubject) badges.push(`<span class="bg-indigo-50 text-indigo-700 text-xs font-extrabold px-2.5 py-0.5 rounded-lg">${escapeHtml(gameState.courseSubject)}</span>`);
+            $('play-meta-badges').innerHTML = badges.join('');
+
+            updateHeaderSoundIcon();
+        }
+
+        function startPlayTimer() {
+            stopPlayTimer();
+            const mins = parseInt(gameState.timeLimit, 10);
+            const timerBox = $('play-timer-box');
+            if (!mins || mins <= 0) {
+                timerBox.classList.add('hidden');
+                return;
+            }
+            remainingSeconds = mins * 60;
+            timerBox.classList.remove('hidden');
+            updateTimerDisplay();
+            playTimerInterval = setInterval(() => {
+                remainingSeconds--;
+                updateTimerDisplay();
+                if (remainingSeconds <= 0) {
+                    stopPlayTimer();
+                    showToast('Đã hết thời gian! Hệ thống sẽ kiểm tra kết quả ngay.', 'warning');
+                    checkPlayResults();
+                }
+            }, 1000);
+        }
+
+        function stopPlayTimer() {
+            if (playTimerInterval) {
+                clearInterval(playTimerInterval);
+                playTimerInterval = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(Math.max(0, remainingSeconds) / 60);
+            const s = Math.max(0, remainingSeconds) % 60;
+            $('play-timer-display').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function resetPlay(shouldShuffle = true) {
+            const ws = $('play-workspace');
+            const banner = $('play-result-banner');
+            if (banner) banner.classList.add('hidden');
+            if (!ws) return;
+
+            startPlayTimer();
+
+            if (gameState.type === 'matching') {
+                initPlayMatching(ws, shouldShuffle);
+            } else if (gameState.type === 'imagemap') {
+                initPlayImageMap(ws, shouldShuffle);
+            } else if (gameState.type === 'categorize') {
+                initPlayCategorize(ws, shouldShuffle);
+            } else if (gameState.type === 'ordering') {
+                initPlayOrdering(ws, shouldShuffle);
+            }
+        }
+
+        // ==================== PLAY 1: KÉO THẢ NỐI Ý (MATCHING) ====================
+        function initPlayMatching(ws, shouldShuffle) {
+            const validPairs = (gameState.matchingPairs || []).filter(p => (p.left || '').trim() || (p.right || '').trim());
+            const leftItems = validPairs.filter(p => (p.left || '').trim()).map(p => ({ id: p.id, text: p.left }));
+            const rightItems = validPairs.filter(p => (p.right || '').trim()).map(p => ({ id: p.id, text: p.right }));
+
+            playState.matching = {
+                leftOrder: shouldShuffle ? shuffleArray(leftItems) : leftItems,
+                rightOrder: shouldShuffle ? shuffleArray(rightItems) : rightItems,
+                connections: {},
+                selectedLeftId: null
+            };
+            renderPlayMatching(ws);
+        }
+
+        function renderPlayMatching(ws) {
+            const { leftOrder, rightOrder, connections, selectedLeftId } = playState.matching;
+
+            ws.innerHTML = `
+                <p class="text-center text-xs md:text-sm font-bold text-gray-500 mb-4">
+                    <i class="fa-solid fa-hand-pointer text-blue-500 mr-1"></i>
+                    Kéo thả một ô bên trái sang ô tương ứng bên phải (hoặc chạm chọn ô bên trái rồi chạm ô bên phải). Nhấn vào ô đã nối để đổi lựa chọn.
+                </p>
+                <div id="matching-stage" class="relative grid grid-cols-2 gap-8 md:gap-20 items-start py-2">
+                    <svg id="matching-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+
+                    <!-- Cột Trái -->
+                    <div class="flex flex-col gap-3.5 z-20">
+                        ${leftOrder.map(item => {
+                            const isSelected = selectedLeftId === item.id;
+                            const isConnected = !!connections[item.id];
+                            return `
+                                <div data-left-id="${item.id}" onclick="onSelectMatchingLeft('${item.id}')" class="matching-left-card draggable-item bg-blue-50 hover:bg-blue-100 border-2 ${isSelected ? 'border-indigo-600 ring-4 ring-indigo-200' : (isConnected ? 'border-blue-500' : 'border-blue-200')} rounded-2xl p-3.5 md:p-4 font-bold text-gray-800 text-sm md:text-base shadow-sm flex items-center justify-between gap-2">
+                                    <span class="break-words">${escapeHtml(item.text)}</span>
+                                    <span class="w-3.5 h-3.5 rounded-full ${isConnected ? 'bg-blue-600' : 'bg-blue-300'} shrink-0"></span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <!-- Cột Phải -->
+                    <div class="flex flex-col gap-3.5 z-20">
+                        ${rightOrder.map(item => {
+                            const connectedBy = Object.keys(connections).find(k => connections[k] === item.id);
+                            return `
+                                <div data-right-id="${item.id}" onclick="onSelectMatchingRight('${item.id}')" class="matching-right-card bg-emerald-50 hover:bg-emerald-100 border-2 ${connectedBy ? 'border-emerald-500' : 'border-emerald-200'} rounded-2xl p-3.5 md:p-4 font-bold text-gray-800 text-sm md:text-base shadow-sm cursor-pointer flex items-center gap-2 transition">
+                                    <span class="w-3.5 h-3.5 rounded-full ${connectedBy ? 'bg-emerald-600' : 'bg-emerald-300'} shrink-0"></span>
+                                    <span class="break-words">${escapeHtml(item.text)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+
+            attachPointerDragAndDrop({
+                itemSelector: '.matching-left-card',
+                targetSelector: '.matching-right-card',
+                onDrop: (itemEl, targetEl) => {
+                    if (!targetEl) return;
+                    const leftId = itemEl.dataset.leftId;
+                    const rightId = targetEl.dataset.rightId;
+                    connectMatchingPair(leftId, rightId);
+                }
+            });
+
+            requestAnimationFrame(drawMatchingLines);
+        }
+
+        function onSelectMatchingLeft(leftId) {
+            playState.matching.selectedLeftId = playState.matching.selectedLeftId === leftId ? null : leftId;
+            renderPlayMatching($('play-workspace'));
+        }
+
+        function onSelectMatchingRight(rightId) {
+            const leftId = playState.matching.selectedLeftId;
+            if (!leftId) {
+                // Nếu bấm vào ô phải đang nối mà chưa chọn ô trái -> gỡ dây nối
+                const existingLeft = Object.keys(playState.matching.connections).find(k => playState.matching.connections[k] === rightId);
+                if (existingLeft) {
+                    delete playState.matching.connections[existingLeft];
+                    renderPlayMatching($('play-workspace'));
+                }
+                return;
+            }
+            connectMatchingPair(leftId, rightId);
+        }
+
+        function connectMatchingPair(leftId, rightId) {
+            // Đảm bảo mỗi ô phải chỉ nối với 1 ô trái
+            Object.keys(playState.matching.connections).forEach(k => {
+                if (playState.matching.connections[k] === rightId) {
+                    delete playState.matching.connections[k];
+                }
+            });
+            playState.matching.connections[leftId] = rightId;
+            playState.matching.selectedLeftId = null;
+            renderPlayMatching($('play-workspace'));
+        }
+
+        function drawMatchingLines(resultMap = null) {
+            const stage = $('matching-stage');
+            const svg = $('matching-svg');
+            if (!stage || !svg) return;
+
+            const stageRect = stage.getBoundingClientRect();
+            svg.setAttribute('viewBox', `0 0 ${stageRect.width} ${stageRect.height}`);
+            svg.innerHTML = '';
+
+            const connections = playState.matching.connections || {};
+            Object.entries(connections).forEach(([leftId, rightId]) => {
+                const leftEl = stage.querySelector(`[data-left-id="${leftId}"]`);
+                const rightEl = stage.querySelector(`[data-right-id="${rightId}"]`);
+                if (!leftEl || !rightEl) return;
+
+                const lRect = leftEl.getBoundingClientRect();
+                const rRect = rightEl.getBoundingClientRect();
+                const x1 = lRect.right - stageRect.left;
+                const y1 = lRect.top + lRect.height / 2 - stageRect.top;
+                const x2 = rRect.left - stageRect.left;
+                const y2 = rRect.top + rRect.height / 2 - stageRect.top;
+                const midX = (x1 + x2) / 2;
+
+                let stroke = '#3B82F6';
+                if (resultMap && resultMap[leftId] === true) stroke = '#10B981';
+                else if (resultMap && resultMap[leftId] === false) stroke = '#EF4444';
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+                path.setAttribute('stroke', stroke);
+                path.setAttribute('stroke-width', '4');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(path);
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            if (currentScreen === 'screen-play' && gameState.type === 'matching') {
+                drawMatchingLines();
+            }
+        });
+
+        // ==================== PLAY 2: THẢ VÀO HÌNH (IMAGEMAP) ====================
+        function initPlayImageMap(ws, shouldShuffle) {
+            const zones = gameState.imageMap?.zones || [];
+            const cards = [];
+            zones.forEach(z => {
+                if ((z.answer || '').trim()) {
+                    cards.push({ id: generateId('imcard'), text: z.answer.trim() });
+                }
+            });
+            (gameState.imageMap?.extraCards || []).forEach(ec => {
+                if ((ec.text || '').trim()) {
+                    cards.push({ id: generateId('imcard'), text: ec.text.trim() });
+                }
+            });
+
+            playState.imagemap = {
+                placements: {},
+                cards: shouldShuffle ? shuffleArray(cards) : cards
+            };
+            renderPlayImageMap(ws);
+        }
+
+        function renderPlayImageMap(ws) {
+            const { placements, cards } = playState.imagemap;
+            const zones = gameState.imageMap?.zones || [];
+            const scale = Number(gameState.imageMap?.imageScale) || 100;
+            const placedCardIds = new Set(Object.values(placements));
+            const availableCards = cards.filter(c => !placedCardIds.has(c.id));
+
+            ws.innerHTML = `
+                <div class="flex flex-col gap-5">
+                    <!-- Khay thẻ đáp án -->
+                    <div id="imagemap-card-bank" data-zone-id="__bank__" class="bg-blue-50/80 border-2 border-blue-200 rounded-2xl p-4 min-h-[76px] flex flex-wrap gap-2.5 justify-center items-center">
+                        ${availableCards.length === 0
+                            ? `<span class="text-sm text-gray-400 font-semibold italic">Tất cả thẻ đã được đặt lên hình ảnh.</span>`
+                            : availableCards.map(c => `
+                                <div data-card-id="${c.id}" class="draggable-item bg-white border-2 border-blue-400 text-gray-800 px-4 py-2 rounded-xl font-extrabold text-sm md:text-base shadow-sm hover:bg-blue-50">
+                                    ${escapeHtml(c.text)}
+                                </div>
+                            `).join('')}
+                    </div>
+
+                    <!-- Khung hình ảnh và vùng thả tỷ lệ % -->
+                    <div class="w-full flex justify-center bg-gray-50 rounded-2xl p-3 border border-gray-200">
+                        <div class="relative inline-block" style="width: ${scale}%; max-width: 100%;">
+                            <img src="${gameState.imageMap.imageData}" alt="Hình ảnh trò chơi" class="w-full h-auto block rounded-xl shadow-md pointer-events-none select-none">
+                            <div class="absolute inset-0">
+                                ${zones.map((z, idx) => {
+                                    const placedId = placements[z.id];
+                                    const card = placedId ? cards.find(c => c.id === placedId) : null;
+                                    return `
+                                        <div data-zone-id="${z.id}" class="play-imagemap-zone absolute rounded-xl border-3 ${card ? 'border-blue-500 bg-white/95' : 'border-dashed border-blue-500 bg-white/65'} flex items-center justify-center p-1 shadow-sm transition" style="left:${z.x}%; top:${z.y}%; width:${z.w}%; height:${z.h}%;">
+                                            ${card ? `
+                                                <div data-card-id="${card.id}" data-from-zone="${z.id}" class="draggable-item w-full h-full flex items-center justify-center text-center font-extrabold text-blue-800 text-xs sm:text-sm leading-tight px-1">
+                                                    ${escapeHtml(card.text)}
+                                                </div>
+                                            ` : `<span class="text-xs font-extrabold text-blue-600/80 select-none">${idx + 1}</span>`}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            attachPointerDragAndDrop({
+                itemSelector: '.draggable-item',
+                targetSelector: '.play-imagemap-zone, #imagemap-card-bank',
+                onDrop: (itemEl, targetEl) => {
+                    const cardId = itemEl.dataset.cardId;
+                    const fromZone = itemEl.dataset.fromZone || '';
+                    const targetZone = targetEl?.dataset?.zoneId || '__bank__';
+
+                    if (targetZone === '__bank__') {
+                        if (fromZone) delete playState.imagemap.placements[fromZone];
+                    } else {
+                        const prevInTarget = playState.imagemap.placements[targetZone];
+                        if (fromZone) {
+                            if (prevInTarget) playState.imagemap.placements[fromZone] = prevInTarget;
+                            else delete playState.imagemap.placements[fromZone];
+                        }
+                        playState.imagemap.placements[targetZone] = cardId;
+                    }
+                    renderPlayImageMap(ws);
+                }
+            });
+        }
+
+        // ==================== PLAY 3: PHÂN LOẠI (CATEGORIZE) ====================
+        function initPlayCategorize(ws, shouldShuffle) {
+            const cards = (gameState.categorize?.cards || []).filter(c => (c.text || '').trim() || c.imageData);
+            playState.categorize = {
+                placements: {},
+                cardsOrder: shouldShuffle ? shuffleArray(cards) : cards
+            };
+            renderPlayCategorize(ws);
+        }
+
+        function renderPlayCategorize(ws) {
+            const cats = gameState.categorize?.categories || [];
+            const { placements, cardsOrder } = playState.categorize;
+            const bankCards = cardsOrder.filter(c => !placements[c.id]);
+
+            const renderCatCard = (c) => `
+                <div data-card-id="${c.id}" class="draggable-item bg-white border-2 border-amber-400 text-gray-800 px-3.5 py-2 rounded-xl font-bold shadow-sm text-sm md:text-base flex items-center gap-2 hover:bg-amber-50">
+                    ${c.imageData ? `<img src="${c.imageData}" class="w-10 h-10 object-cover rounded-lg pointer-events-none shrink-0">` : ''}
+                    <span class="break-words">${escapeHtml(c.text)}</span>
+                </div>
+            `;
+
+            ws.innerHTML = `
+                <div class="flex flex-col gap-6">
+                    <!-- Khay thẻ chưa phân loại -->
+                    <div id="cat-card-bank" data-cat-id="__bank__" class="bg-amber-50/80 border-2 border-amber-200 rounded-2xl p-4 min-h-[82px] flex flex-wrap gap-3 justify-center items-center">
+                        ${bankCards.length === 0
+                            ? `<span class="text-sm text-gray-400 font-semibold italic">Tất cả thẻ đã được phân loại vào các nhóm.</span>`
+                            : bankCards.map(renderCatCard).join('')}
+                    </div>
+
+                    <!-- Các khu vực nhóm -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${Math.min(Math.max(cats.length, 1), 3)} gap-4">
+                        ${cats.map(cat => {
+                            const inCat = cardsOrder.filter(c => placements[c.id] === cat.id);
+                            return `
+                                <div data-cat-id="${cat.id}" class="cat-drop-zone bg-blue-50/60 border-3 border-dashed border-blue-300 rounded-3xl p-4 min-h-[190px] flex flex-col gap-3 transition">
+                                    <h4 class="text-center font-black text-blue-800 text-base md:text-lg bg-white py-2 px-3 rounded-2xl shadow-xs border border-blue-100">
+                                        ${escapeHtml(cat.name || '(Nhóm)')}
+                                    </h4>
+                                    <div class="flex flex-wrap gap-2.5 justify-center items-start flex-1">
+                                        ${inCat.length === 0
+                                            ? `<span class="text-xs text-gray-400 font-semibold self-center select-none">Kéo thả thẻ vào đây</span>`
+                                            : inCat.map(renderCatCard).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+
+            attachPointerDragAndDrop({
+                itemSelector: '.draggable-item',
+                targetSelector: '.cat-drop-zone, #cat-card-bank',
+                onDrop: (itemEl, targetEl) => {
+                    const cardId = itemEl.dataset.cardId;
+                    const targetCat = targetEl?.dataset?.catId || '__bank__';
+                    if (targetCat === '__bank__') delete playState.categorize.placements[cardId];
+                    else playState.categorize.placements[cardId] = targetCat;
+                    renderPlayCategorize(ws);
+                }
+            });
+        }
+
+        // ==================== PLAY 4: SẮP XẾP THỨ TỰ (ORDERING) ====================
+        function initPlayOrdering(ws, shouldShuffle) {
+            const validItems = (gameState.ordering?.items || []).filter(i => (i.text || '').trim() || i.imageData);
+            let bank = [...validItems];
+            if (shouldShuffle && bank.length > 1) {
+                bank = shuffleArray(bank);
+                const sameOrder = bank.every((it, idx) => it.id === validItems[idx].id);
+                if (sameOrder) {
+                    [bank[0], bank[bank.length - 1]] = [bank[bank.length - 1], bank[0]];
+                }
+            }
+
+            playState.ordering = {
+                correctItems: validItems,
+                slots: new Array(validItems.length).fill(null),
+                bankCards: bank
+            };
+            renderPlayOrdering(ws);
+        }
+
+        function renderPlayOrdering(ws) {
+            const { correctItems, slots, bankCards } = playState.ordering;
+            const placedIds = new Set(slots.filter(Boolean));
+            const availableCards = bankCards.filter(c => !placedIds.has(c.id));
+            const isHorizontal = gameState.ordering?.direction === 'horizontal';
+            const labelStart = (gameState.ordering?.labelStart || '').trim();
+            const labelEnd = (gameState.ordering?.labelEnd || '').trim();
+
+            const renderOrderCard = (c, fromSlot = -1) => `
+                <div data-card-id="${c.id}" data-from-slot="${fromSlot}" class="draggable-item bg-white border-2 border-purple-400 text-gray-800 px-4 py-2.5 rounded-xl font-bold shadow-sm text-sm md:text-base flex items-center gap-2.5 hover:bg-purple-50">
+                    ${c.imageData ? `<img src="${c.imageData}" class="w-11 h-11 object-cover rounded-lg pointer-events-none shrink-0">` : ''}
+                    <span class="break-words">${escapeHtml(c.text)}</span>
+                </div>
+            `;
+
+            ws.innerHTML = `
+                <div class="flex flex-col gap-6">
+                    <!-- Khay thẻ chưa sắp xếp -->
+                    <div id="ordering-card-bank" data-slot-index="-1" class="bg-purple-50/80 border-2 border-purple-200 rounded-2xl p-4 min-h-[84px] flex flex-wrap gap-3 justify-center items-center">
+                        ${availableCards.length === 0
+                            ? `<span class="text-sm text-gray-400 font-semibold italic">Tất cả thẻ đã được đặt vào vị trí thứ tự.</span>`
+                            : availableCards.map(c => renderOrderCard(c, -1)).join('')}
+                    </div>
+
+                    <!-- Khu vực các ô vị trí theo thứ tự -->
+                    <div class="bg-white/90 rounded-3xl p-4 md:p-6 border-2 border-purple-100 shadow-sm">
+                        ${labelStart ? `<div class="text-center mb-3"><span class="inline-block bg-purple-100 text-purple-800 font-extrabold text-xs md:text-sm px-4 py-1 rounded-full">${escapeHtml(labelStart)}</span></div>` : ''}
+
+                        <div class="${isHorizontal ? 'flex flex-wrap justify-center items-stretch gap-3' : 'flex flex-col gap-3 max-w-2xl mx-auto'}">
+                            ${slots.map((cardId, idx) => {
+                                const card = cardId ? correctItems.find(c => c.id === cardId) : null;
+                                return `
+                                    <div class="flex ${isHorizontal ? 'flex-col items-center min-w-[150px] flex-1 max-w-[220px]' : 'items-center'} gap-2">
+                                        <div class="w-9 h-9 rounded-full bg-purple-500 text-white font-extrabold flex items-center justify-center shrink-0 shadow-sm text-sm">
+                                            ${idx + 1}
+                                        </div>
+                                        <div data-slot-index="${idx}" class="order-slot-box flex-1 w-full min-h-[64px] rounded-2xl border-3 border-dashed ${card ? 'border-purple-400 bg-purple-50/40 p-1.5' : 'border-purple-200 bg-gray-50/70 p-2'} flex items-center justify-center transition">
+                                            ${card
+                                                ? renderOrderCard(card, idx)
+                                                : `<span class="text-xs md:text-sm text-gray-400 font-semibold select-none">Thả thẻ vị trí ${idx + 1}</span>`}
+                                        </div>
+                                        ${isHorizontal && idx < slots.length - 1 ? `<i class="fa-solid fa-arrow-right text-purple-300 hidden md:inline mt-1"></i>` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        ${labelEnd ? `<div class="text-center mt-3"><span class="inline-block bg-emerald-100 text-emerald-800 font-extrabold text-xs md:text-sm px-4 py-1 rounded-full">${escapeHtml(labelEnd)}</span></div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            attachPointerDragAndDrop({
+                itemSelector: '.draggable-item',
+                targetSelector: '.order-slot-box, #ordering-card-bank',
+                onDrop: (itemEl, targetEl) => {
+                    const cardId = itemEl.dataset.cardId;
+                    const fromSlot = parseInt(itemEl.dataset.fromSlot, 10);
+                    const targetSlot = targetEl && targetEl.dataset.slotIndex !== undefined
+                        ? parseInt(targetEl.dataset.slotIndex, 10)
+                        : -1;
+
+                    if (targetSlot >= 0) {
+                        const existingInTarget = playState.ordering.slots[targetSlot];
+                        if (fromSlot >= 0) {
+                            playState.ordering.slots[fromSlot] = existingInTarget || null;
+                        }
+                        playState.ordering.slots[targetSlot] = cardId;
+                    } else if (fromSlot >= 0) {
+                        playState.ordering.slots[fromSlot] = null;
+                    }
+                    renderPlayOrdering(ws);
+                }
+            });
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 9. BỘ KÉO THẢ THỐNG NHẤT (CHUỘT + CẢM ỨNG POINTER EVENTS)
+         * -----------------------------------------------------------------------------
+         */
+        function attachPointerDragAndDrop({ itemSelector, targetSelector, onDrop }) {
+            const items = document.querySelectorAll(itemSelector);
+            items.forEach(item => {
+                item.addEventListener('pointerdown', (e) => {
+                    if (e.button !== undefined && e.button !== 0) return;
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    let dragging = false;
+                    let ghost = null;
+                    let activeTarget = null;
+                    const rect = item.getBoundingClientRect();
+                    const offsetX = startX - rect.left;
+                    const offsetY = startY - rect.top;
+
+                    const onMove = (moveEv) => {
+                        const dist = Math.hypot(moveEv.clientX - startX, moveEv.clientY - startY);
+                        if (!dragging && dist > 6) {
+                            dragging = true;
+                            ghost = item.cloneNode(true);
+                            ghost.classList.add('dragging-ghost');
+                            ghost.style.width = `${rect.width}px`;
+                            document.body.appendChild(ghost);
+                            item.style.opacity = '0.35';
+                        }
+                        if (!dragging || !ghost) return;
+
+                        ghost.style.left = `${moveEv.clientX - offsetX}px`;
+                        ghost.style.top = `${moveEv.clientY - offsetY}px`;
+
+                        const targets = Array.from(document.querySelectorAll(targetSelector));
+                        let hovered = null;
+                        for (const t of targets) {
+                            const r = t.getBoundingClientRect();
+                            if (moveEv.clientX >= r.left && moveEv.clientX <= r.right && moveEv.clientY >= r.top && moveEv.clientY <= r.bottom) {
+                                hovered = t;
+                                break;
+                            }
+                        }
+
+                        if (activeTarget && activeTarget !== hovered) {
+                            activeTarget.classList.remove('drop-target-hover');
+                        }
+                        activeTarget = hovered;
+                        if (activeTarget) activeTarget.classList.add('drop-target-hover');
+                    };
+
+                    const onUp = () => {
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        window.removeEventListener('pointercancel', onUp);
+
+                        if (ghost) ghost.remove();
+                        item.style.opacity = '';
+                        if (activeTarget) activeTarget.classList.remove('drop-target-hover');
+
+                        if (dragging && typeof onDrop === 'function') {
+                            onDrop(item, activeTarget);
+                        }
+                    };
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                    window.addEventListener('pointercancel', onUp);
+                });
+            });
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 10. KIỂM TRA KẾT QUẢ & PHẢN HỒI HỌC SINH
+         * -----------------------------------------------------------------------------
+         */
+        function checkPlayResults() {
+            let correctCount = 0;
+            let totalGradable = 0;
+
+            if (gameState.type === 'matching') {
+                const gradablePairs = (gameState.matchingPairs || []).filter(p => (p.left || '').trim() && (p.right || '').trim());
+                totalGradable = gradablePairs.length;
+                if (totalGradable === 0) {
+                    showToast('Giáo viên chưa thiết lập đáp án chuẩn cho các cặp nối ý.', 'info');
+                    return;
+                }
+                const resultMap = {};
+                gradablePairs.forEach(p => {
+                    const chosenRightId = playState.matching.connections[p.id];
+                    const isCorrect = chosenRightId === p.id;
+                    resultMap[p.id] = isCorrect;
+                    if (isCorrect) correctCount++;
+
+                    const leftEl = document.querySelector(`[data-left-id="${p.id}"]`);
+                    if (leftEl) {
+                        leftEl.classList.remove('correct-anim', 'wrong-anim', 'border-emerald-500', 'border-red-500', 'bg-emerald-50', 'bg-red-50');
+                        leftEl.classList.add(isCorrect ? 'correct-anim' : 'wrong-anim', isCorrect ? 'border-emerald-500' : 'border-red-500', isCorrect ? 'bg-emerald-50' : 'bg-red-50');
+                    }
+                });
+                drawMatchingLines(resultMap);
+            } else if (gameState.type === 'imagemap') {
+                const gradableZones = (gameState.imageMap?.zones || []).filter(z => (z.answer || '').trim());
+                totalGradable = gradableZones.length;
+                if (totalGradable === 0) {
+                    showToast('Giáo viên chưa thiết lập đáp án chuẩn cho các vùng thả trên ảnh.', 'info');
+                    return;
+                }
+                gradableZones.forEach(z => {
+                    const placedCardId = playState.imagemap.placements[z.id];
+                    const card = placedCardId ? playState.imagemap.cards.find(c => c.id === placedCardId) : null;
+                    const isCorrect = !!card && card.text.trim().toLowerCase() === z.answer.trim().toLowerCase();
+                    if (isCorrect) correctCount++;
+
+                    const zoneEl = document.querySelector(`.play-imagemap-zone[data-zone-id="${z.id}"]`);
+                    if (zoneEl) {
+                        zoneEl.classList.remove('correct-anim', 'wrong-anim', 'border-emerald-500', 'border-red-500', 'bg-emerald-50', 'bg-red-50');
+                        zoneEl.classList.add(isCorrect ? 'correct-anim' : 'wrong-anim', isCorrect ? 'border-emerald-500' : 'border-red-500', isCorrect ? 'bg-emerald-50' : 'bg-red-50');
+                    }
+                });
+            } else if (gameState.type === 'categorize') {
+                const gradableCards = (playState.categorize.cardsOrder || []).filter(c => c.categoryId);
+                totalGradable = gradableCards.length;
+                if (totalGradable === 0) {
+                    showToast('Giáo viên chưa thiết lập nhóm đáp án đúng cho các thẻ.', 'info');
+                    return;
+                }
+                gradableCards.forEach(c => {
+                    const placedCatId = playState.categorize.placements[c.id];
+                    const isCorrect = placedCatId === c.categoryId;
+                    if (isCorrect) correctCount++;
+
+                    const cardEl = document.querySelector(`.draggable-item[data-card-id="${c.id}"]`);
+                    if (cardEl) {
+                        cardEl.classList.remove('correct-anim', 'wrong-anim', 'border-emerald-500', 'border-red-500', 'bg-emerald-50', 'bg-red-50');
+                        cardEl.classList.add(isCorrect ? 'correct-anim' : 'wrong-anim', isCorrect ? 'border-emerald-500' : 'border-red-500', isCorrect ? 'bg-emerald-50' : 'bg-red-50');
+                    }
+                });
+            } else if (gameState.type === 'ordering') {
+                const correctItems = playState.ordering.correctItems || [];
+                totalGradable = correctItems.length;
+                if (totalGradable === 0) {
+                    showToast('Trò chơi chưa có thẻ thứ tự để chấm điểm.', 'info');
+                    return;
+                }
+                correctItems.forEach((expectedItem, idx) => {
+                    const chosenId = playState.ordering.slots[idx];
+                    const isCorrect = chosenId === expectedItem.id;
+                    if (isCorrect) correctCount++;
+
+                    const slotEl = document.querySelector(`.order-slot-box[data-slot-index="${idx}"]`);
+                    if (slotEl) {
+                        slotEl.classList.remove('correct-anim', 'wrong-anim', 'border-emerald-500', 'border-red-500', 'bg-emerald-50', 'bg-red-50');
+                        slotEl.classList.add(isCorrect ? 'correct-anim' : 'wrong-anim', isCorrect ? 'border-emerald-500' : 'border-red-500', isCorrect ? 'bg-emerald-50' : 'bg-red-50');
+                    }
+                });
+            }
+
+            showResultBanner(correctCount, totalGradable);
+        }
+
+        function showResultBanner(correct, total) {
+            const banner = $('play-result-banner');
+            const icon = $('play-result-icon');
+            const title = $('play-result-title');
+            const detail = $('play-result-detail');
+            const score = $('play-result-score');
+            const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+            banner.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-300', 'text-emerald-900', 'bg-amber-50', 'border-amber-300', 'text-amber-900');
+
+            if (correct === total && total > 0) {
+                stopPlayTimer();
+                banner.classList.add('bg-emerald-50', 'border-emerald-300', 'text-emerald-900');
+                icon.className = 'w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-2xl shrink-0';
+                icon.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+                title.textContent = 'Xuất sắc! Con đã hoàn thành chính xác tất cả!';
+                detail.textContent = `Đúng ${correct} / ${total} câu (${percent}%). Tuyệt vời lắm!`;
+                score.className = 'text-2xl md:text-3xl font-black px-4 py-1.5 rounded-2xl bg-white text-emerald-600 shadow-sm';
+                score.textContent = `${correct}/${total}`;
+                playFeedbackSound('correct');
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+                }
+            } else {
+                banner.classList.add('bg-amber-50', 'border-amber-300', 'text-amber-900');
+                icon.className = 'w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shrink-0';
+                icon.innerHTML = '<i class="fa-solid fa-star-half-stroke"></i>';
+                title.textContent = percent >= 50 ? 'Làm tốt lắm! Cố gắng thêm một chút nữa nhé!' : 'Cố lên nào! Con hãy kiểm tra lại những ô màu đỏ nhé!';
+                detail.textContent = `Đúng ${correct} / ${total} câu (${percent}%). Con có thể kéo thả sửa lại và bấm "Kiểm tra kết quả" lần nữa.`;
+                score.className = 'text-2xl md:text-3xl font-black px-4 py-1.5 rounded-2xl bg-white text-amber-600 shadow-sm';
+                score.textContent = `${correct}/${total}`;
+                playFeedbackSound(percent >= 50 ? 'correct' : 'wrong');
+            }
+        }
+
+        /**
+         * -----------------------------------------------------------------------------
+         * 11. TỰ ĐỘNG LƯU KHI ĐÓNG/CHUYỂN TAB & KHỞI TẠO ỨNG DỤNG
+         * -----------------------------------------------------------------------------
+         */
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && currentScreen === 'screen-editor' && hasPendingChanges) {
+                persistCurrentGame(false);
+            }
+        });
+
+        window.addEventListener('pagehide', () => {
+            if (currentScreen === 'screen-editor' && hasPendingChanges) {
+                persistCurrentGame(false);
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            populateEducationSelectors();
+            populateAiVoiceDropdowns();
+            renderSavedGames();
+        });
+    </script>
+</body>
+</html>

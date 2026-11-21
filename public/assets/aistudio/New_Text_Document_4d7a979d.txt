@@ -1,0 +1,206 @@
+import 'dotenv/config';
+import express from 'express';
+import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { GoogleGenAI } from '@google/genai';
+import { createServer as createViteServer } from 'vite';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PORT = 3000;
+
+interface ServerVoiceConfig {
+  prebuiltVoice: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir';
+  personaStyle: string;
+}
+
+const SOUTHERN_VOICE_MAP: Record<string, ServerVoiceConfig> = {
+  nu_co_giao: {
+    prebuiltVoice: 'Kore',
+    personaStyle:
+      'Authentic Ho Chi Minh City / Southern Vietnamese female teacher (giọng nữ miền Nam Sài Gòn), warm, gentle, articulate, affectionate classroom tone',
+  },
+  nu_nang_dong: {
+    prebuiltVoice: 'Zephyr',
+    personaStyle:
+      'Authentic Southern Vietnamese young female teacher (giọng nữ miền Nam trẻ trung), bright, energetic, lively, sparkling classroom enthusiasm',
+  },
+  nu_mien_tay: {
+    prebuiltVoice: 'Kore',
+    personaStyle:
+      'Authentic Mekong Delta / Southwestern Vietnamese female speaker (giọng nữ miền Tây Nam Bộ), sweet, soft, melodious, warm storytelling rhythm',
+  },
+  nam_thay_giao: {
+    prebuiltVoice: 'Puck',
+    personaStyle:
+      'Authentic Ho Chi Minh City / Southern Vietnamese male teacher (giọng nam miền Nam Sài Gòn), friendly, cheerful, approachable, upbeat classroom tone',
+  },
+  nam_tram_am: {
+    prebuiltVoice: 'Charon',
+    personaStyle:
+      'Authentic Southern Vietnamese male teacher (giọng nam miền Nam trầm ấm), calm, deep, clear, reassuring and articulate classroom delivery',
+  },
+  nam_soi_noi: {
+    prebuiltVoice: 'Fenrir',
+    personaStyle:
+      'Authentic Mekong Delta / Southern Vietnamese lively male game host (giọng nam miền Tây sôi nổi), expressive, playful, warm and energetic',
+  },
+};
+
+function getAiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    apiVersion: 'v1beta',
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+}
+
+async function startServer() {
+  const app = express();
+  app.use(express.json({ limit: '1mb' }));
+
+  app.post('/api/tts', async (req, res) => {
+    try {
+      const { text, voiceId, gender, tone } = req.body as {
+        text?: string;
+        voiceId?: string;
+        gender?: 'female' | 'male';
+        tone?: 'correct' | 'wrong' | 'question' | 'sample';
+      };
+
+      const cleanText = typeof text === 'string' ? text.trim().slice(0, 360) : '';
+      if (!cleanText) {
+        res.status(400).json({ error: 'Vui lòng nhập nội dung cần tạo giọng đọc AI.' });
+        return;
+      }
+
+      const ai = getAiClient();
+      if (!ai) {
+        res.status(503).json({
+          error:
+            'Chưa cấu hình khóa Gemini API trên máy chủ. Vui lòng kiểm tra mục Settings > Secrets.',
+        });
+        return;
+      }
+
+      const fallbackId = gender === 'male' ? 'nam_thay_giao' : 'nu_co_giao';
+      const voiceCfg =
+        (voiceId && SOUTHERN_VOICE_MAP[voiceId]) || SOUTHERN_VOICE_MAP[fallbackId];
+
+      let emotionDesc =
+        'bright, joyful, enthusiastic, praising classroom tone celebrating a correct answer';
+      if (tone === 'wrong') {
+        emotionDesc =
+          'gentle, patient, warm, encouraging classroom tone motivating students to try again';
+      } else if (tone === 'question') {
+        emotionDesc =
+          'clear, expressive, steady classroom reading tone so students at the back of the room hear every word distinctly';
+      } else if (tone === 'sample') {
+        emotionDesc = 'natural, friendly, welcoming classroom introduction tone';
+      }
+
+      const styleInstruction = `Speak in natural Southern Vietnamese (tiếng Việt giọng miền Nam Việt Nam). ${voiceCfg.personaStyle}. Deliver with a ${emotionDesc}.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: cleanText,
+                speechMetadata: {
+                  style: styleInstruction,
+                },
+              },
+            ],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voiceCfg.prebuiltVoice },
+            },
+          },
+        },
+      });
+
+      const base64Audio =
+        response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+      if (!base64Audio) {
+        res.status(502).json({
+          error: 'Không nhận được dữ liệu âm thanh từ mô hình giọng đọc AI.',
+        });
+        return;
+      }
+
+      // Gemini 3.8 TTS unary output is a complete WAV file (24kHz, mono, 16-bit)
+      res.json({
+        audioBase64: base64Audio,
+        mimeType: 'audio/wav',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const status =
+        typeof err === 'object' && err !== null && 'status' in err
+          ? Number((err as { status?: unknown }).status)
+          : 500;
+      console.error('TTS API error:', status, msg);
+      if (status === 429 || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+        res.status(429).json({
+          error:
+            'Đã vượt giới hạn gọi giọng đọc AI tạm thời. Vui lòng đợi một chút rồi thử lại.',
+        });
+        return;
+      }
+      if (status === 403 || msg.includes('403') || msg.includes('API_KEY_INVALID')) {
+        res.status(403).json({
+          error:
+            'Khóa API không hợp lệ hoặc thiếu quyền. Vui lòng kiểm tra mục Settings > Secrets.',
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'Không thể tạo giọng đọc AI lúc này. Vui lòng thử lại.',
+      });
+    }
+  });
+
+  const httpServer = http.createServer(app);
+
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: { server: httpServer },
+      },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.resolve(__dirname, 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

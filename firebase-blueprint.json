@@ -1,0 +1,295 @@
+{
+  "entities": {
+    "TeacherProfile": {
+      "title": "TeacherProfile",
+      "description": "Hồ sơ tài khoản người dùng với 20 tín dụng AI miễn phí mỗi ngày (tự động làm mới sau 24 giờ) và cập nhật qua mã kích hoạt",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID của người dùng",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email người dùng",
+          "maxLength": 200
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Tên hiển thị của người dùng",
+          "maxLength": 150
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Ảnh đại diện tài khoản Google",
+          "maxLength": 500
+        },
+        "role": {
+          "type": "string",
+          "enum": ["teacher", "admin"],
+          "description": "Vai trò người dùng trong hệ thống"
+        },
+        "credits": {
+          "type": "integer",
+          "description": "Số tín dụng AI hiện có (mặc định 20 tín dụng AI miễn phí mỗi ngày, tự động làm mới sau 24 giờ; trừ 1 khi xem nội dung Kho ứng dụng/Học liệu số/Thí nghiệm mô phỏng và trừ 2 khi truy cập Học liệu số/Thí nghiệm mô phỏng)"
+        },
+        "lastFreeResetAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm làm mới 20 tín dụng AI miễn phí gần nhất"
+        },
+        "lastRedeemedCode": {
+          "type": "string",
+          "description": "Mã kích hoạt gần nhất vừa sử dụng",
+          "maxLength": 64,
+          "pattern": "^[A-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo hồ sơ"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật gần nhất"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "fullName",
+        "role",
+        "credits",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PromoCode": {
+      "title": "PromoCode",
+      "description": "Mã kích hoạt tín dụng AI do Quản trị viên phát hành để giáo viên nạp thêm tín dụng",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Chuỗi mã kích hoạt duy nhất viết hoa",
+          "maxLength": 64,
+          "pattern": "^[A-Z0-9_\\-]+$"
+        },
+        "credit_value": {
+          "type": "integer",
+          "description": "Số tín dụng AI được cộng vào tài khoản khi kích hoạt thành công"
+        },
+        "is_used": {
+          "type": "boolean",
+          "description": "Trạng thái đã được sử dụng hay chưa"
+        },
+        "used_by": {
+          "type": "string",
+          "description": "UID của người dùng đã kích hoạt mã (hoặc null nếu chưa sử dụng)"
+        },
+        "used_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm mã được sử dụng"
+        },
+        "created_by": {
+          "type": "string",
+          "format": "email",
+          "description": "Email quản trị viên tạo mã",
+          "maxLength": 200
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo mã kích hoạt"
+        }
+      },
+      "required": [
+        "code",
+        "credit_value",
+        "is_used",
+        "used_by",
+        "created_by",
+        "created_at"
+      ]
+    },
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "Nội dung ứng dụng, học liệu số và thí nghiệm mô phỏng trong các khu vực trưng bày",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã định danh duy nhất của nội dung",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "zone": {
+          "type": "string",
+          "enum": ["apps", "games", "simulations", "management", "guides"],
+          "description": "Phân khu hiển thị"
+        },
+        "title": {
+          "type": "string",
+          "description": "Tiêu đề ứng dụng / học liệu / thí nghiệm / ứng dụng tiện ích / hướng dẫn",
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string",
+          "description": "Mô tả ngắn hoặc hướng dẫn hoạt động",
+          "maxLength": 5000
+        },
+        "type": {
+          "type": "string",
+          "enum": ["app", "game", "simulation", "management", "guide"],
+          "description": "Loại nội dung"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Thứ tự sắp xếp hiển thị"
+        },
+        "embedCode": {
+          "type": "string",
+          "description": "Mã nhúng HTML hoặc iframe của nội dung",
+          "maxLength": 750000
+        },
+        "instructions": {
+          "type": "string",
+          "description": "Hướng dẫn sử dụng bổ sung",
+          "maxLength": 5000
+        },
+        "grade": {
+          "type": "string",
+          "description": "Khối lớp áp dụng",
+          "maxLength": 40
+        },
+        "subject": {
+          "type": "string",
+          "description": "Môn học áp dụng",
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo nội dung"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật nội dung"
+        }
+      },
+      "required": [
+        "id",
+        "zone",
+        "title",
+        "type",
+        "order",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SiteBrandingSetting": {
+      "title": "SiteBrandingSetting",
+      "description": "Cấu hình logo và hình đại diện các khu vực",
+      "type": "object",
+      "properties": {
+        "homeAvatar": {
+          "type": "string",
+          "description": "Logo trang chủ (data URL)",
+          "maxLength": 500000
+        },
+        "appsAvatar": {
+          "type": "string",
+          "description": "Hình đại diện Kho Ứng Dụng (data URL)",
+          "maxLength": 500000
+        },
+        "gamesAvatar": {
+          "type": "string",
+          "description": "Hình đại diện Học Liệu Số (data URL)",
+          "maxLength": 500000
+        },
+        "simsAvatar": {
+          "type": "string",
+          "description": "Hình đại diện Thí Nghiệm Mô Phỏng (data URL)",
+          "maxLength": 500000
+        },
+        "managementAvatar": {
+          "type": "string",
+          "description": "Hình đại diện Ứng dụng Tiện ích (data URL)",
+          "maxLength": 500000
+        },
+        "guidesAvatar": {
+          "type": "string",
+          "description": "Hình đại diện Hướng dẫn (data URL)",
+          "maxLength": 500000
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật hình đại diện"
+        }
+      },
+      "required": ["updatedAt"]
+    },
+    "TeacherAppData": {
+      "title": "TeacherAppData",
+      "description": "Dữ liệu lưu trữ riêng theo từng ứng dụng của mỗi giáo viên",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "object",
+          "description": "Cặp khóa-giá trị lưu trữ trạng thái ứng dụng"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật"
+        }
+      },
+      "required": ["entries", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/TeacherProfile"
+      },
+      "description": "Lưu hồ sơ tài khoản và số dư tín dụng AI (20 tín dụng AI miễn phí mỗi ngày, làm mới sau 24 giờ)"
+    },
+    "/users/{userId}/app_data/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/TeacherAppData"
+      },
+      "description": "Lưu dữ liệu làm việc riêng của giáo viên cho từng ứng dụng tương tác"
+    },
+    "/admin_app_data/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/TeacherAppData"
+      },
+      "description": "Lưu dữ liệu làm việc riêng của Quản trị viên cho từng ứng dụng tương tác trên mọi thiết bị"
+    },
+    "/promo_codes/{codeId}": {
+      "schema": {
+        "$ref": "#/entities/PromoCode"
+      },
+      "description": "Lưu danh sách mã kích hoạt tín dụng AI và trạng thái sử dụng một lần"
+    },
+    "/content_items/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/ContentItem"
+      },
+      "description": "Lưu trữ vĩnh viễn toàn bộ ứng dụng, học liệu số và thí nghiệm mô phỏng"
+    },
+    "/site_settings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/SiteBrandingSetting"
+      },
+      "description": "Lưu hình đại diện khu vực (branding), trạng thái khởi tạo danh mục (catalog) và tài khoản/mã kích hoạt (accounts)"
+    }
+  }
+}
