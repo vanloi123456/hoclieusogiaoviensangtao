@@ -155,10 +155,11 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
 
         {/* Body */}
         <div className="p-6 overflow-y-auto space-y-4">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-sm text-slate-700 leading-relaxed">
-            {item.description ||
-              `Nội dung giáo dục thuộc khu vực ${zoneMeta.label} dành cho giáo viên và học sinh.`}
-          </div>
+          {item.description && (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-sm text-slate-700 leading-relaxed">
+              {item.description}
+            </div>
+          )}
 
           {sourceInfo.iframeBlockedLikely && sourceInfo.url ? (
             <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-8 text-center space-y-3">

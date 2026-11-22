@@ -126,7 +126,7 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Thí nghiệm mô phỏng — Hỗ trợ mã nhúng HTML hoặc link Google Gemini, Google AI Studio, Vercel
+              Thí nghiệm mô phỏng trực quan
             </p>
 
             {/* Admin dedicated quick add & avatar action toolbar */}
@@ -255,13 +255,9 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
                     >
                       {item.title}
                     </h3>
-                    {item.description ? (
+                    {item.description && (
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1">
                         {item.description}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic mt-1">
-                        Thí nghiệm mô phỏng tương tác trực quan
                       </p>
                     )}
                   </div>

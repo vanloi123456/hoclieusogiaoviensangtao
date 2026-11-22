@@ -45,12 +45,7 @@ function getAppIconConfig(title: string): {
       borderClass: 'border-sky-200',
     };
   }
-  if (
-    lower.includes('kéo co') ||
-    lower.includes('chinh phục') ||
-    lower.includes('từ ngữ') ||
-    lower.includes('trò chơi')
-  ) {
+  if (lower.includes('từ ngữ') || lower.includes('trò chơi')) {
     return {
       Icon: Gamepad2,
       bgClass: 'from-indigo-50 to-violet-100',
@@ -177,7 +172,7 @@ export const ZoneAppsRepository: React.FC<ZoneAppsRepositoryProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Ứng dụng dạy học tương tác — Hỗ trợ mã nhúng HTML hoặc link Google Gemini, Google AI Studio, Vercel
+              Ứng dụng dạy học tương tác
             </p>
 
             {/* Admin dedicated quick add & avatar action toolbar */}
@@ -274,9 +269,11 @@ export const ZoneAppsRepository: React.FC<ZoneAppsRepositoryProps> = ({
                     >
                       {item.title}
                     </h3>
-                    <p className="text-xs text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">
-                      {item.description || 'Ứng dụng giáo dục tương tác dành cho giáo viên và học sinh.'}
-                    </p>
+                    {item.description && (
+                      <p className="text-xs text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">
+                        {item.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 

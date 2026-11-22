@@ -124,7 +124,7 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Ứng dụng tiện ích hỗ trợ giảng dạy & quản lý — Hỗ trợ mã nhúng HTML hoặc link Google Gemini, Google AI Studio, Vercel
+              Ứng dụng tiện ích hỗ trợ giảng dạy &amp; quản lý
             </p>
 
             {/* Admin dedicated quick add & avatar action toolbar */}
@@ -217,9 +217,11 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
                     >
                       {item.title}
                     </h3>
-                    <p className="text-xs text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">
-                      {item.description || 'Ứng dụng tiện ích hỗ trợ công việc cho giáo viên và nhà trường.'}
-                    </p>
+                    {item.description && (
+                      <p className="text-xs text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">
+                        {item.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 

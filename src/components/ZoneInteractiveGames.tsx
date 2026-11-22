@@ -127,7 +127,7 @@ export const ZoneInteractiveGames: React.FC<ZoneInteractiveGamesProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Kho học liệu số — Hỗ trợ mã nhúng HTML hoặc link Google Gemini, Google AI Studio, Vercel
+              Kho học liệu số tương tác
             </p>
 
             {/* Admin dedicated quick add & avatar action toolbar */}
@@ -256,13 +256,9 @@ export const ZoneInteractiveGames: React.FC<ZoneInteractiveGamesProps> = ({
                     >
                       {item.title}
                     </h3>
-                    {item.description ? (
+                    {item.description && (
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1">
                         {item.description}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic mt-1">
-                        Học liệu số hỗ trợ học tập
                       </p>
                     )}
                   </div>

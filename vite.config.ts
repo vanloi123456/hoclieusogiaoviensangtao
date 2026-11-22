@@ -8,16 +8,12 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     build: {
       sourcemap: false,
-      minify: 'esbuild' as const,
-    },
-    esbuild: {
-      legalComments: 'none' as const,
-      drop: ['debugger'] as ('console' | 'debugger')[],
+      minify: 'oxc' as const,
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

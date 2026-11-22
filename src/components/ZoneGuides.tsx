@@ -263,13 +263,9 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
                     >
                       {item.title}
                     </h3>
-                    {item.description ? (
+                    {item.description && (
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1">
                         {item.description}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic mt-1">
-                        Video / tài liệu hướng dẫn sử dụng hệ thống học liệu số
                       </p>
                     )}
                   </div>

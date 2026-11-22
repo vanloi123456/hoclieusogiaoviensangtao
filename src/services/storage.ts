@@ -49,10 +49,14 @@ const REMOVED_ITEM_IDS = new Set([
   'item_keotha_446b9a24',
   'item_lophocao3d_vercel',
   'item_tungubietbay_vercel',
+  'item_keoco_kienthuc_restored',
 ]);
 
 const BUNDLED_ADDON_IDS = new Set<string>([
   'item_phong_trung_bay_3d_ai_beb7b05a',
+  'item_keotha_noiy_restored',
+  'item_lophocao3d_restored',
+  'item_tungubietbay_restored',
 ]);
 const DELETED_ADDON_STORAGE_KEY = 'hoclieuso_deleted_addon_ids_v1';
 const SEEN_FS_ADDON_STORAGE_KEY = 'hoclieuso_seen_fs_addon_ids_v1';
@@ -140,10 +144,15 @@ function writePendingUpsertsMap(map: Record<string, number>): void {
 
 function isRemovedCatalogEntry(id: string, title?: string): boolean {
   if (REMOVED_ITEM_IDS.has(id)) return true;
+  const lowerTitle = String(title || '').trim().toLowerCase();
+  if (
+    lowerTitle.includes('kéo co kiến thức') ||
+    lowerTitle.includes('kéo co - chinh phục') ||
+    lowerTitle.includes('chinh phục tri thức')
+  ) {
+    return true;
+  }
   if (BUNDLED_ADDON_IDS.has(id)) return false;
-  const lower = String(title || '').trim().toLowerCase();
-  if (!lower) return false;
-  if (lower.includes('kéo co kiến thức')) return true;
   return false;
 }
 
@@ -875,7 +884,12 @@ class StorageService {
         for (const removedId of REMOVED_ITEM_IDS) {
           await this.deleteItemFromFirestore(removedId).catch(() => {});
         }
-        const allSnap = await getDocsPreferServer(collection(db, 'content_items'));
+        const allSnap = await getDocsPreferServer(
+          query(
+            collection(db, 'content_items'),
+            where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+          )
+        );
         for (const d of allSnap.docs) {
           if (isRemovedCatalogEntry(d.id, String(d.data()?.title || ''))) {
             await this.deleteItemFromFirestore(d.id).catch(() => {});

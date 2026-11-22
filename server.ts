@@ -61,11 +61,36 @@ function getFirebaseConfig(): FirebaseAppletConfig | null {
 
 const firebaseConfig = getFirebaseConfig();
 
+const REMOVED_SERVER_ITEM_IDS = new Set([
+  'item_1794753008608_keothanoi',
+  'item_1794753233028_keocokienthuc',
+  'item_1794754246083_lophocao3d',
+  'item_1794754457668_lophocao3d_vr',
+  'item_1794752725157_ai3dexhibition',
+  'item_keotha_446b9a24',
+  'item_lophocao3d_vercel',
+  'item_tungubietbay_vercel',
+  'item_keoco_kienthuc_restored',
+]);
+
+function isRemovedServerItem(item: any): boolean {
+  if (!item || typeof item !== 'object') return true;
+  const id = String(item.id || '').trim();
+  if (REMOVED_SERVER_ITEM_IDS.has(id)) return true;
+  const lowerTitle = String(item.title || '').trim().toLowerCase();
+  return (
+    lowerTitle.includes('kéo co kiến thức') ||
+    lowerTitle.includes('kéo co - chinh phục') ||
+    lowerTitle.includes('chinh phục tri thức')
+  );
+}
+
 function getStoredItems(): any[] {
   try {
     if (!fs.existsSync(ITEMS_FILE)) return [];
     const content = fs.readFileSync(ITEMS_FILE, 'utf-8');
-    return JSON.parse(content) || [];
+    const parsed = JSON.parse(content) || [];
+    return Array.isArray(parsed) ? parsed.filter((item) => !isRemovedServerItem(item)) : [];
   } catch (err) {
     console.error('Error reading items.json:', err);
     return [];
