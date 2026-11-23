@@ -18,18 +18,13 @@ const BRANDING_FILE = path.join(DATA_DIR, 'branding.json');
 const ITEMS_FILE = path.join(DATA_DIR, 'items.json');
 const PUBLIC_SEED_ITEMS_FILE = path.resolve(__dirname, 'public', 'seed-items.json');
 const TEACHER_APP_DATA_FILE = path.join(DATA_DIR, 'teacher_app_data.json');
-const PROMO_CODES_FILE = path.join(DATA_DIR, 'promo_codes.json');
-const PUBLIC_SEED_PROMO_CODES_FILE = path.resolve(__dirname, 'public', 'seed-promo-codes.json');
 const FIREBASE_CONFIG_FILE = path.resolve(__dirname, 'firebase-applet-config.json');
 
 const INITIAL_FREE_CREDITS = 20;
 const DAILY_FREE_CREDITS = 20;
 const DAILY_FREE_RESET_MS = 24 * 60 * 60 * 1000;
-const CREDIT_ACTION_COSTS: Record<string, number> = {
-  view: 1,
-  access: 2,
-};
-const PROMO_CODE_REGEX = /^[A-Z0-9_-]{3,64}$/;
+const CREDIT_COST_STANDARD_ACCESS = 4;
+const MAX_CUSTOM_CREDIT_COST = 100000;
 
 // Ensure data folder exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -71,6 +66,7 @@ const REMOVED_SERVER_ITEM_IDS = new Set([
   'item_lophocao3d_vercel',
   'item_tungubietbay_vercel',
   'item_keoco_kienthuc_restored',
+  'item_lophocao3d_v2_gvsangtao',
 ]);
 
 function isRemovedServerItem(item: any): boolean {
@@ -115,7 +111,7 @@ function saveStoredItems(items: any[]): void {
   }
 }
 
-// Helpers for reading and writing teachers & promo codes
+// Helpers for reading and writing teachers
 interface StoredTeacher {
   id: string;
   email: string;
@@ -125,20 +121,10 @@ interface StoredTeacher {
   role: 'teacher';
   status: 'active' | 'blocked';
   credits: number;
+  usedCredits: number;
   lastFreeResetAt?: number;
-  lastRedeemedCode?: string;
   createdAt: number;
   updatedAt?: number;
-}
-
-interface StoredPromoCode {
-  code: string;
-  credit_value: number;
-  is_used: boolean;
-  used_by: string | null;
-  used_at?: number | null;
-  created_by: string;
-  created_at: number;
 }
 
 function normalizeTeacher(teacher: any): StoredTeacher {
@@ -156,6 +142,11 @@ function normalizeTeacher(teacher: any): StoredTeacher {
     );
   }
 
+  const usedCredits =
+    typeof teacher.usedCredits === 'number' && Number.isFinite(teacher.usedCredits)
+      ? Math.max(0, Math.floor(teacher.usedCredits))
+      : 0;
+
   const createdAt = typeof teacher.createdAt === 'number' ? teacher.createdAt : now;
   const lastFreeResetAt =
     typeof teacher.lastFreeResetAt === 'number' && Number.isFinite(teacher.lastFreeResetAt)
@@ -171,8 +162,8 @@ function normalizeTeacher(teacher: any): StoredTeacher {
     role: 'teacher',
     status: teacher.status === 'blocked' ? 'blocked' : 'active',
     credits,
+    usedCredits,
     lastFreeResetAt,
-    lastRedeemedCode: teacher.lastRedeemedCode,
     createdAt,
     updatedAt: teacher.updatedAt || now,
   };
@@ -221,36 +212,6 @@ function saveStoredTeachers(teachers: StoredTeacher[]): void {
     fs.writeFileSync(PUBLIC_SEED_TEACHERS_FILE, serialized, 'utf-8');
   } catch (err) {
     console.warn('Error syncing public/seed-teachers.json:', err);
-  }
-}
-
-function getStoredPromoCodes(): StoredPromoCode[] {
-  try {
-    if (!fs.existsSync(PROMO_CODES_FILE)) return [];
-    const content = fs.readFileSync(PROMO_CODES_FILE, 'utf-8');
-    const raw = JSON.parse(content) || [];
-    return Array.isArray(raw) ? raw : [];
-  } catch (err) {
-    console.error('Error reading promo_codes.json:', err);
-    return [];
-  }
-}
-
-function saveStoredPromoCodes(codes: StoredPromoCode[]): void {
-  const serialized = JSON.stringify(codes, null, 2);
-  try {
-    fs.writeFileSync(PROMO_CODES_FILE, serialized, 'utf-8');
-  } catch (err) {
-    console.error('Error writing promo_codes.json:', err);
-  }
-  try {
-    const publicDir = path.dirname(PUBLIC_SEED_PROMO_CODES_FILE);
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-    fs.writeFileSync(PUBLIC_SEED_PROMO_CODES_FILE, serialized, 'utf-8');
-  } catch (err) {
-    console.warn('Error syncing public/seed-promo-codes.json:', err);
   }
 }
 
@@ -380,16 +341,28 @@ async function fetchFirestoreDoc(
   }
 }
 
+async function fetchFirestoreCollectionDocs(
+  collection: string,
+  idToken: string
+): Promise<any[] | null> {
+  if (!firebaseConfig) return null;
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/${collection}?pageSize=300`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!resp.ok) return null;
+    const data: any = await resp.json();
+    return Array.isArray(data?.documents) ? data.documents : [];
+  } catch {
+    return null;
+  }
+}
+
 function readFsInt(field: any, fallback = 0): number {
   if (!field) return fallback;
   if (field.integerValue !== undefined) return Number(field.integerValue);
   if (field.doubleValue !== undefined) return Math.floor(Number(field.doubleValue));
-  return fallback;
-}
-
-function readFsBool(field: any, fallback = false): boolean {
-  if (!field) return fallback;
-  if (field.booleanValue !== undefined) return Boolean(field.booleanValue);
   return fallback;
 }
 
@@ -406,6 +379,28 @@ function readFsTimestamp(field: any, fallback: number): number {
   }
   if (field.integerValue !== undefined) return Number(field.integerValue);
   return fallback;
+}
+
+function mapFirestoreDocToTeacher(fsDoc: any, now = Date.now()): StoredTeacher | null {
+  if (!fsDoc?.fields) return null;
+  const nameParts = typeof fsDoc.name === 'string' ? fsDoc.name.split('/') : [];
+  const docId = readFsString(fsDoc.fields.uid) || nameParts[nameParts.length - 1] || '';
+  const email = (readFsString(fsDoc.fields.email) || '').trim().toLowerCase();
+  if (!docId || !email) return null;
+  const createdAt = readFsTimestamp(fsDoc.fields.createdAt, now);
+  return {
+    id: docId,
+    email,
+    fullName: readFsString(fsDoc.fields.fullName) || 'Giáo viên',
+    photoURL: readFsString(fsDoc.fields.photoURL) || undefined,
+    role: 'teacher',
+    status: 'active',
+    credits: Math.max(0, readFsInt(fsDoc.fields.credits, INITIAL_FREE_CREDITS)),
+    usedCredits: Math.max(0, readFsInt(fsDoc.fields.usedCredits, 0)),
+    lastFreeResetAt: readFsTimestamp(fsDoc.fields.lastFreeResetAt, createdAt),
+    createdAt,
+    updatedAt: readFsTimestamp(fsDoc.fields.updatedAt, now),
+  };
 }
 
 async function syncFirestoreDailyResetIfDue(
@@ -432,11 +427,10 @@ async function syncFirestoreDailyResetIfDue(
             update: {
               name: firestoreDocPath('users', targetUid),
               fields: {
-                ...fsDoc.fields,
                 credits: { integerValue: String(DAILY_FREE_CREDITS) },
               },
             },
-            updateMask: { fieldPaths: ['credits', 'lastFreeResetAt', 'updatedAt'] },
+            updateMask: { fieldPaths: ['credits'] },
             updateTransforms: [
               { fieldPath: 'lastFreeResetAt', setToServerValue: 'REQUEST_TIME' },
               { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
@@ -450,6 +444,8 @@ async function syncFirestoreDailyResetIfDue(
     if (commitResp?.ok) {
       const refreshed = await fetchFirestoreDoc('users', targetUid, idToken);
       if (refreshed) return refreshed;
+    } else if (commitResp) {
+      console.warn('Firestore 24h reset commit rejected:', await commitResp.text().catch(() => ''));
     }
   }
   return fsDoc;
@@ -475,15 +471,6 @@ async function verifyAdminRequest(req: express.Request): Promise<{
   }
 
   return { isAdmin: false, adminEmail: '' };
-}
-
-function generateRandomPromoCode(prefix = 'HLS'): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let suffix = '';
-  for (let i = 0; i < 6; i++) {
-    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `${prefix}-${suffix}`;
 }
 
 async function startServer() {
@@ -532,28 +519,56 @@ async function startServer() {
 
   // --- API Endpoints ---
 
-  // 1. Get all teachers (for Admin panel) — cross-reference promo_codes so lastRedeemedCode is always synced
+  // 1. Get all teachers (for Admin panel) — sync from Cloud Firestore if Admin token present
   app.get('/api/teachers', async (req, res) => {
     const adminCheck = await verifyAdminRequest(req);
     if (!adminCheck.isAdmin) {
       return res.status(403).json({ success: false, message: 'Không có quyền truy cập danh sách người dùng' });
     }
     const teachers = getStoredTeachers();
-    const promoCodes = getStoredPromoCodes();
     const now = Date.now();
     let changed = false;
 
+    if (adminCheck.idToken && firebaseConfig) {
+      const fsDocs = await fetchFirestoreCollectionDocs('users', adminCheck.idToken);
+      if (Array.isArray(fsDocs) && fsDocs.length > 0) {
+        for (const fsDoc of fsDocs) {
+          const fsTeacher = mapFirestoreDocToTeacher(fsDoc, now);
+          if (!fsTeacher) continue;
+          const idx = teachers.findIndex(
+            (t) => t.id === fsTeacher.id || t.email.toLowerCase() === fsTeacher.email
+          );
+          if (idx === -1) {
+            teachers.push(fsTeacher);
+            changed = true;
+          } else {
+            const local = teachers[idx];
+            if (
+              local.credits !== fsTeacher.credits ||
+              local.usedCredits !== fsTeacher.usedCredits ||
+              local.lastFreeResetAt !== fsTeacher.lastFreeResetAt ||
+              local.fullName !== fsTeacher.fullName ||
+              local.photoURL !== fsTeacher.photoURL
+            ) {
+              teachers[idx] = {
+                ...local,
+                id: fsTeacher.id,
+                fullName: fsTeacher.fullName || local.fullName,
+                photoURL: fsTeacher.photoURL || local.photoURL,
+                credits: fsTeacher.credits,
+                usedCredits: fsTeacher.usedCredits,
+                lastFreeResetAt: fsTeacher.lastFreeResetAt,
+                updatedAt: Math.max(local.updatedAt || 0, fsTeacher.updatedAt || 0),
+              };
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
     for (const teacher of teachers) {
       if (applyDailyFreeCreditReset(teacher, now)) {
-        changed = true;
-      }
-
-      const usedCodes = promoCodes
-        .filter((p) => p.is_used && p.used_by === teacher.id)
-        .sort((a, b) => (b.used_at || b.created_at || 0) - (a.used_at || a.created_at || 0));
-
-      if (usedCodes.length > 0 && teacher.lastRedeemedCode !== usedCodes[0].code) {
-        teacher.lastRedeemedCode = usedCodes[0].code;
         changed = true;
       }
     }
@@ -564,7 +579,7 @@ async function startServer() {
     res.json({ success: true, teachers });
   });
 
-  // 1b. Get current authenticated user's profile & credits (auto-refresh 5 daily credits after 24h)
+  // 1b. Get current authenticated user's profile & credits (authoritative cloud sync + 24h daily reset)
   app.get('/api/auth/me', async (req, res) => {
     const verified = await verifyFirebaseIdToken(req.headers.authorization);
     const uid = verified?.uid || (typeof req.query.uid === 'string' ? req.query.uid : '');
@@ -573,7 +588,23 @@ async function startServer() {
     }
     const now = Date.now();
     const teachers = getStoredTeachers();
-    const idx = teachers.findIndex((t) => t.id === uid);
+    let idx = teachers.findIndex((t) => t.id === uid);
+
+    let fsDoc: any = null;
+    if (verified && firebaseConfig) {
+      fsDoc = await fetchFirestoreDoc('users', uid, verified.idToken);
+      fsDoc = await syncFirestoreDailyResetIfDue(fsDoc, uid, verified.idToken, now);
+    }
+
+    if (idx === -1 && fsDoc?.fields) {
+      const mapped = mapFirestoreDocToTeacher(fsDoc, now);
+      if (mapped) {
+        teachers.push(mapped);
+        idx = teachers.length - 1;
+        saveStoredTeachers(teachers);
+      }
+    }
+
     if (idx === -1) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ người dùng' });
     }
@@ -581,20 +612,23 @@ async function startServer() {
     const found = teachers[idx];
     let changed = applyDailyFreeCreditReset(found, now);
 
-    if (verified && firebaseConfig) {
-      let fsDoc = await fetchFirestoreDoc('users', uid, verified.idToken);
-      fsDoc = await syncFirestoreDailyResetIfDue(fsDoc, uid, verified.idToken, now);
-      if (fsDoc?.fields?.credits !== undefined) {
-        const fsCredits = readFsInt(fsDoc.fields.credits, found.credits);
-        const fsReset = readFsTimestamp(
-          fsDoc.fields.lastFreeResetAt,
-          found.lastFreeResetAt || found.createdAt || now
-        );
-        if (fsReset > (found.lastFreeResetAt || 0) && fsCredits > found.credits) {
-          found.credits = fsCredits;
-          found.lastFreeResetAt = fsReset;
-          changed = true;
-        }
+    if (fsDoc?.fields?.credits !== undefined) {
+      const fsCredits = Math.max(0, readFsInt(fsDoc.fields.credits, found.credits));
+      const fsUsedCredits = Math.max(0, readFsInt(fsDoc.fields.usedCredits, found.usedCredits || 0));
+      const fsReset = readFsTimestamp(
+        fsDoc.fields.lastFreeResetAt,
+        found.lastFreeResetAt || found.createdAt || now
+      );
+      if (
+        fsCredits !== found.credits ||
+        fsUsedCredits !== (found.usedCredits || 0) ||
+        fsReset > (found.lastFreeResetAt || 0)
+      ) {
+        found.credits = fsCredits;
+        found.usedCredits = fsUsedCredits;
+        found.lastFreeResetAt = fsReset;
+        found.updatedAt = now;
+        changed = true;
       }
     }
 
@@ -607,7 +641,7 @@ async function startServer() {
     res.json({ success: true, user: found });
   });
 
-  // 2. Sync Google Authenticated User (5 daily free credits, automatically refreshed every 24 hours)
+  // 2. Sync Google Authenticated User (20 daily free credits, automatically refreshed every 24 hours)
   app.post('/api/auth/google', async (req, res) => {
     try {
       const verified = await verifyFirebaseIdToken(req.headers.authorization);
@@ -645,14 +679,14 @@ async function startServer() {
 
       // Check Firestore doc if verified idToken is supplied & trigger 24h daily reset if due
       let firestoreCredits: number | null = null;
-      let firestoreLastCode: string | undefined = undefined;
+      let firestoreUsedCredits: number | null = null;
       let firestoreLastResetAt: number | null = null;
       if (verified && firebaseConfig) {
         let fsDoc = await fetchFirestoreDoc('users', uid, verified.idToken);
         fsDoc = await syncFirestoreDailyResetIfDue(fsDoc, uid, verified.idToken, now);
         if (fsDoc?.fields?.credits !== undefined) {
-          firestoreCredits = readFsInt(fsDoc.fields.credits, INITIAL_FREE_CREDITS);
-          firestoreLastCode = readFsString(fsDoc.fields.lastRedeemedCode) || undefined;
+          firestoreCredits = Math.max(0, readFsInt(fsDoc.fields.credits, INITIAL_FREE_CREDITS));
+          firestoreUsedCredits = Math.max(0, readFsInt(fsDoc.fields.usedCredits, 0));
           firestoreLastResetAt = readFsTimestamp(
             fsDoc.fields.lastFreeResetAt,
             readFsTimestamp(fsDoc.fields.createdAt, now)
@@ -673,11 +707,10 @@ async function startServer() {
           firestoreCredits !== null
             ? firestoreCredits
             : INITIAL_FREE_CREDITS;
-
-        const promoCodes = getStoredPromoCodes();
-        const latestUsed = promoCodes
-          .filter((p) => p.is_used && p.used_by === uid)
-          .sort((a, b) => (b.used_at || b.created_at || 0) - (a.used_at || a.created_at || 0))[0];
+        const initialUsedCredits =
+          firestoreUsedCredits !== null
+            ? firestoreUsedCredits
+            : 0;
 
         user = {
           id: uid,
@@ -687,8 +720,8 @@ async function startServer() {
           role: 'teacher',
           status: 'active',
           credits: initialCredits,
+          usedCredits: initialUsedCredits,
           lastFreeResetAt: firestoreLastResetAt ?? now,
-          lastRedeemedCode: firestoreLastCode || latestUsed?.code,
           createdAt: now,
           updatedAt: now,
         };
@@ -701,28 +734,16 @@ async function startServer() {
         existing.status = 'active';
         existing.fullName = fullName || existing.fullName;
         if (photoURL) existing.photoURL = photoURL;
-        if (firestoreLastResetAt && firestoreLastResetAt > (existing.lastFreeResetAt || 0)) {
-          existing.lastFreeResetAt = firestoreLastResetAt;
-          if (firestoreCredits !== null && firestoreCredits > existing.credits) {
-            existing.credits = firestoreCredits;
-          }
-        }
-        // Adopt Firestore credits / lastRedeemedCode if missing or updated directly in Firestore
-        if (
-          firestoreCredits !== null &&
-          firestoreLastCode &&
-          firestoreLastCode !== existing.lastRedeemedCode &&
-          firestoreCredits > existing.credits
-        ) {
+
+        // Authoritatively adopt Firestore cloud state across browsers/PCs when verified
+        if (firestoreCredits !== null) {
           existing.credits = firestoreCredits;
-          existing.lastRedeemedCode = firestoreLastCode;
-        } else if (firestoreLastCode && !existing.lastRedeemedCode) {
-          existing.lastRedeemedCode = firestoreLastCode;
-        } else if (!existing.lastRedeemedCode) {
-          const latestUsed = getStoredPromoCodes()
-            .filter((p) => p.is_used && p.used_by === uid)
-            .sort((a, b) => (b.used_at || b.created_at || 0) - (a.used_at || a.created_at || 0))[0];
-          if (latestUsed) existing.lastRedeemedCode = latestUsed.code;
+        }
+        if (firestoreUsedCredits !== null) {
+          existing.usedCredits = firestoreUsedCredits;
+        }
+        if (firestoreLastResetAt) {
+          existing.lastFreeResetAt = firestoreLastResetAt;
         }
         applyDailyFreeCreditReset(existing, now);
         existing.updatedAt = now;
@@ -783,24 +804,77 @@ async function startServer() {
     }
   });
 
-  // 4. Consume AI Credits on backend according to verified action tier:
-  //    view=1 (Xem nội dung Kho ứng dụng, Học liệu số, Thí nghiệm mô phỏng)
-  //    access=2 (Thực hiện truy cập Học liệu số, Thí nghiệm mô phỏng)
+  // 4. Consume AI Credits on backend according to zone & catalog item pricing:
+  //    - virtual_spaces, apps, games, simulations: 4 AI credits
+  //    - guides: 0 AI credits (free, no deduction)
+  //    - management (Ứng dụng Tiện ích): per-item configurable creditCost (0 = free)
   app.post('/api/credits/consume', async (req, res) => {
     try {
       const verified = await verifyFirebaseIdToken(req.headers.authorization);
       const bodyTeacherId = req.body?.teacherId ? String(req.body.teacherId) : '';
-      const rawAction = String(req.body?.action || 'view').trim().toLowerCase();
-      const cost = CREDIT_ACTION_COSTS[rawAction];
+      const rawAction = String(req.body?.action || 'access').trim().toLowerCase();
+      const itemId = req.body?.itemId ? String(req.body.itemId).trim() : '';
+      const bodyZone = req.body?.zone ? String(req.body.zone).trim() : '';
 
-      if (!cost) {
+      if (rawAction !== 'view' && rawAction !== 'access') {
         return res.status(400).json({
           success: false,
           message: 'Loại thao tác tín dụng không hợp lệ.',
         });
       }
 
+      const storedItems = getStoredItems();
+      const matchedStoredItem = itemId
+        ? storedItems.find((i) => i.id === itemId)
+        : undefined;
+
+      let resolvedZone = matchedStoredItem?.zone
+        ? String(matchedStoredItem.zone)
+        : bodyZone;
+      let customManagementCost =
+        typeof matchedStoredItem?.creditCost === 'number' &&
+        Number.isFinite(matchedStoredItem.creditCost)
+          ? Math.max(0, Math.min(MAX_CUSTOM_CREDIT_COST, Math.floor(matchedStoredItem.creditCost)))
+          : undefined;
+
+      if (
+        (!matchedStoredItem || (resolvedZone === 'management' && customManagementCost === undefined)) &&
+        itemId &&
+        verified &&
+        firebaseConfig
+      ) {
+        const fsItemDoc = await fetchFirestoreDoc('content_items', itemId, verified.idToken);
+        if (fsItemDoc?.fields) {
+          const fsZone = readFsString(fsItemDoc.fields.zone);
+          if (fsZone) resolvedZone = fsZone;
+          if (fsItemDoc.fields.creditCost !== undefined) {
+            customManagementCost = Math.max(
+              0,
+              Math.min(MAX_CUSTOM_CREDIT_COST, readFsInt(fsItemDoc.fields.creditCost, 0))
+            );
+          }
+        }
+      }
+
+      let cost = CREDIT_COST_STANDARD_ACCESS;
+      if (resolvedZone === 'guides') {
+        cost = 0;
+      } else if (resolvedZone === 'management') {
+        cost = customManagementCost ?? 0;
+      }
+
       const targetUid = verified ? verified.uid : bodyTeacherId;
+
+      if (cost === 0) {
+        const existingTeacher = targetUid
+          ? getStoredTeachers().find((t) => t.id === targetUid)
+          : undefined;
+        return res.json({
+          success: true,
+          deductedCredits: 0,
+          user: existingTeacher,
+        });
+      }
 
       if (!targetUid) {
         return res.status(401).json({
@@ -829,8 +903,11 @@ async function startServer() {
 
       if (idx === -1 && verified) {
         const fsCredits = fsDoc?.fields?.credits !== undefined
-          ? readFsInt(fsDoc.fields.credits, INITIAL_FREE_CREDITS)
+          ? Math.max(0, readFsInt(fsDoc.fields.credits, INITIAL_FREE_CREDITS))
           : INITIAL_FREE_CREDITS;
+        const fsUsedCredits = fsDoc?.fields?.usedCredits !== undefined
+          ? Math.max(0, readFsInt(fsDoc.fields.usedCredits, 0))
+          : 0;
         const fsResetAt = fsDoc?.fields
           ? readFsTimestamp(fsDoc.fields.lastFreeResetAt, readFsTimestamp(fsDoc.fields.createdAt, now))
           : now;
@@ -842,6 +919,7 @@ async function startServer() {
           role: 'teacher',
           status: 'active',
           credits: fsCredits,
+          usedCredits: fsUsedCredits,
           lastFreeResetAt: fsResetAt,
           createdAt: now,
           updatedAt: now,
@@ -855,6 +933,18 @@ async function startServer() {
       }
 
       const teacher = teachers[idx];
+      if (verified && fsDoc?.fields) {
+        const fsCredits = Math.max(0, readFsInt(fsDoc.fields.credits, teacher.credits));
+        const fsUsedCredits = Math.max(0, readFsInt(fsDoc.fields.usedCredits, teacher.usedCredits || 0));
+        const fsResetAt = readFsTimestamp(
+          fsDoc.fields.lastFreeResetAt,
+          teacher.lastFreeResetAt || teacher.createdAt || now
+        );
+        teacher.credits = fsCredits;
+        teacher.usedCredits = fsUsedCredits;
+        teacher.lastFreeResetAt = fsResetAt;
+      }
+
       applyDailyFreeCreditReset(teacher, now);
 
       if (teacher.credits < cost) {
@@ -870,14 +960,48 @@ async function startServer() {
         });
       }
 
-      const nextCredits = teacher.credits - cost;
+      let nextCredits = teacher.credits - cost;
+      let nextUsedCredits = Math.max(0, Math.floor(teacher.usedCredits || 0)) + cost;
+      let firestoreSynced = false;
 
-      // Best-effort sync deduction to Firestore when Firestore doc has sufficient balance
-      if (verified && fsDoc?.fields && firebaseConfig) {
-        const currentFsCredits = readFsInt(fsDoc.fields.credits, 0);
-        if (currentFsCredits >= cost) {
+      // Sync deduction & cumulative usedCredits to Firestore atomically
+      if (verified && firebaseConfig) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const activeFsDoc =
+            attempt === 0
+              ? fsDoc
+              : await syncFirestoreDailyResetIfDue(
+                  await fetchFirestoreDoc('users', targetUid, verified.idToken),
+                  targetUid,
+                  verified.idToken,
+                  now
+                );
+
+          if (!activeFsDoc?.fields) break;
+
+          const currentFsCredits = Math.max(0, readFsInt(activeFsDoc.fields.credits, 0));
+          const currentFsUsed = Math.max(0, readFsInt(activeFsDoc.fields.usedCredits, 0));
+
+          if (currentFsCredits < cost) {
+            teacher.credits = currentFsCredits;
+            teacher.usedCredits = currentFsUsed;
+            teachers[idx] = teacher;
+            saveStoredTeachers(teachers);
+            return res.status(402).json({
+              success: false,
+              insufficientCredits: true,
+              requiredCredits: cost,
+              action: rawAction,
+              user: teacher,
+              message:
+                `Số dư tín dụng AI không đủ hoặc đã hết (thao tác này cần ${cost} tín dụng AI). Hệ thống sẽ tự động làm mới ${DAILY_FREE_CREDITS} tín dụng AI miễn phí sau 24 giờ, hoặc vui lòng liên hệ Quản trị viên qua số điện thoại 0775987267 để tiếp tục sử dụng.`,
+            });
+          }
+
           const fsNextCredits = currentFsCredits - cost;
-          await fetch(firestoreCommitUrl(), {
+          const fsNextUsed = currentFsUsed + cost;
+
+          const commitResp = await fetch(firestoreCommitUrl(), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -889,609 +1013,168 @@ async function startServer() {
                   update: {
                     name: firestoreDocPath('users', targetUid),
                     fields: {
-                      ...fsDoc.fields,
                       credits: { integerValue: String(fsNextCredits) },
+                      usedCredits: { integerValue: String(fsNextUsed) },
                     },
                   },
-                  updateMask: { fieldPaths: ['credits', 'updatedAt'] },
+                  updateMask: { fieldPaths: ['credits', 'usedCredits'] },
                   updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
-                  currentDocument: { updateTime: fsDoc.updateTime },
+                  currentDocument: { updateTime: activeFsDoc.updateTime },
                 },
               ],
             }),
-          }).catch((err) => console.warn('Firestore consume sync warning:', err));
+          }).catch((err) => {
+            console.warn('Firestore consume sync warning:', err);
+            return null;
+          });
+
+          if (commitResp?.ok) {
+            firestoreSynced = true;
+            nextCredits = fsNextCredits;
+            nextUsedCredits = fsNextUsed;
+            break;
+          }
+
+          const errBody = commitResp ? await commitResp.text().catch(() => '') : 'network_error';
+          console.warn(`Firestore consume commit rejected (attempt ${attempt + 1}):`, errBody);
+          if (commitResp?.status !== 409 && commitResp?.status !== 412) {
+            break;
+          }
+        }
+
+        if (!firestoreSynced) {
+          return res.status(502).json({
+            success: false,
+            firestoreSynced: false,
+            fallbackToClientFirestore: true,
+            user: teacher,
+            message: 'Đang chuyển sang đồng bộ tín dụng AI trực tiếp với Cloud Firestore.',
+          });
         }
       }
 
       teacher.credits = nextCredits;
+      teacher.usedCredits = nextUsedCredits;
 
       teacher.updatedAt = now;
       teachers[idx] = teacher;
       saveStoredTeachers(teachers);
       broadcastRealtime({ type: 'teachers_updated', teacherId: teacher.id, ts: now });
 
-      res.json({ success: true, user: teacher });
+      res.json({ success: true, firestoreSynced, user: teacher });
     } catch (err: any) {
       console.error('Consume credit error:', err);
       res.status(500).json({ success: false, message: 'Lỗi máy chủ khi trừ tín dụng AI' });
     }
   });
 
-  // 5. Anti-cheat Promo Code Redemption (Backend checks promo_codes, flips is_used -> true, saves used_by, adds credit_value)
-  app.post('/api/promo-codes/redeem', async (req, res) => {
-    try {
-      const verified = await verifyFirebaseIdToken(req.headers.authorization);
-      const bodyTeacherId = req.body?.teacherId ? String(req.body.teacherId) : '';
-      const rawCode = String(req.body?.code || '').trim().toUpperCase();
-
-      if (!rawCode || !PROMO_CODE_REGEX.test(rawCode)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mã kích hoạt không đúng định dạng (chỉ gồm chữ in hoa, số, dấu - hoặc _).',
-        });
-      }
-
-      const targetUid = verified ? verified.uid : bodyTeacherId;
-      if (!targetUid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Vui lòng đăng nhập trước khi nhập mã kích hoạt.',
-        });
-      }
-
-      if (verified && bodyTeacherId && verified.uid !== bodyTeacherId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Không được phép kích hoạt mã cho tài khoản khác.',
-        });
-      }
-
-      const now = Date.now();
-      const teachers = getStoredTeachers();
-      let tIdx = teachers.findIndex((t) => t.id === targetUid);
-
-      // Step A: Attempt authoritative Firestore transaction commit when user has verified ID token
-      let redeemedViaFirestore = false;
-      let addedCredits = 0;
-      let updatedCredits = 0;
-
-      if (verified && firebaseConfig) {
-        const [promoDoc, userDoc] = await Promise.all([
-          fetchFirestoreDoc('promo_codes', rawCode, verified.idToken),
-          fetchFirestoreDoc('users', targetUid, verified.idToken),
-        ]);
-
-        if (promoDoc?.fields) {
-          const isUsed = readFsBool(promoDoc.fields.is_used, false);
-          if (isUsed) {
-            return res.status(409).json({
-              success: false,
-              message: 'Mã kích hoạt này đã được sử dụng.',
-            });
-          }
-
-          const creditValue = readFsInt(promoDoc.fields.credit_value, 0);
-          if (creditValue <= 0) {
-            return res.status(400).json({
-              success: false,
-              message: 'Giá trị tín dụng của mã kích hoạt không hợp lệ.',
-            });
-          }
-
-          if (userDoc?.fields) {
-            const currentFsCredits = readFsInt(userDoc.fields.credits, INITIAL_FREE_CREDITS);
-            const nextFsCredits = currentFsCredits + creditValue;
-
-            const commitResp = await fetch(firestoreCommitUrl(), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${verified.idToken}`,
-              },
-              body: JSON.stringify({
-                writes: [
-                  {
-                    update: {
-                      name: firestoreDocPath('promo_codes', rawCode),
-                      fields: {
-                        ...promoDoc.fields,
-                        is_used: { booleanValue: true },
-                        used_by: { stringValue: targetUid },
-                      },
-                    },
-                    updateMask: { fieldPaths: ['is_used', 'used_by', 'used_at'] },
-                    updateTransforms: [
-                      { fieldPath: 'used_at', setToServerValue: 'REQUEST_TIME' },
-                    ],
-                    currentDocument: { updateTime: promoDoc.updateTime },
-                  },
-                  {
-                    update: {
-                      name: firestoreDocPath('users', targetUid),
-                      fields: {
-                        ...userDoc.fields,
-                        credits: { integerValue: String(nextFsCredits) },
-                        lastRedeemedCode: { stringValue: rawCode },
-                      },
-                    },
-                    updateMask: {
-                      fieldPaths: ['credits', 'lastRedeemedCode', 'updatedAt'],
-                    },
-                    updateTransforms: [
-                      { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
-                    ],
-                    currentDocument: { updateTime: userDoc.updateTime },
-                  },
-                ],
-              }),
-            });
-
-            if (!commitResp.ok) {
-              const errText = await commitResp.text();
-              console.warn('Firestore atomic promo commit rejected:', errText);
-              return res.status(409).json({
-                success: false,
-                message: 'Mã kích hoạt không hợp lệ hoặc đã có người vừa sử dụng.',
-              });
-            }
-
-            redeemedViaFirestore = true;
-            addedCredits = creditValue;
-            updatedCredits = nextFsCredits;
-          }
-        }
-      }
-
-      // Step B: Sync or redeem against backend promo_codes store
-      const promoCodes = getStoredPromoCodes();
-      const pIdx = promoCodes.findIndex((p) => p.code.toUpperCase() === rawCode);
-
-      if (!redeemedViaFirestore) {
-        if (pIdx === -1) {
-          return res.status(404).json({
-            success: false,
-            message: 'Mã kích hoạt không tồn tại. Vui lòng kiểm tra lại với Quản trị viên.',
-          });
-        }
-
-        const promo = promoCodes[pIdx];
-        if (promo.is_used) {
-          return res.status(409).json({
-            success: false,
-            message: 'Mã kích hoạt này đã được sử dụng.',
-          });
-        }
-
-        if (!Number.isInteger(promo.credit_value) || promo.credit_value <= 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Giá trị tín dụng của mã kích hoạt không hợp lệ.',
-          });
-        }
-
-        if (tIdx === -1) {
-          if (!verified) {
-            return res.status(404).json({
-              success: false,
-              message: 'Không tìm thấy tài khoản giáo viên.',
-            });
-          }
-          teachers.push({
-            id: verified.uid,
-            email: verified.email,
-            fullName: verified.displayName || verified.email.split('@')[0],
-            photoURL: verified.photoUrl,
-            role: 'teacher',
-            status: 'active',
-            credits: INITIAL_FREE_CREDITS,
-            createdAt: now,
-            updatedAt: now,
-          });
-          tIdx = teachers.length - 1;
-        }
-
-        addedCredits = promo.credit_value;
-        updatedCredits = teachers[tIdx].credits + addedCredits;
-
-        promoCodes[pIdx] = {
-          ...promo,
-          is_used: true,
-          used_by: targetUid,
-          used_at: now,
-        };
-      } else {
-        if (pIdx >= 0) {
-          promoCodes[pIdx] = {
-            ...promoCodes[pIdx],
-            is_used: true,
-            used_by: targetUid,
-            used_at: now,
-          };
-        } else {
-          promoCodes.unshift({
-            code: rawCode,
-            credit_value: addedCredits,
-            is_used: true,
-            used_by: targetUid,
-            used_at: now,
-            created_by: ADMIN_CREDENTIALS.email,
-            created_at: now,
-          });
-        }
-
-        if (tIdx === -1 && verified) {
-          teachers.push({
-            id: verified.uid,
-            email: verified.email,
-            fullName: verified.displayName || verified.email.split('@')[0],
-            photoURL: verified.photoUrl,
-            role: 'teacher',
-            status: 'active',
-            credits: updatedCredits,
-            lastRedeemedCode: rawCode,
-            createdAt: now,
-            updatedAt: now,
-          });
-          tIdx = teachers.length - 1;
-        }
-      }
-
-      if (tIdx >= 0) {
-        teachers[tIdx].credits = updatedCredits;
-        teachers[tIdx].lastRedeemedCode = rawCode;
-        teachers[tIdx].updatedAt = now;
-      }
-
-      saveStoredPromoCodes(promoCodes);
-      saveStoredTeachers(teachers);
-      broadcastRealtime({ type: 'promo_codes_updated', code: rawCode, ts: now });
-      broadcastRealtime({ type: 'teachers_updated', teacherId: targetUid, ts: now });
-
-      res.json({
-        success: true,
-        addedCredits,
-        user: teachers[tIdx],
-        message: `Kích hoạt mã ${rawCode} thành công! Đã cộng +${addedCredits} tín dụng AI vào tài khoản.`,
-      });
-    } catch (err: any) {
-      console.error('Redeem promo code error:', err);
-      res.status(500).json({
-        success: false,
-        message: 'Lỗi máy chủ khi kiểm tra và kích hoạt mã.',
-      });
-    }
-  });
-
-  // 6. Admin Promo Codes Management (promo_codes)
-  app.get('/api/promo-codes', async (req, res) => {
-    const adminCheck = await verifyAdminRequest(req);
-    if (!adminCheck.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ Quản trị viên mới được phép xem danh sách mã kích hoạt.',
-      });
-    }
-    const promoCodes = getStoredPromoCodes();
-    res.json({ success: true, promoCodes });
-  });
-
-  app.post('/api/promo-codes', async (req, res) => {
-    try {
-      const adminCheck = await verifyAdminRequest(req);
-      if (!adminCheck.isAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Chỉ Quản trị viên mới có quyền tạo mã kích hoạt.',
-        });
-      }
-
-      const requestedCode = String(req.body?.code || '').trim().toUpperCase();
-      const creditValue = Math.floor(Number(req.body?.credit_value));
-
-      if (!Number.isFinite(creditValue) || creditValue <= 0 || creditValue > 100000) {
-        return res.status(400).json({
-          success: false,
-          message: 'Số điểm tín dụng của mã kích hoạt phải nằm trong khoảng 1 - 100.000.',
-        });
-      }
-
-      const promoCodes = getStoredPromoCodes();
-      let finalCode = requestedCode || generateRandomPromoCode();
-      while (!requestedCode && promoCodes.some((p) => p.code === finalCode)) {
-        finalCode = generateRandomPromoCode();
-      }
-
-      if (!PROMO_CODE_REGEX.test(finalCode)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mã kích hoạt chỉ được gồm 3-64 ký tự chữ hoa (A-Z), số (0-9), dấu gạch ngang (-) hoặc gạch dưới (_).',
-        });
-      }
-
-      if (promoCodes.some((p) => p.code === finalCode)) {
-        return res.status(409).json({
-          success: false,
-          message: `Mã ${finalCode} đã tồn tại. Vui lòng chọn tên mã khác.`,
-        });
-      }
-
-      const now = Date.now();
-      const newPromo: StoredPromoCode = {
-        code: finalCode,
-        credit_value: creditValue,
-        is_used: false,
-        used_by: null,
-        used_at: null,
-        created_by: adminCheck.adminEmail || ADMIN_CREDENTIALS.email,
-        created_at: now,
-      };
-
-      // Sync to Firestore if Google Admin ID token is present
-      if (adminCheck.idToken && firebaseConfig) {
-        await fetch(firestoreCommitUrl(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${adminCheck.idToken}`,
-          },
-          body: JSON.stringify({
-            writes: [
-              {
-                update: {
-                  name: firestoreDocPath('promo_codes', finalCode),
-                  fields: {
-                    code: { stringValue: finalCode },
-                    credit_value: { integerValue: String(creditValue) },
-                    is_used: { booleanValue: false },
-                    used_by: { nullValue: null },
-                    created_by: { stringValue: newPromo.created_by },
-                  },
-                },
-                updateTransforms: [
-                  { fieldPath: 'created_at', setToServerValue: 'REQUEST_TIME' },
-                ],
-                currentDocument: { exists: false },
-              },
-            ],
-          }),
-        }).catch((err) => console.warn('Firestore create promo code warning:', err));
-      }
-
-      promoCodes.unshift(newPromo);
-      saveStoredPromoCodes(promoCodes);
-      broadcastRealtime({ type: 'promo_codes_updated', code: finalCode, ts: now });
-
-      res.json({
-        success: true,
-        promoCode: newPromo,
-        message: `Đã tạo mã kích hoạt ${finalCode} (+${creditValue} tín dụng AI).`,
-      });
-    } catch (err: any) {
-      console.error('Create promo code error:', err);
-      res.status(500).json({ success: false, message: 'Lỗi máy chủ khi tạo mã kích hoạt' });
-    }
-  });
-
-  app.delete('/api/promo-codes/:code', async (req, res) => {
-    try {
-      const adminCheck = await verifyAdminRequest(req);
-      if (!adminCheck.isAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Chỉ Quản trị viên mới có quyền xóa mã kích hoạt.',
-        });
-      }
-
-      const cleanCode = String(req.params.code || '').trim().toUpperCase();
-      let promoCodes = getStoredPromoCodes();
-      promoCodes = promoCodes.filter((p) => p.code !== cleanCode);
-      saveStoredPromoCodes(promoCodes);
-
-      if (adminCheck.idToken && firebaseConfig && cleanCode) {
-        await fetch(firestoreDocUrl('promo_codes', cleanCode), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${adminCheck.idToken}` },
-        }).catch(() => {});
-      }
-
-      broadcastRealtime({ type: 'promo_codes_updated', code: cleanCode, ts: Date.now() });
-      res.json({ success: true, message: `Đã xóa mã ${cleanCode}` });
-    } catch (err: any) {
-      console.error('Delete promo code error:', err);
-      res.status(500).json({ success: false, message: 'Lỗi máy chủ khi xóa mã kích hoạt' });
-    }
-  });
-
-  // 7. Admin Top-Up Credits / Issue Activation Code for a teacher (persists code in lastRedeemedCode & promo_codes)
+  // 5. Admin Top-Up Credits directly for a teacher (real-time sync to local & Firestore)
   app.post('/api/credits/topup', async (req, res) => {
     try {
       const adminCheck = await verifyAdminRequest(req);
       if (!adminCheck.isAdmin) {
         return res.status(403).json({
           success: false,
-          message: 'Chỉ Quản trị viên mới có quyền cấp mã kích hoạt hoặc cộng tín dụng.',
+          message: 'Chỉ Quản trị viên mới có quyền cộng tín dụng AI cho giáo viên.',
         });
       }
 
-      const { teacherId, amount, code } = req.body || {};
+      const { teacherId, amount } = req.body || {};
       const cleanTeacherId = String(teacherId || '').trim();
-      const requestedCode = String(code || '').trim().toUpperCase();
-      let numericAmount = Number.isFinite(Number(amount)) ? Math.floor(Number(amount)) : 0;
+      const numericAmount = Number.isFinite(Number(amount)) ? Math.floor(Number(amount)) : 0;
 
       if (!cleanTeacherId) {
         return res.status(400).json({ success: false, message: 'Thiếu thông tin tài khoản giáo viên.' });
       }
 
-      if (requestedCode && !PROMO_CODE_REGEX.test(requestedCode)) {
+      if (numericAmount <= 0 || numericAmount > 100000) {
         return res.status(400).json({
           success: false,
-          message: 'Mã kích hoạt chỉ gồm 3-64 ký tự chữ hoa (A-Z), số (0-9), dấu - hoặc _.',
+          message: 'Số tín dụng AI cộng thêm phải nằm trong khoảng 1 - 100.000.',
         });
       }
 
       const now = Date.now();
       const teachers = getStoredTeachers();
-      const idx = teachers.findIndex((t) => t.id === cleanTeacherId);
+      let idx = teachers.findIndex((t) => t.id === cleanTeacherId);
+      let prefetchedFsUserDoc: any = null;
+
+      if (idx === -1 && adminCheck.idToken && firebaseConfig) {
+        prefetchedFsUserDoc = await fetchFirestoreDoc('users', cleanTeacherId, adminCheck.idToken);
+        const mapped = mapFirestoreDocToTeacher(prefetchedFsUserDoc, now);
+        if (mapped) {
+          teachers.push(mapped);
+          idx = teachers.length - 1;
+        }
+      }
+
       if (idx === -1) {
         return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản người dùng.' });
       }
 
-      const promoCodes = getStoredPromoCodes();
-      let finalCode = requestedCode;
-      let savedPromo: StoredPromoCode;
-
-      if (finalCode) {
-        const existingPromoIdx = promoCodes.findIndex((p) => p.code.toUpperCase() === finalCode);
-        if (existingPromoIdx >= 0) {
-          const existingPromo = promoCodes[existingPromoIdx];
-          if (existingPromo.is_used) {
-            return res.status(409).json({
-              success: false,
-              message: `Mã kích hoạt ${finalCode} đã được sử dụng. Vui lòng nhập hoặc tạo mã khác.`,
-            });
-          }
-          numericAmount = existingPromo.credit_value;
-          savedPromo = {
-            ...existingPromo,
-            is_used: true,
-            used_by: cleanTeacherId,
-            used_at: now,
-          };
-          promoCodes[existingPromoIdx] = savedPromo;
-        } else {
-          if (numericAmount <= 0 || numericAmount > 100000) {
-            return res.status(400).json({
-              success: false,
-              message: 'Số tín dụng AI cấp mới phải nằm trong khoảng 1 - 100.000.',
-            });
-          }
-          savedPromo = {
-            code: finalCode,
-            credit_value: numericAmount,
-            is_used: true,
-            used_by: cleanTeacherId,
-            used_at: now,
-            created_by: adminCheck.adminEmail || ADMIN_CREDENTIALS.email,
-            created_at: now,
-          };
-          promoCodes.unshift(savedPromo);
-        }
-      } else {
-        if (numericAmount <= 0 || numericAmount > 100000) {
-          return res.status(400).json({
-            success: false,
-            message: 'Thông tin cộng tín dụng không hợp lệ (1 - 100.000).',
-          });
-        }
-        finalCode = generateRandomPromoCode();
-        while (promoCodes.some((p) => p.code === finalCode)) {
-          finalCode = generateRandomPromoCode();
-        }
-        savedPromo = {
-          code: finalCode,
-          credit_value: numericAmount,
-          is_used: true,
-          used_by: cleanTeacherId,
-          used_at: now,
-          created_by: adminCheck.adminEmail || ADMIN_CREDENTIALS.email,
-          created_at: now,
-        };
-        promoCodes.unshift(savedPromo);
-      }
-
       teachers[idx].credits = (teachers[idx].credits || 0) + numericAmount;
-      teachers[idx].lastRedeemedCode = finalCode;
       teachers[idx].updatedAt = now;
 
-      saveStoredPromoCodes(promoCodes);
-      saveStoredTeachers(teachers);
+      let firestoreSynced = false;
 
-      // Sync to Firestore if Admin Google ID token is available
       if (adminCheck.idToken && firebaseConfig) {
         try {
-          const [fsUserDoc, fsPromoDoc] = await Promise.all([
-            fetchFirestoreDoc('users', cleanTeacherId, adminCheck.idToken),
-            fetchFirestoreDoc('promo_codes', finalCode, adminCheck.idToken),
-          ]);
-
-          const writes: any[] = [];
-          if (fsPromoDoc?.fields) {
-            writes.push({
-              update: {
-                name: firestoreDocPath('promo_codes', finalCode),
-                fields: {
-                  ...fsPromoDoc.fields,
-                  is_used: { booleanValue: true },
-                  used_by: { stringValue: cleanTeacherId },
-                },
-              },
-              updateMask: { fieldPaths: ['is_used', 'used_by', 'used_at'] },
-              updateTransforms: [{ fieldPath: 'used_at', setToServerValue: 'REQUEST_TIME' }],
-            });
-          } else {
-            writes.push({
-              update: {
-                name: firestoreDocPath('promo_codes', finalCode),
-                fields: {
-                  code: { stringValue: finalCode },
-                  credit_value: { integerValue: String(numericAmount) },
-                  is_used: { booleanValue: true },
-                  used_by: { stringValue: cleanTeacherId },
-                  created_by: { stringValue: savedPromo.created_by },
-                },
-              },
-              updateTransforms: [
-                { fieldPath: 'created_at', setToServerValue: 'REQUEST_TIME' },
-                { fieldPath: 'used_at', setToServerValue: 'REQUEST_TIME' },
-              ],
-            });
-          }
+          const fsUserDoc = prefetchedFsUserDoc
+            ? prefetchedFsUserDoc
+            : await fetchFirestoreDoc('users', cleanTeacherId, adminCheck.idToken);
 
           if (fsUserDoc?.fields) {
-            const fsCredits = readFsInt(fsUserDoc.fields.credits, 0);
-            writes.push({
-              update: {
-                name: firestoreDocPath('users', cleanTeacherId),
-                fields: {
-                  ...fsUserDoc.fields,
-                  credits: { integerValue: String(fsCredits + numericAmount) },
-                  lastRedeemedCode: { stringValue: finalCode },
-                },
-              },
-              updateMask: { fieldPaths: ['credits', 'lastRedeemedCode', 'updatedAt'] },
-              updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
-            });
-          }
+            const fsCredits = Math.max(0, readFsInt(fsUserDoc.fields.credits, 0));
+            const fsUsedCredits = Math.max(0, readFsInt(fsUserDoc.fields.usedCredits, 0));
+            const nextTotalCredits = fsCredits + numericAmount;
+            teachers[idx].credits = nextTotalCredits;
+            teachers[idx].usedCredits = fsUsedCredits;
 
-          if (writes.length > 0) {
-            await fetch(firestoreCommitUrl(), {
+            const commitRes = await fetch(firestoreCommitUrl(), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${adminCheck.idToken}`,
               },
-              body: JSON.stringify({ writes }),
+              body: JSON.stringify({
+                writes: [
+                  {
+                    update: {
+                      name: firestoreDocPath('users', cleanTeacherId),
+                      fields: {
+                        credits: { integerValue: String(nextTotalCredits) },
+                      },
+                    },
+                    updateMask: { fieldPaths: ['credits'] },
+                    updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+                  },
+                ],
+              }),
             });
+            if (commitRes.ok) {
+              firestoreSynced = true;
+            } else {
+              console.warn('Firestore admin top-up commit rejected:', await commitRes.text().catch(() => ''));
+            }
           }
         } catch (fsErr) {
-          console.warn('Firestore admin issue code sync warning:', fsErr);
+          console.warn('Firestore admin top-up sync warning:', fsErr);
         }
       }
 
-      broadcastRealtime({ type: 'promo_codes_updated', code: finalCode, ts: now });
+      saveStoredTeachers(teachers);
       broadcastRealtime({ type: 'teachers_updated', teacherId: cleanTeacherId, ts: now });
 
       res.json({
         success: true,
+        firestoreSynced,
         user: teachers[idx],
-        promoCode: savedPromo,
-        code: finalCode,
         addedCredits: numericAmount,
-        message: `Đã cấp mã ${finalCode} (+${numericAmount} tín dụng AI) cho ${teachers[idx].fullName}.`,
+        message: `Đã cộng +${numericAmount} tín dụng AI cho ${teachers[idx].fullName}.`,
       });
     } catch (err: any) {
-      console.error('Top-up / issue code error:', err);
-      res.status(500).json({ success: false, message: 'Lỗi máy chủ khi cấp mã kích hoạt & cộng tín dụng AI' });
+      console.error('Top-up error:', err);
+      res.status(500).json({ success: false, message: 'Lỗi máy chủ khi cộng tín dụng AI' });
     }
   });
 
@@ -1549,8 +1232,8 @@ async function startServer() {
     }
   });
 
-  // 10. Content Items Endpoints (Kho Ứng Dụng, Học Liệu Số, Thí Nghiệm Mô Phỏng)
-  const ALLOWED_CONTENT_ZONES = new Set(['apps', 'games', 'simulations', 'management', 'guides']);
+  // 10. Content Items Endpoints (Không gian ảo 3D, Kho Ứng Dụng, Học Liệu Số, Thí Nghiệm Mô Phỏng)
+  const ALLOWED_CONTENT_ZONES = new Set(['virtual_spaces', 'apps', 'games', 'simulations', 'management', 'guides']);
   const VALID_ITEM_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
   app.get('/api/items', (req, res) => {
@@ -1583,6 +1266,17 @@ async function startServer() {
         !ALLOWED_CONTENT_ZONES.has(String(item.zone || ''))
       ) {
         return res.status(400).json({ success: false, message: 'Dữ liệu học liệu không hợp lệ' });
+      }
+
+      if (item.creditCost !== undefined) {
+        const parsedCost = Number(item.creditCost);
+        if (!Number.isFinite(parsedCost) || parsedCost < 0 || parsedCost > MAX_CUSTOM_CREDIT_COST) {
+          return res.status(400).json({
+            success: false,
+            message: 'Giá tín dụng AI của ứng dụng không hợp lệ (0 - 100.000).',
+          });
+        }
+        item.creditCost = Math.floor(parsedCost);
       }
 
       const items = getStoredItems();

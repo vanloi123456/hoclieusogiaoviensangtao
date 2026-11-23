@@ -12,12 +12,13 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { ContentItem } from '../types';
+import { ContentItem, UserRole } from '../types';
 import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
 
 interface GamePlayerModalProps {
   item: ContentItem | null;
   teacherId?: string | null;
+  userRole?: UserRole;
   initialAppData?: Record<string, string>;
   externalSyncEvent?: { itemId: string; data: Record<string, string>; ts: number } | null;
   onStorageMutation?: (
@@ -32,6 +33,7 @@ interface GamePlayerModalProps {
 export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
   item,
   teacherId,
+  userRole = 'guest',
   initialAppData,
   externalSyncEvent,
   onStorageMutation,
@@ -45,6 +47,7 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const initialDataRef = useRef<Record<string, string>>({});
+  const selfMutatedRef = useRef(false);
 
   initialDataRef.current = initialAppData || {};
 
@@ -72,6 +75,10 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
   }, [onClose]);
 
   useEffect(() => {
+    selfMutatedRef.current = false;
+  }, [item?.id, teacherId, refreshKey]);
+
+  useEffect(() => {
     if (!item || !teacherId || !onStorageMutation) return;
 
     const handleMessage = (ev: MessageEvent) => {
@@ -79,6 +86,7 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
       if (!msg || msg.type !== 'TEACHER_APP_STORAGE_MUTATION') return;
       if (msg.itemId !== item.id || msg.teacherId !== teacherId) return;
 
+      selfMutatedRef.current = true;
       setSyncStatus('saving');
       onStorageMutation(item.id, {
         op: msg.op,
@@ -101,6 +109,10 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
 
   useEffect(() => {
     if (!item || !teacherId || !initialAppData) return;
+    if (selfMutatedRef.current) {
+      selfMutatedRef.current = false;
+      return;
+    }
     pushLatestDataToIframe(initialAppData);
   }, [initialAppData, item?.id, teacherId]);
 
@@ -115,10 +127,11 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
             teacherId,
             itemId: item.id,
             initialData: initialDataRef.current,
+            role: userRole,
           }
         : undefined
     );
-  }, [item?.id, item?.embedCode, refreshKey, teacherId, sourceInfo.iframeBlockedLikely]);
+  }, [item?.id, item?.embedCode, refreshKey, teacherId, userRole, sourceInfo.iframeBlockedLikely]);
 
   if (!item || !item.embedCode) return null;
 

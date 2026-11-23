@@ -51,11 +51,11 @@ export const DIRTY_DOZEN_TESTS = [
     expected: 'PERMISSION_DENIED',
   },
   {
-    name: '7. Invalid deduction amount (subtracting 4 not in [1, 2])',
+    name: '7. Invalid deduction amount or usedCredits tampering (negative/mismatching delta)',
     auth: { uid: 'u1', email: 'gv@gmail.com', email_verified: true },
     path: 'users/u1',
     op: 'update',
-    payload: { credits: 1 },
+    payload: { credits: -1, usedCredits: 0 },
     expected: 'PERMISSION_DENIED',
   },
   {

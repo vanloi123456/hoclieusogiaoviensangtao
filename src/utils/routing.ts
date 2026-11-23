@@ -8,6 +8,12 @@ export interface ZoneRouteMeta {
 }
 
 export const ZONE_ROUTES: Record<ZoneType, ZoneRouteMeta> = {
+  virtual_spaces: {
+    zone: 'virtual_spaces',
+    slug: 'khong-gian-ao-3d',
+    sectionId: 'khong-gian-ao-3d',
+    label: 'Không gian ảo 3D',
+  },
   apps: {
     zone: 'apps',
     slug: 'kho-ung-dung',
@@ -53,6 +59,7 @@ export function slugifyVietnamese(input: string): string {
 }
 
 export function getZoneFromSectionId(sectionId: string): ZoneType | null {
+  if (sectionId === 'khong-gian-ao-3d') return 'virtual_spaces';
   if (sectionId === 'kho-ung-dung') return 'apps';
   if (sectionId === 'tro-choi-tuong-tac' || sectionId === 'hoc-lieu-so') return 'games';
   if (sectionId === 'thi-nghiem-mo-phong') return 'simulations';
@@ -109,7 +116,9 @@ export function parsePathname(pathname: string): ParsedRoute {
   }
 
   let matchedZone: ZoneType | undefined;
-  if (firstSegment === 'kho-ung-dung' || firstSegment === 'apps') {
+  if (firstSegment === 'khong-gian-ao-3d' || firstSegment === 'virtual-spaces') {
+    matchedZone = 'virtual_spaces';
+  } else if (firstSegment === 'kho-ung-dung' || firstSegment === 'apps') {
     matchedZone = 'apps';
   } else if (
     firstSegment === 'hoc-lieu-so' ||

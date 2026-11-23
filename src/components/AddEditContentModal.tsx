@@ -14,8 +14,16 @@ import {
   Globe,
   Cloud,
   CloudOff,
+  Box,
+  Coins,
 } from 'lucide-react';
-import { ContentItem, ContentType, ZoneType } from '../types';
+import {
+  ContentItem,
+  ContentType,
+  ZoneType,
+  CREDIT_COST_STANDARD_ACCESS,
+  MAX_CUSTOM_CREDIT_COST,
+} from '../types';
 import {
   classifyAppSource,
   generateSandboxHtml,
@@ -44,6 +52,7 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [embedCode, setEmbedCode] = useState('');
+  const [creditCost, setCreditCost] = useState<number>(CREDIT_COST_STANDARD_ACCESS);
 
   // UI states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,11 +69,21 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
       setTitle(editingItem.title || '');
       setDescription(editingItem.description || '');
       setEmbedCode(editingItem.embedCode || '');
+      setCreditCost(
+        typeof editingItem.creditCost === 'number' && Number.isFinite(editingItem.creditCost)
+          ? Math.max(0, Math.min(MAX_CUSTOM_CREDIT_COST, Math.floor(editingItem.creditCost)))
+          : editingItem.zone === 'management'
+          ? 0
+          : CREDIT_COST_STANDARD_ACCESS
+      );
     } else {
-      setZone('guides');
+      const allowedNewZone: ZoneType =
+        defaultZone === 'management' || defaultZone === 'guides' ? defaultZone : 'guides';
+      setZone(allowedNewZone);
       setTitle('');
       setDescription('');
       setEmbedCode('');
+      setCreditCost(allowedNewZone === 'management' ? CREDIT_COST_STANDARD_ACCESS : 0);
     }
     setEmbedValidation({ isValid: true });
     setFormError(null);
@@ -93,9 +112,20 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
     e.preventDefault();
     setFormError(null);
 
-    if (!editingItem && zone !== 'guides') {
+    if (!editingItem && zone !== 'guides' && zone !== 'management') {
       setFormError('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
       return;
+    }
+
+    if (zone === 'management') {
+      if (
+        !Number.isFinite(creditCost) ||
+        creditCost < 0 ||
+        creditCost > MAX_CUSTOM_CREDIT_COST
+      ) {
+        setFormError('Giá tín dụng AI của ứng dụng phải nằm trong khoảng 0 - 100.000.');
+        return;
+      }
     }
 
     if (!title.trim()) {
@@ -123,6 +153,7 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
       val.type === 'url' && val.srcUrl ? val.srcUrl : embedCode.trim();
 
     let contentType: ContentType = 'app';
+    if (zone === 'virtual_spaces') contentType = 'virtual_space';
     if (zone === 'games') contentType = 'game';
     if (zone === 'simulations') contentType = 'simulation';
     if (zone === 'management') contentType = 'management';
@@ -136,6 +167,10 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
         description: description.trim(),
         type: contentType,
         embedCode: normalizedEmbed,
+        creditCost:
+          zone === 'management'
+            ? Math.max(0, Math.min(MAX_CUSTOM_CREDIT_COST, Math.floor(creditCost)))
+            : undefined,
         grade: undefined,
         subject: undefined,
       });
@@ -171,6 +206,7 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-sky-50 via-cyan-50/50 to-white border-b border-sky-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-xs">
+              {zone === 'virtual_spaces' && <Box className="w-5 h-5" />}
               {zone === 'apps' && <Cpu className="w-5 h-5" />}
               {zone === 'games' && <Gamepad2 className="w-5 h-5" />}
               {zone === 'simulations' && <FlaskConical className="w-5 h-5" />}
@@ -212,6 +248,23 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
               Khu vực học liệu
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <button
+                type="button"
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('virtual_spaces')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'virtual_spaces'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
+                }`}
+              >
+                <Box className="w-4 h-4 shrink-0" />
+                <span className="truncate">Không gian ảo 3D</span>
+              </button>
+
               <button
                 type="button"
                 disabled={!editingItem}
@@ -265,15 +318,16 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
-                disabled={!editingItem}
-                onClick={() => editingItem && setZone('management')}
-                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                  !editingItem
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
-                    : zone === 'management'
-                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs cursor-pointer'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
+                onClick={() => {
+                  setZone('management');
+                  if (!editingItem && creditCost === 0) {
+                    setCreditCost(CREDIT_COST_STANDARD_ACCESS);
+                  }
+                }}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  zone === 'management'
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 <FolderKanban className="w-4 h-4 shrink-0" />
@@ -299,7 +353,9 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Tiêu đề{' '}
-              {zone === 'apps'
+              {zone === 'virtual_spaces'
+                ? 'Không gian ảo 3D'
+                : zone === 'apps'
                 ? 'Ứng dụng'
                 : zone === 'games'
                 ? 'Học liệu số'
@@ -333,6 +389,56 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
               className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-500 resize-none"
             />
           </div>
+
+          {/* Per-item Custom Credit Cost for Ứng dụng Tiện ích */}
+          {zone === 'management' && (
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-amber-950 uppercase tracking-wider">
+                  <Coins className="w-4 h-4 text-amber-600" />
+                  <span>Cài đặt giá truy cập riêng (Tín dụng AI)</span>
+                </label>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-amber-200 text-amber-800">
+                  {creditCost === 0 ? 'Miễn phí (0 tín dụng AI)' : `Trừ ${creditCost} tín dụng AI / lượt`}
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={MAX_CUSTOM_CREDIT_COST}
+                  step={1}
+                  value={creditCost}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setCreditCost(Number.isFinite(val) ? Math.max(0, Math.floor(val)) : 0);
+                  }}
+                  className="w-full sm:w-40 px-3.5 py-2 rounded-xl border border-amber-300 bg-white text-slate-900 text-sm font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[0, 2, 4, 5, 10, 20].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCreditCost(preset)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                        creditCost === preset
+                          ? 'bg-amber-600 text-white border-amber-700'
+                          : 'bg-white text-amber-900 border-amber-200 hover:bg-amber-100'
+                      }`}
+                    >
+                      {preset === 0 ? 'Miễn phí (0)' : `${preset}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                Mỗi ứng dụng trong khu vực <strong>Ứng dụng Tiện ích</strong> có mức giá tín dụng AI riêng khi giáo viên truy cập (đặt <strong>0</strong> để miễn phí).
+              </p>
+            </div>
+          )}
 
           {/* Embed Code / Platform Link */}
           <div className="space-y-2.5">

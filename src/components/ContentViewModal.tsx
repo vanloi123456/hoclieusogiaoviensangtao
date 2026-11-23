@@ -10,12 +10,14 @@ import {
   Home,
   ChevronRight,
   ExternalLink,
+  Box,
 } from 'lucide-react';
-import { ContentItem } from '../types';
+import { ContentItem, UserRole } from '../types';
 import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
 
 interface ContentViewModalProps {
   item: ContentItem | null;
+  userRole?: UserRole;
   onNavigateHome?: () => void;
   onNavigateZone?: () => void;
   onClose: () => void;
@@ -23,6 +25,7 @@ interface ContentViewModalProps {
 
 export const ContentViewModal: React.FC<ContentViewModalProps> = ({
   item,
+  userRole = 'guest',
   onNavigateHome,
   onNavigateZone,
   onClose,
@@ -37,6 +40,15 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
   }, [item, onClose]);
 
   const sourceInfo = useMemo(() => classifyAppSource(item?.embedCode), [item?.embedCode]);
+  const disableNewTab = useMemo(() => {
+    if (!item) return false;
+    const titleLower = (item.title || '').toLowerCase();
+    return (
+      item.id === 'item_lophocaophienban2_3d' ||
+      (titleLower.includes('lớp học ảo 3d') && titleLower.includes('phiên bản 2')) ||
+      Boolean(sourceInfo.url && sourceInfo.url.toLowerCase().includes('lophocaophienban2.vercel.app'))
+    );
+  }, [item, sourceInfo.url]);
 
   const previewHtml = useMemo(() => {
     if (!item?.embedCode || sourceInfo.iframeBlockedLikely) return '';
@@ -44,13 +56,21 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
       teacherId: 'preview_readonly',
       itemId: item.id,
       readOnly: true,
+      role: userRole,
     });
-  }, [item?.id, item?.embedCode, sourceInfo.iframeBlockedLikely]);
+  }, [item?.id, item?.embedCode, sourceInfo.iframeBlockedLikely, userRole]);
 
   if (!item) return null;
 
   const zoneMeta =
-    item.zone === 'games'
+    item.zone === 'virtual_spaces'
+      ? {
+          label: 'Không gian ảo 3D',
+          Icon: Box,
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          iconBgClass: 'bg-emerald-100 text-emerald-600',
+        }
+      : item.zone === 'games'
       ? {
           label: 'Học Liệu Số',
           Icon: Gamepad2,
@@ -186,7 +206,7 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
             <div className="rounded-2xl border border-slate-200 bg-slate-950 overflow-hidden shadow-inner">
               <div className="px-4 py-2 bg-slate-900 text-[11px] font-semibold text-slate-300 border-b border-slate-800 flex items-center justify-between">
                 <span>Bản xem trước nội dung (chế độ chỉ xem)</span>
-                {sourceInfo.url && (
+                {sourceInfo.url && !disableNewTab && (
                   <a
                     href={sourceInfo.url}
                     target="_blank"

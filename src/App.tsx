@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Home, ChevronRight, Play, Cloud, CloudOff, CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { LeftSidebar } from './components/LeftSidebar';
 import { ControlDeck } from './components/ControlDeck';
+import { ZoneVirtualSpaces } from './components/ZoneVirtualSpaces';
 import { ZoneAppsRepository } from './components/ZoneAppsRepository';
 import { ZoneInteractiveGames } from './components/ZoneInteractiveGames';
 import { ZoneSimulations } from './components/ZoneSimulations';
@@ -47,6 +48,8 @@ import {
   SiteBranding,
   CreditActionType,
   MIN_CREDIT_COST,
+  getItemCreditCost,
+  normalizeCreditCost,
 } from './types';
 
 export default function App() {
@@ -67,9 +70,12 @@ export default function App() {
   const [role, setRole] = useState<UserRole>(() => authService.getCurrentRole());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminPanelTab, setAdminPanelTab] = useState<'teachers' | 'branding'>('teachers');
+  const [adminPanelTab, setAdminPanelTab] = useState<'teachers' | 'pricing' | 'branding'>('teachers');
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(() =>
     storageService.isCloudAdminConnected()
+  );
+  const [firebaseAuthUid, setFirebaseAuthUid] = useState<string | null>(
+    () => auth.currentUser?.uid || null
   );
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(() =>
     storageService.getPendingCloudSyncCount()
@@ -91,7 +97,9 @@ export default function App() {
     opener: (item: ContentItem) => void;
   } | null>(null);
 
-  const handleOpenAdminPanel = (tab: 'teachers' | 'branding' = 'teachers') => {
+  const handleOpenAdminPanel = (
+    tab: 'teachers' | 'pricing' | 'branding' = 'teachers'
+  ) => {
     setAdminPanelTab(tab);
     setIsAdminPanelOpen(true);
   };
@@ -220,6 +228,7 @@ export default function App() {
     });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseAuthUid(fbUser?.uid || null);
       if (fbUser) {
         try {
           const synced = await authService.syncFirebaseUserProfile(fbUser);
@@ -246,8 +255,8 @@ export default function App() {
         setIsCloudConnected(false);
         const existing = authService.getCurrentUser();
         if (existing && existing.role === 'teacher') {
-          const refreshedUser = await authService.refreshCurrentUser(existing);
-          setCurrentUser(refreshedUser);
+          const verifiedUser = await authService.verifyTeacherSessionOnStaticHost(existing);
+          setCurrentUser(verifiedUser);
           setRole(authService.getCurrentRole());
         }
       }
@@ -256,7 +265,35 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // Automatically check and refresh 5 daily free credits after 24 hours (on timer & tab focus)
+  // Real-time Firestore listener for logged-in teacher's credits & usedCredits across all browsers/PCs
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'teacher') return;
+    if (!firebaseAuthUid || firebaseAuthUid !== currentUser.id) return;
+
+    const unsubscribeUserFs = authService.subscribeCurrentUserRealtime(
+      currentUser.id,
+      (liveUser) => {
+        setCurrentUser((prev) => {
+          if (
+            prev &&
+            prev.id === liveUser.id &&
+            prev.credits === liveUser.credits &&
+            (prev.usedCredits ?? 0) === (liveUser.usedCredits ?? 0) &&
+            prev.lastFreeResetAt === liveUser.lastFreeResetAt &&
+            prev.fullName === liveUser.fullName
+          ) {
+            return prev;
+          }
+          return liveUser;
+        });
+        setRole(authService.getCurrentRole());
+      }
+    );
+
+    return () => unsubscribeUserFs();
+  }, [currentUser?.id, currentUser?.role, firebaseAuthUid]);
+
+  // Automatically check and refresh 20 daily free credits after 24 hours (on timer & tab focus)
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'teacher') return;
 
@@ -300,7 +337,7 @@ export default function App() {
     };
   }, [currentUser?.id, currentUser?.role, currentUser?.lastFreeResetAt, currentUser?.credits]);
 
-  // Load teacher's saved app data whenever logged-in account changes
+  // Load & live-sync teacher's saved app data whenever logged-in account or Firebase Auth session changes (works across browsers & PCs on Vercel)
   useEffect(() => {
     let cancelled = false;
     if (!activeTeacherId) {
@@ -312,10 +349,28 @@ export default function App() {
         setTeacherAppData(data || {});
       }
     });
+
+    const unsubscribeTeacherFs = storageService.subscribeTeacherAppDataRealtime(
+      activeTeacherId,
+      (itemId, nextItemData) => {
+        if (cancelled) return;
+        setTeacherAppData((prev) => ({
+          ...prev,
+          [itemId]: nextItemData,
+        }));
+        setExternalSyncEvent({
+          itemId,
+          data: nextItemData,
+          ts: Date.now(),
+        });
+      }
+    );
+
     return () => {
       cancelled = true;
+      unsubscribeTeacherFs();
     };
-  }, [activeTeacherId]);
+  }, [activeTeacherId, firebaseAuthUid, isCloudConnected]);
 
   // Real-time Server-Sent Events subscription for items, branding, teacher credits & app data
   useEffect(() => {
@@ -544,6 +599,7 @@ export default function App() {
       }
 
       const sections = [
+        'khong-gian-ao-3d',
         'kho-ung-dung',
         'tro-choi-tuong-tac',
         'thi-nghiem-mo-phong',
@@ -681,9 +737,10 @@ export default function App() {
 
   const isAdmin = role === 'admin';
 
-  // Launch content with tiered credit deduction:
-  // - view: 1 tín dụng (Xem nội dung Kho ứng dụng, Học liệu số, Thí nghiệm mô phỏng)
-  // - access: 2 tín dụng (Thực hiện truy cập Học liệu số / Thí nghiệm mô phỏng)
+  // Launch content with zone-based AI credit deduction:
+  // - Không gian ảo 3D, Kho Ứng Dụng, Học Liệu Số, Thí Nghiệm Mô Phỏng: 4 tín dụng AI
+  // - Hướng dẫn: 0 tín dụng AI (miễn phí, không trừ)
+  // - Ứng dụng Tiện ích: theo giá riêng cài đặt cho từng ứng dụng (creditCost)
   const handleLaunchContentWithCredits = async (
     item: ContentItem,
     action: CreditActionType,
@@ -691,6 +748,18 @@ export default function App() {
     overrideUser?: UserAccount
   ) => {
     setSelectedItem(item);
+
+    // Truy cập mục Hướng dẫn luôn miễn phí, không yêu cầu trừ tín dụng AI
+    if (item.zone === 'guides') {
+      setPendingLaunch(null);
+      setDeepLinkBannerItem(null);
+      setActiveZoneRoute('guides');
+      setActiveSection(ZONE_ROUTES.guides.sectionId);
+      pushUrlPath(buildItemPath(item));
+      onAuthorizedOpen(item);
+      return;
+    }
+
     const activeUser = overrideUser || currentUser;
     const isActiveTeacherOrAdmin =
       role === 'admin' ||
@@ -705,18 +774,25 @@ export default function App() {
 
     if (role === 'admin' || activeUser.role === 'admin') {
       setPendingLaunch(null);
+      setDeepLinkBannerItem(null);
+      setActiveZoneRoute(item.zone);
+      setActiveSection(ZONE_ROUTES[item.zone].sectionId);
+      pushUrlPath(buildItemPath(item));
       onAuthorizedOpen(item);
       return;
     }
 
-    const res = await authService.consumeCreditsForApp(activeUser, action);
+    const res = await authService.consumeCreditsForApp(activeUser, action, item);
     setCurrentUser(res.user);
     setRole(authService.getCurrentRole());
 
-    const needed = res.requiredCredits || authService.getCreditCostForAction(action);
+    const needed =
+      typeof res.requiredCredits === 'number'
+        ? res.requiredCredits
+        : authService.getCreditCostForAction(action, item);
     const remainingCredits = authService.getTotalCredits(res.user);
 
-    if (res.insufficientCredits || (!res.success && remainingCredits < needed)) {
+    if (needed > 0 && (res.insufficientCredits || (!res.success && remainingCredits < needed))) {
       setPendingLaunch({ type: 'item', item, action, opener: onAuthorizedOpen });
       setRequiredCreditsForModal(needed);
       setCreditModalReason(
@@ -783,18 +859,25 @@ export default function App() {
     let savedItem: ContentItem;
 
     if (editingItem) {
+      const nextZone = data.zone || editingItem.zone;
       savedItem = {
         ...editingItem,
         ...data,
         updatedAt: now,
       } as ContentItem;
+      if (nextZone === 'management') {
+        savedItem.creditCost =
+          normalizeCreditCost(data.creditCost) ?? getItemCreditCost(editingItem);
+      } else {
+        delete savedItem.creditCost;
+      }
     } else {
       const requestedZone = data.zone || 'guides';
       if (
+        requestedZone === 'virtual_spaces' ||
         requestedZone === 'apps' ||
         requestedZone === 'games' ||
-        requestedZone === 'simulations' ||
-        requestedZone === 'management'
+        requestedZone === 'simulations'
       ) {
         throw new Error('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
       }
@@ -803,13 +886,16 @@ export default function App() {
         zone: requestedZone,
         title: data.title || '',
         description: data.description || '',
-        type: data.type || 'guide',
+        type: data.type || (requestedZone === 'management' ? 'management' : 'guide'),
         createdAt: now,
         updatedAt: now,
         order: items.length + 1,
         embedCode: data.embedCode,
         grade: data.grade,
         subject: data.subject,
+        ...(requestedZone === 'management'
+          ? { creditCost: normalizeCreditCost(data.creditCost) ?? 0 }
+          : {}),
       };
     }
 
@@ -836,6 +922,34 @@ export default function App() {
       showCloudNotice(
         'warning',
         `Đã lưu tạm "${savedItem.title}" trên máy này. Vui lòng nhấn "Kết nối Google Đám mây" để lưu vĩnh viễn cho mọi máy tính & trình duyệt khác.`
+      );
+    }
+  };
+
+  const handleUpdateManagementItemPrice = async (item: ContentItem, nextCost: number) => {
+    if (!isAdmin) return;
+    const sanitizedCost = normalizeCreditCost(nextCost) ?? 0;
+    const updatedItem: ContentItem = {
+      ...item,
+      creditCost: sanitizedCost,
+      updatedAt: Date.now(),
+    };
+    const res = await storageService.saveItem(updatedItem);
+    setItems((prev) => prev.map((i) => (i.id === updatedItem.id ? updatedItem : i)));
+    if (selectedItem?.id === updatedItem.id) {
+      setSelectedItem(updatedItem);
+    }
+    if (res.firestoreSynced) {
+      showCloudNotice(
+        'success',
+        `Đã cập nhật giá "${updatedItem.title}": ${
+          sanitizedCost === 0 ? 'Miễn phí' : `${sanitizedCost} tín dụng AI`
+        } trên Cloud Firestore.`
+      );
+    } else if (res.needsGoogleCloudAuth) {
+      showCloudNotice(
+        'warning',
+        `Đã lưu tạm giá mới cho "${updatedItem.title}". Hãy kết nối Google Đám mây để đồng bộ đa thiết bị.`
       );
     }
   };
@@ -895,6 +1009,7 @@ export default function App() {
   };
 
   // Filter items
+  const virtualSpaceItems = items.filter((i) => i.zone === 'virtual_spaces');
   const appItems = items.filter((i) => i.zone === 'apps');
   const gameItems = items.filter((i) => i.zone === 'games');
   const simItems = items.filter((i) => i.zone === 'simulations');
@@ -968,6 +1083,7 @@ export default function App() {
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         counts={{
+          virtualSpaces: virtualSpaceItems.length,
           apps: appItems.length,
           games: gameItems.length,
           sims: simItems.length,
@@ -1122,7 +1238,7 @@ export default function App() {
                           } else if (item.zone === 'simulations') {
                             handleLaunchContentWithCredits(item, 'access', setRunningSimulation);
                           } else {
-                            handleLaunchContentWithCredits(item, 'view', setRunningApp);
+                            handleLaunchContentWithCredits(item, 'access', setRunningApp);
                           }
                         }}
                         className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
@@ -1223,6 +1339,26 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-14">
+            {/* Zone 0: Không gian ảo 3D */}
+            <ZoneVirtualSpaces
+              items={virtualSpaceItems}
+              role={role}
+              currentUser={currentUser}
+              onSelectZone={() => navigateToZone('virtual_spaces')}
+              onEditItem={handleOpenEditModal}
+              onDeleteItem={handlePromptDelete}
+              avatarUrl={branding.virtualSpacesAvatar}
+              onUploadAvatar={(url) =>
+                handleUpdateBranding({ ...branding, virtualSpacesAvatar: url })
+              }
+              onRemoveAvatar={() => {
+                const next = { ...branding };
+                delete next.virtualSpacesAvatar;
+                handleUpdateBranding(next);
+              }}
+              onLaunchSpace={(item) => handleLaunchContentWithCredits(item, 'access', setRunningApp)}
+            />
+
             {/* Zone 1: Kho Ứng Dụng */}
             <ZoneAppsRepository
               items={appItems}
@@ -1239,7 +1375,7 @@ export default function App() {
                 delete next.appsAvatar;
                 handleUpdateBranding(next);
               }}
-              onLaunchApp={(item) => handleLaunchContentWithCredits(item, 'view', setRunningApp)}
+              onLaunchApp={(item) => handleLaunchContentWithCredits(item, 'access', setRunningApp)}
             />
 
             {/* Zone 2: Học Liệu Số */}
@@ -1257,7 +1393,7 @@ export default function App() {
               }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
-              onViewGame={(item) => handleLaunchContentWithCredits(item, 'view', setViewingItem)}
+              onViewGame={(item) => handleLaunchContentWithCredits(item, 'access', setViewingItem)}
               onPlayGame={(item) => handleLaunchContentWithCredits(item, 'access', setPlayingGame)}
             />
 
@@ -1276,7 +1412,9 @@ export default function App() {
               }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
-              onViewSimulation={(item) => handleLaunchContentWithCredits(item, 'view', setViewingItem)}
+              onViewSimulation={(item) =>
+                handleLaunchContentWithCredits(item, 'access', setViewingItem)
+              }
               onLaunchSimulation={(item) =>
                 handleLaunchContentWithCredits(item, 'access', setRunningSimulation)
               }
@@ -1297,11 +1435,16 @@ export default function App() {
                 delete next.managementAvatar;
                 handleUpdateBranding(next);
               }}
+              onAddSoftware={() => {
+                setTargetZone('management');
+                setEditingItem(null);
+                setIsAddEditModalOpen(true);
+              }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
               onViewSoftware={(item) => handleLaunchContentWithCredits(item, 'view', setViewingItem)}
               onLaunchSoftware={(item) =>
-                handleLaunchContentWithCredits(item, 'view', setRunningApp)
+                handleLaunchContentWithCredits(item, 'access', setRunningApp)
               }
             />
 
@@ -1354,6 +1497,7 @@ export default function App() {
       {/* Modals & Dialogs */}
       <ContentViewModal
         item={viewingItem}
+        userRole={role}
         onNavigateHome={navigateToHome}
         onNavigateZone={() =>
           viewingItem ? navigateToZone(viewingItem.zone) : navigateToHome()
@@ -1388,6 +1532,7 @@ export default function App() {
       <AppPlayerModal
         item={runningApp}
         teacherId={activeTeacherId}
+        userRole={role}
         initialAppData={runningApp ? teacherAppData[runningApp.id] : undefined}
         externalSyncEvent={externalSyncEvent}
         onStorageMutation={handleTeacherStorageMutation}
@@ -1405,6 +1550,7 @@ export default function App() {
       <GamePlayerModal
         item={playingGame}
         teacherId={activeTeacherId}
+        userRole={role}
         initialAppData={playingGame ? teacherAppData[playingGame.id] : undefined}
         externalSyncEvent={externalSyncEvent}
         onStorageMutation={handleTeacherStorageMutation}
@@ -1419,6 +1565,7 @@ export default function App() {
       <SimulationPlayerModal
         item={runningSimulation}
         teacherId={activeTeacherId}
+        userRole={role}
         initialAppData={runningSimulation ? teacherAppData[runningSimulation.id] : undefined}
         externalSyncEvent={externalSyncEvent}
         onStorageMutation={handleTeacherStorageMutation}
@@ -1470,11 +1617,20 @@ export default function App() {
       <AdminPanelModal
         isOpen={isAdminPanelOpen}
         initialTab={adminPanelTab}
+        isCloudConnected={isCloudConnected}
         onClose={() => setIsAdminPanelOpen(false)}
         onLogout={handleLogout}
         branding={branding}
         onUpdateBranding={handleUpdateBranding}
+        managementItems={managementItems}
+        onUpdateItemCreditCost={handleUpdateManagementItemPrice}
+        onOpenAddManagementItem={() => {
+          setTargetZone('management');
+          setEditingItem(null);
+          setIsAddEditModalOpen(true);
+        }}
         contentCounts={{
+          virtualSpaces: virtualSpaceItems.length,
           apps: appItems.length,
           games: gameItems.length,
           simulations: simItems.length,

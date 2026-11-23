@@ -10,15 +10,17 @@ import {
   ChevronRight,
   Home,
   ExternalLink,
+  Box,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { ContentItem } from '../types';
+import { ContentItem, UserRole } from '../types';
 import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
 import { ZONE_ROUTES } from '../utils/routing';
 
 interface AppPlayerModalProps {
   item: ContentItem | null;
   teacherId?: string | null;
+  userRole?: UserRole;
   initialAppData?: Record<string, string>;
   externalSyncEvent?: { itemId: string; data: Record<string, string>; ts: number } | null;
   onStorageMutation?: (
@@ -33,6 +35,7 @@ interface AppPlayerModalProps {
 export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
   item,
   teacherId,
+  userRole = 'guest',
   initialAppData,
   externalSyncEvent,
   onStorageMutation,
@@ -46,6 +49,7 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const initialDataRef = useRef<Record<string, string>>({});
+  const selfMutatedRef = useRef(false);
 
   // Capture latest initialAppData whenever item opens, user changes, or Restart is triggered
   initialDataRef.current = initialAppData || {};
@@ -74,6 +78,10 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
   }, [onClose]);
 
   useEffect(() => {
+    selfMutatedRef.current = false;
+  }, [item?.id, teacherId, refreshKey]);
+
+  useEffect(() => {
     if (!item || !teacherId || !onStorageMutation) return;
 
     const handleMessage = (ev: MessageEvent) => {
@@ -81,6 +89,7 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
       if (!msg || msg.type !== 'TEACHER_APP_STORAGE_MUTATION') return;
       if (msg.itemId !== item.id || msg.teacherId !== teacherId) return;
 
+      selfMutatedRef.current = true;
       setSyncStatus('saving');
       onStorageMutation(item.id, {
         op: msg.op,
@@ -103,10 +112,23 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
 
   useEffect(() => {
     if (!item || !teacherId || !initialAppData) return;
+    if (selfMutatedRef.current) {
+      selfMutatedRef.current = false;
+      return;
+    }
     pushLatestDataToIframe(initialAppData);
   }, [initialAppData, item?.id, teacherId]);
 
   const sourceInfo = useMemo(() => classifyAppSource(item?.embedCode), [item?.embedCode]);
+  const disableNewTab = useMemo(() => {
+    if (!item) return false;
+    const titleLower = (item.title || '').toLowerCase();
+    return (
+      item.id === 'item_lophocaophienban2_3d' ||
+      (titleLower.includes('lớp học ảo 3d') && titleLower.includes('phiên bản 2')) ||
+      Boolean(sourceInfo.url && sourceInfo.url.toLowerCase().includes('lophocaophienban2.vercel.app'))
+    );
+  }, [item, sourceInfo.url]);
 
   const sandboxContent = useMemo(() => {
     if (!item?.embedCode || sourceInfo.iframeBlockedLikely) return '';
@@ -117,10 +139,11 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
             teacherId,
             itemId: item.id,
             initialData: initialDataRef.current,
+            role: userRole,
           }
         : undefined
     );
-  }, [item?.id, item?.embedCode, refreshKey, teacherId, sourceInfo.iframeBlockedLikely]);
+  }, [item?.id, item?.embedCode, refreshKey, teacherId, userRole, sourceInfo.iframeBlockedLikely]);
 
   if (!item || !item.embedCode) return null;
 
@@ -156,8 +179,18 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
       {/* App Stage Topbar */}
       <div className="flex items-center justify-between px-6 py-3.5 bg-slate-900/90 border-b border-sky-950/60 text-white gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30 shrink-0">
-            <Cpu className="w-5 h-5" />
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+              item.zone === 'virtual_spaces'
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                : 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+            }`}
+          >
+            {item.zone === 'virtual_spaces' ? (
+              <Box className="w-5 h-5" />
+            ) : (
+              <Cpu className="w-5 h-5" />
+            )}
           </div>
           <div className="min-w-0">
             <nav
@@ -203,7 +236,7 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
 
         {/* Action controls */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {sourceInfo.url && (
+          {sourceInfo.url && !disableNewTab && (
             <a
               href={sourceInfo.url}
               target="_blank"

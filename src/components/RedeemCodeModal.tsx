@@ -9,9 +9,15 @@ import {
   RefreshCw,
   Play,
   Clock,
+  Landmark,
+  QrCode,
 } from 'lucide-react';
 import { UserAccount, MIN_CREDIT_COST, DAILY_FREE_CREDITS } from '../types';
 import { authService, ADMIN_PHONE } from '../services/auth';
+
+const BANK_NAME = 'Vietinbank';
+const BANK_ACCOUNT_NUMBER = '100005297947';
+const QR_IMAGE_PATH = '/assets/aistudio/_nh_1a94d81c.png';
 
 interface RedeemCodeModalProps {
   isOpen: boolean;
@@ -35,6 +41,7 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
   onClose,
 }) => {
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<string | null>(null);
   const [latestUser, setLatestUser] = useState<UserAccount | null>(null);
@@ -42,6 +49,7 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setCopiedPhone(false);
+    setCopiedAccount(false);
     setRefreshStatus(null);
     setLatestUser(null);
   }, [isOpen]);
@@ -57,6 +65,12 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
     navigator.clipboard?.writeText(ADMIN_PHONE).catch(() => {});
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
+  };
+
+  const handleCopyAccount = () => {
+    navigator.clipboard?.writeText(BANK_ACCOUNT_NUMBER).catch(() => {});
+    setCopiedAccount(true);
+    setTimeout(() => setCopiedAccount(false), 2000);
   };
 
   const handleRefreshBalance = async () => {
@@ -89,18 +103,18 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-sky-200 overflow-hidden my-6"
+        className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-sky-200 overflow-hidden my-4 flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Liên hệ Quản trị viên"
       >
         {/* Header */}
         <div
-          className={`p-5 border-b flex items-start justify-between gap-4 ${
+          className={`p-5 border-b flex items-start justify-between gap-4 shrink-0 ${
             isInsufficient
               ? 'bg-gradient-to-r from-rose-50 via-amber-50 to-white border-rose-100'
               : 'bg-gradient-to-r from-sky-50 via-cyan-50 to-white border-sky-100'
@@ -125,8 +139,8 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
               <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">
                 {reasonMessage ||
                   (isInsufficient
-                    ? `Số dư tín dụng AI của thầy/cô đã hết hoặc không đủ (cần ${requiredCredits} tín dụng AI). Vui lòng liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE} để tiếp tục sử dụng.`
-                    : `Liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE} để tiếp tục sử dụng.`)}
+                    ? `Số dư tín dụng AI của thầy/cô đã hết hoặc không đủ (cần ${requiredCredits} tín dụng AI). Vui lòng mua thêm tín dụng hoặc liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE}.`
+                    : `Mua thêm tín dụng AI hoặc liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE} để được cộng số tín dụng AI.`)}
               </p>
             </div>
           </div>
@@ -141,8 +155,9 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Current Balance Banner */}
+        {/* Scrollable Body */}
+        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+          {/* Current Remaining Balance Banner */}
           <div
             className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${
               isInsufficient
@@ -162,23 +177,98 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
                 {totalCredits} tín dụng AI
               </span>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
               <Coins className={`w-5 h-5 ${isInsufficient ? 'text-rose-500' : 'text-emerald-600'}`} />
             </div>
           </div>
 
-          {/* Admin Phone Contact Card (No personal admin profile details exposed) */}
-          <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-3">
-            <p className="text-xs font-medium text-slate-700 leading-relaxed">
-              Vui lòng liên hệ Quản trị viên qua số điện thoại{' '}
-              <strong className="font-mono text-sky-800">{ADMIN_PHONE}</strong> để tiếp tục sử dụng.
-            </p>
+          {/* Purchase Packages & VietinBank QR Transfer Card */}
+          <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-3.5">
+            <div className="flex items-start gap-2">
+              <QrCode className="w-4 h-4 text-sky-700 shrink-0 mt-0.5" />
+              <p className="text-xs sm:text-[13px] font-medium text-slate-800 leading-relaxed">
+                <strong>Mua số tín dụng AI:</strong> 50.000 đồng <strong>1.000 tín dụng AI</strong>, 100.000 đồng <strong>2.000 tín dụng AI</strong>, quét mã QR chuyển khoản thầy cô ghi nội dung là{' '}
+                <strong className="text-sky-900">&ldquo;tài khoản email của thầy cô, số điện thoại&rdquo;</strong>{' '}
+                chuyển khoản qua tài khoản{' '}
+                <strong className="font-mono text-sky-900">{BANK_ACCOUNT_NUMBER}</strong>{' '}
+                <strong>{BANK_NAME}</strong>, sau đó liên hệ quản trị viên qua số điện thoại{' '}
+                <strong className="font-mono text-sky-900">{ADMIN_PHONE}</strong> để được cộng số tín dụng AI.
+              </p>
+            </div>
 
+            {/* Pricing tier summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="bg-white rounded-xl border border-sky-100 px-3.5 py-2.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700">Gói 50.000 đồng</span>
+                <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-lg">
+                  1.000 tín dụng AI
+                </span>
+              </div>
+              <div className="bg-white rounded-xl border border-sky-100 px-3.5 py-2.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700">Gói 100.000 đồng</span>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                  2.000 tín dụng AI
+                </span>
+              </div>
+            </div>
+
+            {/* QR Image & Bank Account Details */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-2xl border border-sky-100">
+              <div className="w-44 h-44 shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white p-1.5 shadow-xs flex items-center justify-center">
+                <img
+                  src={QR_IMAGE_PATH}
+                  alt="Mã QR chuyển khoản Vietinbank 100005297947"
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="flex-1 w-full space-y-2.5 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-semibold">
+                    <Landmark className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Ngân hàng {BANK_NAME}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold font-mono text-slate-900">
+                      {BANK_ACCOUNT_NUMBER}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyAccount}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-bold transition-colors cursor-pointer shrink-0"
+                    >
+                      {copiedAccount ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Đã chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Sao chép STK</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-amber-50/75 border border-amber-200/90 text-[11px] text-amber-950 leading-relaxed">
+                  <span className="font-bold block mb-0.5">Nội dung chuyển khoản:</span>
+                  <span className="font-semibold text-amber-900">
+                    &ldquo;tài khoản email của thầy cô, số điện thoại&rdquo;
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Phone Contact */}
             <div className="flex items-center justify-between gap-2 bg-white px-3.5 py-2.5 rounded-xl border border-sky-100">
               <div className="flex items-center gap-2.5 min-w-0">
                 <Phone className="w-4 h-4 text-sky-600 shrink-0" />
                 <div className="min-w-0">
-                  <span className="text-[11px] text-slate-500 block">Số điện thoại</span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Số điện thoại Quản trị viên
+                  </span>
                   <a
                     href={`tel:${ADMIN_PHONE}`}
                     className="text-sm font-bold font-mono text-sky-800 hover:text-sky-600 underline underline-offset-2"
@@ -221,7 +311,7 @@ export const RedeemCodeModal: React.FC<RedeemCodeModalProps> = ({
             <Clock className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
               Hệ thống sẽ tự động làm mới <strong>{DAILY_FREE_CREDITS} tín dụng AI miễn phí</strong> mỗi ngày sau 24 giờ
-              {remainingResetText ? ` (dự kiến còn khoảng ${remainingResetText})` : ''}. Sau khi Quản trị viên cộng thêm tín dụng cho tài khoản, thầy/cô bấm nút kiểm tra số dư bên dưới để tiếp tục ngay.
+              {remainingResetText ? ` (dự kiến còn khoảng ${remainingResetText})` : ''}. Sau khi chuyển khoản và Quản trị viên cộng thêm tín dụng cho tài khoản, thầy/cô bấm nút kiểm tra số dư bên dưới để tiếp tục ngay.
             </p>
           </div>
 

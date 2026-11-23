@@ -1,4 +1,4 @@
-import { ContentItem, ContentType, SiteBranding, ZoneType } from '../types';
+import { ContentItem, ContentType, SiteBranding, ZoneType, normalizeCreditCost } from '../types';
 import defaultItemsRaw from '../data/defaultItems.json';
 import {
   auth,
@@ -50,6 +50,7 @@ const REMOVED_ITEM_IDS = new Set([
   'item_lophocao3d_vercel',
   'item_tungubietbay_vercel',
   'item_keoco_kienthuc_restored',
+  'item_lophocao3d_v2_gvsangtao',
 ]);
 
 const BUNDLED_ADDON_IDS = new Set<string>([
@@ -57,7 +58,16 @@ const BUNDLED_ADDON_IDS = new Set<string>([
   'item_keotha_noiy_restored',
   'item_lophocao3d_restored',
   'item_tungubietbay_restored',
+  'item_lophocaophienban2_3d',
 ]);
+const ALL_ZONES: ZoneType[] = [
+  'virtual_spaces',
+  'apps',
+  'games',
+  'simulations',
+  'management',
+  'guides',
+];
 const DELETED_ADDON_STORAGE_KEY = 'hoclieuso_deleted_addon_ids_v1';
 const SEEN_FS_ADDON_STORAGE_KEY = 'hoclieuso_seen_fs_addon_ids_v1';
 const PENDING_UPSERTS_STORAGE_KEY = 'hoclieuso_pending_fs_upserts_v1';
@@ -156,7 +166,41 @@ function isRemovedCatalogEntry(id: string, title?: string): boolean {
   return false;
 }
 
-function shouldUpgradeBundledAddon(_existing: ContentItem, _candidate: ContentItem): boolean {
+function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem): boolean {
+  if (existing.zone !== candidate.zone || existing.type !== candidate.type) {
+    return true;
+  }
+  const exEmbed = existing.embedCode || '';
+  if (
+    candidate.id === 'item_phong_trung_bay_3d_ai_beb7b05a' &&
+    !exEmbed.includes('data-exhibition-rev="v3-captions-rooms-protected"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_lophocao3d_restored' &&
+    !exEmbed.includes('data-lophocao3d-rev="v2-protected-sync"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_keotha_noiy_restored' &&
+    !exEmbed.includes('data-keotha-rev="v2-cloud-sync"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_tungubietbay_restored' &&
+    !exEmbed.includes('data-tungu-rev="v3-per-teacher-cloud-sync"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_lophocaophienban2_3d' &&
+    !exEmbed.includes('data-lophocao3dv2-rev="v3-no-newtab-cloud-sync"')
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -209,6 +253,7 @@ function normalizeZone(rawZone: any): ZoneType | null {
   if (rawZone === 'documents') return 'simulations';
   if (rawZone === 'images') return 'apps';
   if (
+    rawZone === 'virtual_spaces' ||
     rawZone === 'apps' ||
     rawZone === 'games' ||
     rawZone === 'simulations' ||
@@ -222,6 +267,7 @@ function normalizeZone(rawZone: any): ZoneType | null {
 
 function normalizeType(rawType: any, zone: ZoneType): ContentType {
   if (
+    rawType === 'virtual_space' ||
     rawType === 'app' ||
     rawType === 'game' ||
     rawType === 'simulation' ||
@@ -230,6 +276,7 @@ function normalizeType(rawType: any, zone: ZoneType): ContentType {
   ) {
     return rawType;
   }
+  if (zone === 'virtual_spaces') return 'virtual_space';
   if (zone === 'games') return 'game';
   if (zone === 'simulations') return 'simulation';
   if (zone === 'management') return 'management';
@@ -284,6 +331,10 @@ function normalizeItem(raw: any, fallbackOrder = 0): ContentItem | null {
   if (typeof raw.subject === 'string' && raw.subject.length > 0) {
     item.subject = raw.subject.slice(0, 60);
   }
+  const normalizedCost = normalizeCreditCost(raw.creditCost);
+  if (normalizedCost !== undefined) {
+    item.creditCost = normalizedCost;
+  }
 
   return item;
 }
@@ -334,6 +385,8 @@ function buildFirestoreCreatePayload(
   if (item.instructions) payload.instructions = item.instructions.slice(0, 5000);
   if (item.grade) payload.grade = item.grade.slice(0, 40);
   if (item.subject) payload.subject = item.subject.slice(0, 60);
+  const createCost = normalizeCreditCost(item.creditCost);
+  if (createCost !== undefined) payload.creditCost = createCost;
   return payload;
 }
 
@@ -362,6 +415,10 @@ function buildFirestoreUpdatePayload(
   }
   if (item.subject !== undefined) {
     payload.subject = item.subject.slice(0, 60);
+  }
+  const updateCost = normalizeCreditCost(item.creditCost);
+  if (updateCost !== undefined) {
+    payload.creditCost = updateCost;
   }
   return payload;
 }
@@ -654,7 +711,7 @@ class StorageService {
       const catalogRef = doc(db, 'site_settings', 'catalog');
       const itemsQuery = query(
         collection(db, 'content_items'),
-        where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+        where('zone', 'in', ALL_ZONES)
       );
       const [catalogSnap, itemsSnap] = await Promise.all([
         getDocPreferServer(catalogRef).catch(() => null),
@@ -887,7 +944,7 @@ class StorageService {
         const allSnap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
-            where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+            where('zone', 'in', ALL_ZONES)
           )
         );
         for (const d of allSnap.docs) {
@@ -905,7 +962,7 @@ class StorageService {
         const existingSnap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
-            where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+            where('zone', 'in', ALL_ZONES)
           )
         );
         const existingById = new Map<string, ContentItem>();
@@ -929,12 +986,14 @@ class StorageService {
           this.getLocalItems(),
         ]);
 
+        const bundledItems = this.getBundledDefaultItems();
         let candidates = overrideSeed;
         if (!candidates || candidates.length === 0) {
           const base =
+            (bundledItems.length > 0 && bundledItems) ||
             (serverItems && serverItems.length > 0 && serverItems) ||
             (publicSeed && publicSeed.length > 0 && publicSeed) ||
-            this.getBundledDefaultItems();
+            [];
           const byId = new Map<string, ContentItem>();
           for (const it of base) byId.set(it.id, it);
           for (const it of localItems) {
@@ -944,14 +1003,12 @@ class StorageService {
         }
 
         if (alreadyInitialized) {
-          const serverIds = serverItems ? new Set(serverItems.map((i) => i.id)) : null;
           for (const item of candidates) {
             if (
               BUNDLED_ADDON_IDS.has(item.id) &&
               !existingIds.has(item.id) &&
               !deletedAddons.has(item.id) &&
-              !seenFsAddons.has(item.id) &&
-              (!serverIds || serverIds.has(item.id))
+              !seenFsAddons.has(item.id)
             ) {
               await this.writeItemToFirestore(item);
               addIdToLocalStorageSet(SEEN_FS_ADDON_STORAGE_KEY, item.id);
@@ -1054,15 +1111,16 @@ class StorageService {
       return withPending;
     }
 
-    // Case 2: Firestore is empty & not initialized yet -> use Express items, public seed, or bundled defaultItems
+    // Case 2: Firestore is empty & not initialized yet -> use bundled defaultItems, Express items, or public seed
     const localItems = await this.getLocalItems();
+    const bundledList = this.getBundledDefaultItems();
     let seedSource =
       serverItems && serverItems.length > 0
         ? serverItems
         : await this.fetchPublicSeedItems();
 
     if (!seedSource || seedSource.length === 0) {
-      seedSource = this.getBundledDefaultItems();
+      seedSource = bundledList;
     }
 
     const mergedMap = new Map<string, ContentItem>();
@@ -1073,6 +1131,14 @@ class StorageService {
       const existing = mergedMap.get(localItem.id);
       if (!existing || (localItem.updatedAt || 0) > (existing.updatedAt || 0)) {
         mergedMap.set(localItem.id, localItem);
+      }
+    }
+    const deletedAddons = readIdSetFromLocalStorage(DELETED_ADDON_STORAGE_KEY);
+    for (const bundled of bundledList) {
+      if (!BUNDLED_ADDON_IDS.has(bundled.id) || deletedAddons.has(bundled.id)) continue;
+      const existing = mergedMap.get(bundled.id);
+      if (!existing || shouldUpgradeBundledAddon(existing, bundled)) {
+        mergedMap.set(bundled.id, bundled);
       }
     }
 
@@ -1227,7 +1293,7 @@ class StorageService {
         const snap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
-            where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+            where('zone', 'in', ALL_ZONES)
           )
         );
         for (const docSnap of snap.docs) {
@@ -1295,7 +1361,7 @@ class StorageService {
         const existingSnap = await getDocsPreferServer(
           query(
             collection(db, 'content_items'),
-            where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+            where('zone', 'in', ALL_ZONES)
           )
         );
         const importedIds = new Set(normalized.map((i) => i.id));
@@ -1353,6 +1419,8 @@ class StorageService {
         const d = snap.data();
         const fsBranding: SiteBranding = {};
         if (typeof d.homeAvatar === 'string' && d.homeAvatar) fsBranding.homeAvatar = d.homeAvatar;
+        if (typeof d.virtualSpacesAvatar === 'string' && d.virtualSpacesAvatar)
+          fsBranding.virtualSpacesAvatar = d.virtualSpacesAvatar;
         if (typeof d.appsAvatar === 'string' && d.appsAvatar) fsBranding.appsAvatar = d.appsAvatar;
         if (typeof d.gamesAvatar === 'string' && d.gamesAvatar) fsBranding.gamesAvatar = d.gamesAvatar;
         if (typeof d.simsAvatar === 'string' && d.simsAvatar) fsBranding.simsAvatar = d.simsAvatar;
@@ -1399,6 +1467,8 @@ class StorageService {
       updatedAt: serverTimestamp(),
     };
     if (branding.homeAvatar) payload.homeAvatar = branding.homeAvatar.slice(0, 500000);
+    if (branding.virtualSpacesAvatar)
+      payload.virtualSpacesAvatar = branding.virtualSpacesAvatar.slice(0, 500000);
     if (branding.appsAvatar) payload.appsAvatar = branding.appsAvatar.slice(0, 500000);
     if (branding.gamesAvatar) payload.gamesAvatar = branding.gamesAvatar.slice(0, 500000);
     if (branding.simsAvatar) payload.simsAvatar = branding.simsAvatar.slice(0, 500000);
@@ -1469,6 +1539,127 @@ class StorageService {
     return doc(db, 'users', teacherId, 'app_data', itemId);
   }
 
+  private getTeacherAppColRef(teacherId: string) {
+    if (teacherId === 'admin_root') {
+      return collection(db, 'admin_app_data');
+    }
+    return collection(db, 'users', teacherId, 'app_data');
+  }
+
+  private reassembleTeacherAppDataDocs(
+    docs: Array<{ id: string; data: () => any; metadata?: { hasPendingWrites?: boolean } }>
+  ): {
+    assembled: Record<string, Record<string, string>>;
+    incompleteIds: Set<string>;
+    pendingWriteIds: Set<string>;
+  } {
+    const rawById = new Map<string, Record<string, string>>();
+    const chunkDocsByBase = new Map<string, Map<number, string>>();
+    const pendingWriteIds = new Set<string>();
+
+    for (const d of docs) {
+      const entries = d.data()?.entries;
+      if (!entries || typeof entries !== 'object') continue;
+      const chunkMarkerIdx = d.id.lastIndexOf('__chunk_');
+      if (chunkMarkerIdx > 0) {
+        const baseId = d.id.slice(0, chunkMarkerIdx);
+        const chunkIdx = Number(d.id.slice(chunkMarkerIdx + '__chunk_'.length));
+        if (Number.isInteger(chunkIdx) && chunkIdx >= 0 && typeof entries.data === 'string') {
+          let m = chunkDocsByBase.get(baseId);
+          if (!m) {
+            m = new Map<number, string>();
+            chunkDocsByBase.set(baseId, m);
+          }
+          m.set(chunkIdx, entries.data);
+          if (d.metadata?.hasPendingWrites) {
+            pendingWriteIds.add(baseId);
+          }
+        }
+        continue;
+      }
+
+      const sanitized: Record<string, string> = {};
+      for (const [k, v] of Object.entries(entries)) {
+        sanitized[k] = String(v ?? '');
+      }
+      rawById.set(d.id, sanitized);
+      if (d.metadata?.hasPendingWrites) {
+        pendingWriteIds.add(d.id);
+      }
+    }
+
+    const assembled: Record<string, Record<string, string>> = {};
+    const incompleteIds = new Set<string>();
+
+    for (const [itemId, entries] of rawById.entries()) {
+      if (entries.__chunked === '1') {
+        const expectedCount = Number(entries.__chunkCount || 0);
+        const chunkMap = chunkDocsByBase.get(itemId);
+        if (!Number.isInteger(expectedCount) || expectedCount <= 0 || !chunkMap || chunkMap.size < expectedCount) {
+          incompleteIds.add(itemId);
+          continue;
+        }
+        const parts: string[] = [];
+        let missing = false;
+        for (let i = 0; i < expectedCount; i++) {
+          const part = chunkMap.get(i);
+          if (typeof part !== 'string') {
+            missing = true;
+            break;
+          }
+          parts.push(part);
+        }
+        if (missing) {
+          incompleteIds.add(itemId);
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(parts.join(''));
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            const clean: Record<string, string> = {};
+            for (const [k, v] of Object.entries(parsed)) {
+              clean[k] = String(v ?? '');
+            }
+            assembled[itemId] = clean;
+          }
+        } catch {
+          incompleteIds.add(itemId);
+        }
+      } else {
+        assembled[itemId] = entries;
+      }
+    }
+
+    return { assembled, incompleteIds, pendingWriteIds };
+  }
+
+  private splitAppDataForFirestore(entries: Record<string, string>): {
+    isChunked: boolean;
+    mainEntries: Record<string, string>;
+    chunks: string[];
+  } {
+    const boundedEntries: Record<string, string> = {};
+    for (const k of Object.keys(entries).slice(0, 500)) {
+      boundedEntries[k] = String(entries[k] ?? '');
+    }
+
+    const serialized = JSON.stringify(boundedEntries);
+    if (getUtf8ByteLength(serialized) <= 350_000) {
+      return { isChunked: false, mainEntries: boundedEntries, chunks: [] };
+    }
+
+    const chunks = splitStringByUtf8Bytes(serialized, 320_000).slice(0, 25);
+    return {
+      isChunked: true,
+      mainEntries: {
+        __chunked: '1',
+        __chunkCount: String(chunks.length),
+        __updatedAt: String(Date.now()),
+      },
+      chunks,
+    };
+  }
+
   async getTeacherAppData(teacherId: string): Promise<Record<string, Record<string, string>>> {
     if (!teacherId) return {};
     const cacheKey = `hoclieuso_teacher_data_${teacherId}`;
@@ -1496,21 +1687,15 @@ class StorageService {
       .catch(() => null);
 
     const firestorePromise = (async (): Promise<Record<string, Record<string, string>> | null> => {
+      try {
+        await (auth as any).authStateReady?.();
+      } catch {}
       if (!this.isTeacherFirestoreWritable(teacherId)) return null;
       try {
-        const colRef =
-          teacherId === 'admin_root'
-            ? collection(db, 'admin_app_data')
-            : collection(db, 'users', teacherId, 'app_data');
+        const colRef = this.getTeacherAppColRef(teacherId);
         const snap = await getDocsPreferServer(colRef);
-        const map: Record<string, Record<string, string>> = {};
-        snap.forEach((docSnap) => {
-          const entries = docSnap.data()?.entries;
-          if (entries && typeof entries === 'object') {
-            map[docSnap.id] = entries;
-          }
-        });
-        return map;
+        const { assembled } = this.reassembleTeacherAppDataDocs(snap.docs);
+        return assembled;
       } catch (err) {
         console.warn('Firestore teacher app_data read warning:', err);
         return null;
@@ -1526,11 +1711,12 @@ class StorageService {
     }
 
     if (fsMap) {
+      // Cloud Firestore is authoritative across browsers & computers for items already stored in cloud
       for (const [k, v] of Object.entries(fsMap)) {
-        merged[k] = { ...(merged[k] || {}), ...(v || {}) };
+        merged[k] = { ...(v || {}) };
       }
       for (const [itemId, itemEntries] of Object.entries(merged)) {
-        if (itemEntries && Object.keys(itemEntries).length > 0 && !fsMap[itemId]) {
+        if (itemEntries && Object.keys(itemEntries).length > 0 && !Object.prototype.hasOwnProperty.call(fsMap, itemId)) {
           this.appDataSnapshots.set(`${teacherId}:${itemId}`, { ...itemEntries });
           this.enqueueFirestoreAppWrite(teacherId, itemId);
         }
@@ -1548,7 +1734,7 @@ class StorageService {
   }
 
   private enqueueFirestoreAppWrite(teacherId: string, itemId: string): void {
-    if (!this.isTeacherFirestoreWritable(teacherId) || !VALID_ID_REGEX.test(itemId)) {
+    if (!VALID_ID_REGEX.test(itemId)) {
       return;
     }
 
@@ -1558,16 +1744,58 @@ class StorageService {
     const nextWrite = prevQueue
       .catch(() => {})
       .then(async () => {
-        const latestMap = this.appDataSnapshots.get(opKey) || {};
-        const boundedEntries: Record<string, string> = {};
-        for (const k of Object.keys(latestMap).slice(0, 500)) {
-          boundedEntries[k] = String(latestMap[k] ?? '');
+        try {
+          await (auth as any).authStateReady?.();
+        } catch {}
+        if (!this.isTeacherFirestoreWritable(teacherId)) {
+          return;
         }
+
+        const latestMap = this.appDataSnapshots.get(opKey) || {};
+        const { isChunked, mainEntries, chunks } = this.splitAppDataForFirestore(latestMap);
         const docRef = this.getTeacherAppDocRef(teacherId, itemId);
+
+        if (!isChunked) {
+          await setDoc(docRef, {
+            entries: mainEntries,
+            updatedAt: serverTimestamp(),
+          });
+          // Clean up any prior chunk docs for this itemId if payload shrunk
+          for (let idx = 0; idx < 25; idx++) {
+            const chunkRef = this.getTeacherAppDocRef(teacherId, `${itemId}__chunk_${idx}`);
+            const snap = await getDoc(chunkRef).catch(() => null);
+            if (!snap || !snap.exists()) break;
+            await deleteDoc(chunkRef).catch(() => {});
+          }
+          return;
+        }
+
+        // Write chunk docs first, then update parent doc referencing chunkCount
+        for (let i = 0; i < chunks.length; i += 4) {
+          const batch = writeBatch(db);
+          const slice = chunks.slice(i, i + 4);
+          slice.forEach((chunkStr, offset) => {
+            const idx = i + offset;
+            const chunkRef = this.getTeacherAppDocRef(teacherId, `${itemId}__chunk_${idx}`);
+            batch.set(chunkRef, {
+              entries: { data: chunkStr },
+              updatedAt: serverTimestamp(),
+            });
+          });
+          await batch.commit();
+        }
+
         await setDoc(docRef, {
-          entries: boundedEntries,
+          entries: mainEntries,
           updatedAt: serverTimestamp(),
         });
+
+        for (let idx = chunks.length; idx < 25; idx++) {
+          const chunkRef = this.getTeacherAppDocRef(teacherId, `${itemId}__chunk_${idx}`);
+          const snap = await getDoc(chunkRef).catch(() => null);
+          if (!snap || !snap.exists()) break;
+          await deleteDoc(chunkRef).catch(() => {});
+        }
       })
       .catch((err) => {
         console.warn('Firestore teacher app_data save warning:', err);
@@ -1640,11 +1868,80 @@ class StorageService {
     return updatedItemMap;
   }
 
+  subscribeTeacherAppDataRealtime(
+    teacherId: string,
+    onItemUpdate: (itemId: string, entries: Record<string, string>) => void
+  ): () => void {
+    if (!teacherId || !this.isTeacherFirestoreWritable(teacherId)) {
+      return () => {};
+    }
+    try {
+      const colRef = this.getTeacherAppColRef(teacherId);
+      return onSnapshot(
+        colRef,
+        (snap) => {
+          const cacheKey = `hoclieuso_teacher_data_${teacherId}`;
+          let cachedAll: Record<string, Record<string, string>> = {};
+          try {
+            const raw = localStorage.getItem(cacheKey);
+            if (raw) cachedAll = JSON.parse(raw) || {};
+          } catch {}
+
+          const { assembled, incompleteIds, pendingWriteIds } =
+            this.reassembleTeacherAppDataDocs(snap.docs);
+          let cacheChanged = false;
+
+          // Emit removed logical items
+          snap.docChanges().forEach((change) => {
+            if (change.type !== 'removed') return;
+            const docId = change.doc.id;
+            if (docId.includes('__chunk_')) return;
+            const opKey = `${teacherId}:${docId}`;
+            this.appDataSnapshots.set(opKey, {});
+            if (cachedAll[docId]) {
+              delete cachedAll[docId];
+              cacheChanged = true;
+            }
+            if (!change.doc.metadata.hasPendingWrites) {
+              onItemUpdate(docId, {});
+            }
+          });
+
+          for (const [itemId, entries] of Object.entries(assembled)) {
+            if (incompleteIds.has(itemId)) continue;
+            const opKey = `${teacherId}:${itemId}`;
+            const prevSnap = this.appDataSnapshots.get(opKey);
+            const prevJson = prevSnap ? JSON.stringify(prevSnap) : '';
+            const nextJson = JSON.stringify(entries);
+            if (prevJson === nextJson) continue;
+            this.appDataSnapshots.set(opKey, { ...entries });
+            cachedAll[itemId] = entries;
+            cacheChanged = true;
+            if (!pendingWriteIds.has(itemId)) {
+              onItemUpdate(itemId, entries);
+            }
+          }
+
+          if (cacheChanged) {
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify(cachedAll));
+            } catch {}
+          }
+        },
+        (err) => {
+          console.warn('Firestore teacher app_data snapshot warning:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
+
   subscribeItemsRealtime(onItems: (items: ContentItem[]) => void): () => void {
     try {
       const q = query(
         collection(db, 'content_items'),
-        where('zone', 'in', ['apps', 'games', 'simulations', 'management', 'guides'])
+        where('zone', 'in', ALL_ZONES)
       );
       return onSnapshot(
         q,
@@ -1715,6 +2012,8 @@ class StorageService {
           const d = snap.data();
           const fsBranding: SiteBranding = {};
           if (typeof d.homeAvatar === 'string' && d.homeAvatar) fsBranding.homeAvatar = d.homeAvatar;
+          if (typeof d.virtualSpacesAvatar === 'string' && d.virtualSpacesAvatar)
+            fsBranding.virtualSpacesAvatar = d.virtualSpacesAvatar;
           if (typeof d.appsAvatar === 'string' && d.appsAvatar) fsBranding.appsAvatar = d.appsAvatar;
           if (typeof d.gamesAvatar === 'string' && d.gamesAvatar) fsBranding.gamesAvatar = d.gamesAvatar;
           if (typeof d.simsAvatar === 'string' && d.simsAvatar) fsBranding.simsAvatar = d.simsAvatar;

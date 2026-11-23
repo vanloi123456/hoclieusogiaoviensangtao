@@ -19,10 +19,6 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function isValidPromoCodeId(codeId) {
-      return codeId is string && codeId.size() >= 3 && codeId.size() <= 64 && codeId.matches('^[A-Z0-9_\\-]+$');
-    }
-
     function incoming() {
       return request.resource.data;
     }
@@ -62,6 +58,7 @@ service cloud.firestore {
           'photoURL',
           'role',
           'credits',
+          'usedCredits',
           'lastFreeResetAt',
           'lastRedeemedCode',
           'createdAt',
@@ -70,49 +67,14 @@ service cloud.firestore {
         isValidId(data.uid) &&
         data.email is string && data.email.size() > 3 && data.email.size() <= 200 &&
         data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 150 &&
-        (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+        (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000)) &&
         (!('lastFreeResetAt' in data) || data.lastFreeResetAt is timestamp) &&
-        (!('lastRedeemedCode' in data) || isValidPromoCodeId(data.lastRedeemedCode)) &&
+        (!('lastRedeemedCode' in data) || (data.lastRedeemedCode is string && data.lastRedeemedCode.size() <= 64)) &&
         data.role is string && data.role in ['teacher', 'admin'] &&
         data.credits is int && data.credits >= 0 && data.credits <= 1000000 &&
+        (!('usedCredits' in data) || (data.usedCredits is int && data.usedCredits >= 0 && data.usedCredits <= 100000000)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
-    }
-
-    function isValidPromoCode(data) {
-      return data.keys().hasAll([
-          'code',
-          'credit_value',
-          'is_used',
-          'used_by',
-          'created_by',
-          'created_at'
-        ]) &&
-        data.keys().hasOnly([
-          'code',
-          'credit_value',
-          'is_used',
-          'used_by',
-          'used_at',
-          'created_by',
-          'created_at'
-        ]) &&
-        isValidPromoCodeId(data.code) &&
-        data.credit_value is int && data.credit_value > 0 && data.credit_value <= 100000 &&
-        data.is_used is bool &&
-        (data.used_by == null || isValidId(data.used_by)) &&
-        (!('used_at' in data) || data.used_at is timestamp) &&
-        data.created_by is string && data.created_by.size() > 3 && data.created_by.size() <= 200 &&
-        data.created_at is timestamp;
-    }
-
-    function isValidPromoRedemption(codeId, prevCredits, nextCredits) {
-      return isValidPromoCodeId(codeId) &&
-        exists(/databases/$(database)/documents/promo_codes/$(codeId)) &&
-        get(/databases/$(database)/documents/promo_codes/$(codeId)).data.is_used == false &&
-        getAfter(/databases/$(database)/documents/promo_codes/$(codeId)).data.is_used == true &&
-        getAfter(/databases/$(database)/documents/promo_codes/$(codeId)).data.used_by == request.auth.uid &&
-        nextCredits == prevCredits + get(/databases/$(database)/documents/promo_codes/$(codeId)).data.credit_value;
     }
 
     function isValidContentItem(data) {
@@ -137,20 +99,22 @@ service cloud.firestore {
           'instructions',
           'grade',
           'subject',
+          'creditCost',
           'createdAt',
           'updatedAt'
         ]) &&
         isValidId(data.id) &&
-        data.zone is string && data.zone in ['apps', 'games', 'simulations', 'management', 'guides'] &&
+        data.zone is string && data.zone in ['virtual_spaces', 'apps', 'games', 'simulations', 'management', 'guides'] &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
         (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
-        data.type is string && data.type in ['app', 'game', 'simulation', 'management', 'guide'] &&
+        data.type is string && data.type in ['virtual_space', 'app', 'game', 'simulation', 'management', 'guide'] &&
         data.order is int && data.order >= 0 && data.order <= 100000 &&
         (!('embedCode' in data) || (data.embedCode is string && data.embedCode.size() <= 750000)) &&
         (!('embedChunkCount' in data) || (data.embedChunkCount is int && data.embedChunkCount >= 0 && data.embedChunkCount <= 30)) &&
         (!('instructions' in data) || (data.instructions is string && data.instructions.size() <= 5000)) &&
         (!('grade' in data) || (data.grade is string && data.grade.size() <= 40)) &&
         (!('subject' in data) || (data.subject is string && data.subject.size() <= 60)) &&
+        (!('creditCost' in data) || (data.creditCost is int && data.creditCost >= 0 && data.creditCost <= 100000)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -165,8 +129,9 @@ service cloud.firestore {
 
     function isValidBrandingSetting(data) {
       return data.keys().hasAll(['updatedAt']) &&
-        data.keys().hasOnly(['homeAvatar', 'appsAvatar', 'gamesAvatar', 'simsAvatar', 'managementAvatar', 'guidesAvatar', 'updatedAt']) &&
+        data.keys().hasOnly(['homeAvatar', 'virtualSpacesAvatar', 'appsAvatar', 'gamesAvatar', 'simsAvatar', 'managementAvatar', 'guidesAvatar', 'updatedAt']) &&
         (!('homeAvatar' in data) || (data.homeAvatar is string && data.homeAvatar.size() <= 500000)) &&
+        (!('virtualSpacesAvatar' in data) || (data.virtualSpacesAvatar is string && data.virtualSpacesAvatar.size() <= 500000)) &&
         (!('appsAvatar' in data) || (data.appsAvatar is string && data.appsAvatar.size() <= 500000)) &&
         (!('gamesAvatar' in data) || (data.gamesAvatar is string && data.gamesAvatar.size() <= 500000)) &&
         (!('simsAvatar' in data) || (data.simsAvatar is string && data.simsAvatar.size() <= 500000)) &&
@@ -213,12 +178,14 @@ service cloud.firestore {
             isOwner(userId) &&
             incoming().email.lower() == request.auth.token.email.lower() &&
             incoming().credits == 20 &&
+            (!('usedCredits' in incoming()) || incoming().usedCredits == 0) &&
             (!('lastFreeResetAt' in incoming()) || incoming().lastFreeResetAt == request.time) &&
             !('lastRedeemedCode' in incoming())
           ) ||
           (
             isAdmin() &&
             incoming().credits >= 0 &&
+            (!('usedCredits' in incoming()) || incoming().usedCredits >= 0) &&
             (!('lastFreeResetAt' in incoming()) || incoming().lastFreeResetAt is timestamp)
           )
         );
@@ -231,31 +198,41 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         (
-          // Action 1: Admin top-up, credit adjustment, seed sync, or issuing activation code to teacher
+          // Action 1: Admin top-up, credit adjustment, or seed sync
           (
             isAdmin() &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'lastRedeemedCode', 'lastFreeResetAt', 'fullName', 'photoURL', 'updatedAt'])
+            incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'usedCredits', 'lastFreeResetAt', 'fullName', 'photoURL', 'updatedAt'])
           ) ||
           // Action 2: Owner syncs display name / photo on login
           (
             isOwner(userId) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'photoURL', 'updatedAt'])
           ) ||
-          // Action 3: Owner consumes 1 (view content) or 2 (access Học liệu số / Thí nghiệm mô phỏng) AI credits (no negative credits)
+          // Action 3: Owner consumes AI credits (4 for standard zones, or custom creditCost >= 1 for Ứng dụng Tiện ích; must increment usedCredits by exact spent delta, optionally after a 24h reset)
           (
             isOwner(userId) &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'updatedAt']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'usedCredits', 'lastFreeResetAt', 'updatedAt']) &&
             incoming().credits >= 0 &&
-            (existing().credits - incoming().credits) in [1, 2]
+            ('usedCredits' in incoming()) &&
+            (
+              (
+                !('lastFreeResetAt' in incoming().diff(existing()).affectedKeys()) &&
+                (existing().credits - incoming().credits) >= 1 &&
+                (existing().credits - incoming().credits) <= 100000 &&
+                incoming().usedCredits == ((('usedCredits' in existing()) ? existing().usedCredits : 0) + (existing().credits - incoming().credits))
+              ) ||
+              (
+                ('lastFreeResetAt' in incoming()) &&
+                incoming().lastFreeResetAt == request.time &&
+                existing().credits < 20 &&
+                request.time >= (('lastFreeResetAt' in existing()) ? existing().lastFreeResetAt : existing().createdAt) + duration.value(24, 'h') &&
+                (20 - incoming().credits) >= 1 &&
+                (20 - incoming().credits) <= 100000 &&
+                incoming().usedCredits == ((('usedCredits' in existing()) ? existing().usedCredits : 0) + (20 - incoming().credits))
+              )
+            )
           ) ||
-          // Action 4: Atomic Promo Code redemption adding exact credit_value from /promo_codes/{codeId}
-          (
-            isOwner(userId) &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'lastRedeemedCode', 'updatedAt']) &&
-            ('lastRedeemedCode' in incoming()) &&
-            isValidPromoRedemption(incoming().lastRedeemedCode, existing().credits, incoming().credits)
-          ) ||
-          // Action 5: 24-hour automatic daily free credit reset (refresh to 20 credits if < 20 and >= 24h since lastFreeResetAt)
+          // Action 4: 24-hour automatic daily free credit reset (refresh to 20 credits if < 20 and >= 24h since lastFreeResetAt)
           (
             isOwner(userId) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'lastFreeResetAt', 'updatedAt']) &&
@@ -289,7 +266,8 @@ service cloud.firestore {
 
     // --- Collection: /admin_app_data/{itemId} ---
     match /admin_app_data/{itemId} {
-      allow get, list: if isValidId(itemId) && isAdmin();
+      allow get: if isValidId(itemId) && isAdmin();
+      allow list: if isAdmin();
       allow create: if isValidId(itemId) && isAdmin() &&
         isValidTeacherAppData(incoming()) &&
         incoming().updatedAt == request.time;
@@ -300,49 +278,11 @@ service cloud.firestore {
       allow delete: if isValidId(itemId) && isAdmin();
     }
 
-    // --- Collection: /promo_codes/{codeId} ---
-    match /promo_codes/{codeId} {
-      allow get: if isValidPromoCodeId(codeId) && isSignedIn();
-      allow list: if isBootstrappedAdmin();
-
-      allow create: if isValidPromoCodeId(codeId) &&
-        isAdmin() &&
-        isValidPromoCode(incoming()) &&
-        incoming().code == codeId &&
-        incoming().created_at == request.time &&
-        (
-          (
-            incoming().is_used == false &&
-            incoming().used_by == null &&
-            !('used_at' in incoming())
-          ) ||
-          (
-            incoming().is_used == true &&
-            isValidId(incoming().used_by) &&
-            incoming().used_at == request.time
-          )
-        );
-
-      allow update: if isValidPromoCodeId(codeId) &&
-        isSignedIn() &&
-        isValidPromoCode(incoming()) &&
-        incoming().code == existing().code &&
-        incoming().credit_value == existing().credit_value &&
-        incoming().created_by == existing().created_by &&
-        incoming().created_at == existing().created_at &&
-        existing().is_used == false &&
-        incoming().is_used == true &&
-        (incoming().used_by == request.auth.uid || (isAdmin() && isValidId(incoming().used_by))) &&
-        incoming().used_at == request.time &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['is_used', 'used_by', 'used_at']);
-
-      allow delete: if isValidPromoCodeId(codeId) && isAdmin();
-    }
 
     // --- Collection: /content_items/{itemId} (Public educational catalog, Admin-managed) ---
     match /content_items/{itemId} {
       allow get: if isValidId(itemId);
-      allow list: if resource.data.zone in ['apps', 'games', 'simulations', 'management', 'guides'];
+      allow list: if resource.data.zone in ['virtual_spaces', 'apps', 'games', 'simulations', 'management', 'guides'];
 
       allow create: if isValidId(itemId) &&
         isAdmin() &&
@@ -368,6 +308,7 @@ service cloud.firestore {
           'instructions',
           'grade',
           'subject',
+          'creditCost',
           'updatedAt'
         ]);
 
@@ -424,6 +365,7 @@ service cloud.firestore {
           incoming().updatedAt == request.time &&
           incoming().diff(existing()).affectedKeys().hasOnly([
             'homeAvatar',
+            'virtualSpacesAvatar',
             'appsAvatar',
             'gamesAvatar',
             'simsAvatar',

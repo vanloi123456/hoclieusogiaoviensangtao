@@ -22,6 +22,7 @@ import {
   User,
   FolderKanban,
   PlayCircle,
+  Box,
 } from 'lucide-react';
 import {
   UserRole,
@@ -50,6 +51,7 @@ interface LeftSidebarProps {
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   counts: {
+    virtualSpaces: number;
     apps: number;
     games: number;
     sims: number;
@@ -92,6 +94,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       label: 'Giới thiệu',
       icon: BookOpen,
       color: 'text-emerald-600',
+    },
+    {
+      id: 'khong-gian-ao-3d',
+      label: 'Không gian ảo 3D',
+      icon: Box,
+      avatar: branding?.virtualSpacesAvatar,
+      color: 'text-emerald-600',
+      badge: counts.virtualSpaces,
     },
     {
       id: 'kho-ung-dung',
@@ -328,7 +338,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       <span>Tín dụng AI</span>
                     </span>
                     <span
-                      className={`font-mono ${
+                      className={`font-mono tabular-nums ${
                         isLowCredits ? 'text-rose-600' : 'text-amber-800'
                       }`}
                     >

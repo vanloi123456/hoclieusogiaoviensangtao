@@ -1,6 +1,7 @@
 /**
  * Smart URL and embed code parser for interactive educational content
  */
+import type { UserRole } from '../types';
 
 export interface EmbedValidationResult {
   isValid: boolean;
@@ -344,15 +345,23 @@ export interface TeacherStorageBridgeConfig {
   itemId: string;
   initialData?: Record<string, string>;
   readOnly?: boolean;
+  role?: UserRole;
+}
+
+function buildRoleBootstrapScript(role?: UserRole): string {
+  const safeRole = JSON.stringify(role || 'guest').replace(/</g, '\\u003c');
+  return `<script>window.__HOST_USER_ROLE__=${safeRole};<\/script>`;
 }
 
 function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
   const safeJson = JSON.stringify(config.initialData || {}).replace(/</g, '\\u003c');
   const safeTeacherId = JSON.stringify(config.teacherId).replace(/</g, '\\u003c');
   const safeItemId = JSON.stringify(config.itemId).replace(/</g, '\\u003c');
+  const safeRole = JSON.stringify(config.role || 'guest').replace(/</g, '\\u003c');
   const readOnlyFlag = config.readOnly ? 'true' : 'false';
 
   return `<script>
+window.__HOST_USER_ROLE__ = ${safeRole};
 (function() {
   var __teacherId = ${safeTeacherId};
   var __itemId = ${safeItemId};
@@ -382,8 +391,9 @@ function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
       if (__localRef && this === __localRef) {
         var keyStr = String(k);
         var valStr = String(v);
+        var changed = !Object.prototype.hasOwnProperty.call(__mem, keyStr) || __mem[keyStr] !== valStr;
         __mem[keyStr] = valStr;
-        if (!__readOnly && window.parent && window.parent !== window) {
+        if (changed && !__readOnly && window.parent && window.parent !== window) {
           window.parent.postMessage({
             type: 'TEACHER_APP_STORAGE_MUTATION',
             teacherId: __teacherId,
@@ -401,8 +411,9 @@ function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
     proto.removeItem = function(k) {
       if (__localRef && this === __localRef) {
         var keyStr = String(k);
+        var existed = Object.prototype.hasOwnProperty.call(__mem, keyStr);
         delete __mem[keyStr];
-        if (!__readOnly && window.parent && window.parent !== window) {
+        if (existed && !__readOnly && window.parent && window.parent !== window) {
           window.parent.postMessage({
             type: 'TEACHER_APP_STORAGE_MUTATION',
             teacherId: __teacherId,
@@ -420,7 +431,7 @@ function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
       if (__localRef && this === __localRef) {
         var keys = Object.keys(__mem);
         for (var i = 0; i < keys.length; i++) delete __mem[keys[i]];
-        if (!__readOnly && window.parent && window.parent !== window) {
+        if (keys.length > 0 && !__readOnly && window.parent && window.parent !== window) {
           window.parent.postMessage({
             type: 'TEACHER_APP_STORAGE_MUTATION',
             teacherId: __teacherId,
@@ -490,9 +501,11 @@ function injectScriptIntoHtml(html: string, scriptTag: string): string {
  */
 export function generateSandboxHtml(code: string, storageBridge?: TeacherStorageBridgeConfig): string {
   const trimmed = code.trim();
-  const bridgeScript = storageBridge ? buildStorageBridgeScript(storageBridge) : '';
+  const bridgeScript = storageBridge
+    ? buildStorageBridgeScript(storageBridge)
+    : buildRoleBootstrapScript('guest');
 
-  // If it's already a full HTML document, inject bridge script into <head> and return
+  // If it's already a full HTML document, inject bridge/role script into <head> and return
   if (trimmed.toLowerCase().includes('<!doctype') || trimmed.toLowerCase().includes('<html')) {
     return bridgeScript ? injectScriptIntoHtml(trimmed, bridgeScript) : trimmed;
   }

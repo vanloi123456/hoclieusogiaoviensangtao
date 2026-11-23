@@ -32,7 +32,7 @@ interface ControlDeckProps {
   onOpenMobileMenu?: () => void;
   onOpenAuth: () => void;
   onOpenAdminPanel: () => void;
-  onOpenAdminPanelTab?: (tab: 'teachers' | 'branding') => void;
+  onOpenAdminPanelTab?: (tab: 'teachers' | 'pricing' | 'branding') => void;
   onOpenContactAdmin: () => void;
   onLogout: () => void;
   selectedItem: ContentItem | null;

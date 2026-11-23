@@ -1,6 +1,6 @@
-export type ContentType = 'app' | 'game' | 'simulation' | 'management' | 'guide';
+export type ContentType = 'virtual_space' | 'app' | 'game' | 'simulation' | 'management' | 'guide';
 
-export type ZoneType = 'apps' | 'games' | 'simulations' | 'management' | 'guides';
+export type ZoneType = 'virtual_spaces' | 'apps' | 'games' | 'simulations' | 'management' | 'guides';
 
 export type GradeLevel = 'all' | 'lop-1' | 'lop-2' | 'lop-3' | 'lop-4' | 'lop-5';
 
@@ -61,6 +61,9 @@ export interface ContentItem {
   // App, Game & Simulation HTML embed code
   embedCode?: string;
   instructions?: string;
+
+  // Custom AI credit cost per item (used in Ứng dụng Tiện ích / management)
+  creditCost?: number;
 }
 
 export type UserRole = 'guest' | 'teacher' | 'admin';
@@ -70,11 +73,28 @@ export type CreditActionType = 'view' | 'access';
 export const INITIAL_FREE_CREDITS = 20;
 export const DAILY_FREE_CREDITS = 20;
 export const DAILY_FREE_RESET_MS = 24 * 60 * 60 * 1000;
-export const CREDIT_COST_VIEW = 1; // Xem nội dung Kho ứng dụng, Học liệu số, Thí nghiệm mô phỏng
-export const CREDIT_COST_ACCESS = 2; // Thực hiện truy cập nội dung Học liệu số, Thí nghiệm mô phỏng
-export const MIN_CREDIT_COST = CREDIT_COST_VIEW;
-export const APP_LAUNCH_CREDIT_COST = CREDIT_COST_VIEW;
-export const PROMO_CODE_REGEX = /^[A-Z0-9_-]{3,64}$/;
+export const CREDIT_COST_STANDARD_ACCESS = 4; // Truy cập Không gian ảo 3D, Kho ứng dụng, Học liệu số, Thí nghiệm mô phỏng
+export const CREDIT_COST_VIEW = CREDIT_COST_STANDARD_ACCESS;
+export const CREDIT_COST_ACCESS = CREDIT_COST_STANDARD_ACCESS;
+export const MIN_CREDIT_COST = CREDIT_COST_STANDARD_ACCESS;
+export const APP_LAUNCH_CREDIT_COST = CREDIT_COST_STANDARD_ACCESS;
+export const MAX_CUSTOM_CREDIT_COST = 100000;
+
+export function normalizeCreditCost(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.min(MAX_CUSTOM_CREDIT_COST, Math.floor(value)));
+}
+
+export function getItemCreditCost(
+  item?: Pick<ContentItem, 'zone' | 'creditCost'> | null
+): number {
+  if (!item) return CREDIT_COST_STANDARD_ACCESS;
+  if (item.zone === 'guides') return 0;
+  if (item.zone === 'management') {
+    return normalizeCreditCost(item.creditCost) ?? 0;
+  }
+  return CREDIT_COST_STANDARD_ACCESS;
+}
 
 export interface UserAccount {
   id: string;
@@ -85,24 +105,15 @@ export interface UserAccount {
   role: 'admin' | 'teacher';
   status: 'active' | 'blocked';
   credits: number;
+  usedCredits?: number;
   lastFreeResetAt?: number;
-  lastRedeemedCode?: string;
   createdAt: number;
   updatedAt?: number;
 }
 
-export interface PromoCode {
-  code: string;
-  credit_value: number;
-  is_used: boolean;
-  used_by: string | null;
-  used_at?: number | null;
-  created_by: string;
-  created_at: number;
-}
-
 export interface SiteBranding {
   homeAvatar?: string;
+  virtualSpacesAvatar?: string;
   appsAvatar?: string;
   gamesAvatar?: string;
   simsAvatar?: string;

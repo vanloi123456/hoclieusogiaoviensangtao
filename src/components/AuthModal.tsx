@@ -143,8 +143,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {isGoogleLoading ? 'Đang kết nối...' : 'Chọn tài khoản Google'}
               </span>
             </button>
-            <p className="text-[11px] text-slate-500 text-center">
-              Dành cho Giáo viên (nhận {DAILY_FREE_CREDITS} tín dụng AI/ngày) &amp; Quản trị viên (đồng bộ vĩnh viễn đa máy tính)
+            <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+              Giáo viên đăng nhập trực tiếp bằng Google (không cần đăng ký) để nhận{' '}
+              <strong>{DAILY_FREE_CREDITS} tín dụng AI miễn phí/ngày</strong> (tự kích hoạt lại sau 24 giờ). Quản trị viên đăng nhập bằng Google để đồng bộ vĩnh viễn đa máy tính.
             </p>
           </div>
 
