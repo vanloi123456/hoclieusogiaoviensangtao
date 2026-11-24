@@ -171,8 +171,6 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
           zone === 'management'
             ? Math.max(0, Math.min(MAX_CUSTOM_CREDIT_COST, Math.floor(creditCost)))
             : undefined,
-        grade: undefined,
-        subject: undefined,
       });
       onClose();
     } catch (err: any) {

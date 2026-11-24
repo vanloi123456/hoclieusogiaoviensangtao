@@ -59,6 +59,10 @@ const BUNDLED_ADDON_IDS = new Set<string>([
   'item_lophocao3d_restored',
   'item_tungubietbay_restored',
   'item_lophocaophienban2_3d',
+  'item_lichsu_dialy4_bai10_bacbo_t1',
+  'item_lichsu_dialy4_bai10_bacbo_t2',
+  'item_ngontay_vercel',
+  'item_nghiengdau_vercel',
 ]);
 const ALL_ZONES: ZoneType[] = [
   'virtual_spaces',
@@ -325,11 +329,13 @@ function normalizeItem(raw: any, fallbackOrder = 0): ContentItem | null {
   if (typeof raw.instructions === 'string' && raw.instructions.length > 0) {
     item.instructions = raw.instructions.slice(0, 5000);
   }
-  if (typeof raw.grade === 'string' && raw.grade.length > 0) {
-    item.grade = raw.grade.slice(0, 40);
-  }
-  if (typeof raw.subject === 'string' && raw.subject.length > 0) {
-    item.subject = raw.subject.slice(0, 60);
+  if (zone !== 'games' && zone !== 'simulations') {
+    if (typeof raw.grade === 'string' && raw.grade.length > 0) {
+      item.grade = raw.grade.slice(0, 40);
+    }
+    if (typeof raw.subject === 'string' && raw.subject.length > 0) {
+      item.subject = raw.subject.slice(0, 60);
+    }
   }
   const normalizedCost = normalizeCreditCost(raw.creditCost);
   if (normalizedCost !== undefined) {

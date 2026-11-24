@@ -42,11 +42,20 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
   const sourceInfo = useMemo(() => classifyAppSource(item?.embedCode), [item?.embedCode]);
   const disableNewTab = useMemo(() => {
     if (!item) return false;
+    if (item.zone === 'games') return true;
     const titleLower = (item.title || '').toLowerCase();
+    const urlLower = (sourceInfo.url || '').toLowerCase();
     return (
       item.id === 'item_lophocaophienban2_3d' ||
+      item.id === 'item_ngontay_vercel' ||
+      item.id === 'item_nghiengdau_vercel' ||
       (titleLower.includes('lớp học ảo 3d') && titleLower.includes('phiên bản 2')) ||
-      Boolean(sourceInfo.url && sourceInfo.url.toLowerCase().includes('lophocaophienban2.vercel.app'))
+      titleLower.includes('giơ ngón tay') ||
+      titleLower.includes('trả lời bằng ngón tay') ||
+      titleLower.includes('nghiêng đầu chọn đáp án') ||
+      urlLower.includes('lophocaophienban2.vercel.app') ||
+      urlLower.includes('thuthachtraloibangngontay.vercel.app') ||
+      urlLower.includes('nghiengdauchondapan.vercel.app')
     );
   }, [item, sourceInfo.url]);
 
@@ -157,9 +166,11 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
                   <span>Xem nội dung</span>
                 </span>
               </nav>
-              <h2 className="text-lg font-bold text-slate-900 font-display leading-snug">
-                {item.title}
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold text-slate-900 font-display leading-snug">
+                  {item.title}
+                </h2>
+              </div>
             </div>
           </div>
 
@@ -190,17 +201,20 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
                 Liên kết {sourceInfo.label}
               </p>
               <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                Do chính sách bảo mật của {sourceInfo.label}, liên kết này không thể xem trước trực tiếp trong khung nhúng. Bạn có thể mở liên kết trong tab mới để xem đầy đủ.
+                Do chính sách bảo mật của {sourceInfo.label}, liên kết này không thể xem trước trực tiếp trong khung nhúng.
+                {!disableNewTab && ' Bạn có thể mở liên kết trong tab mới để xem đầy đủ.'}
               </p>
-              <a
-                href={sourceInfo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Mở trên {sourceInfo.label}</span>
-              </a>
+              {!disableNewTab && (
+                <a
+                  href={sourceInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Mở trên {sourceInfo.label}</span>
+                </a>
+              )}
             </div>
           ) : previewHtml ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-950 overflow-hidden shadow-inner">

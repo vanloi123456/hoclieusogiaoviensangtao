@@ -10,7 +10,11 @@ import {
   Plus,
   ExternalLink,
 } from 'lucide-react';
-import { ContentItem, UserRole, UserAccount } from '../types';
+import {
+  ContentItem,
+  UserRole,
+  UserAccount,
+} from '../types';
 import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
 import { processImageFile } from '../utils/image';
 
@@ -126,7 +130,7 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Thí nghiệm mô phỏng trực quan
+              Thí nghiệm mô phỏng trực quan sinh động dành cho giáo viên &amp; học sinh
             </p>
 
             {/* Admin dedicated quick add & avatar action toolbar */}
@@ -174,7 +178,7 @@ export const ZoneSimulations: React.FC<ZoneSimulationsProps> = ({
 
       {/* Content Grid or Empty State */}
       {items.length === 0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-teal-200 bg-white/80 backdrop-blur-md p-12 text-center flex flex-col items-center justify-center transition-all hover:bg-white/90 shadow-xs">
+        <div className="rounded-3xl border-2 border-dashed border-teal-200 bg-white/80 backdrop-blur-md p-10 text-center flex flex-col items-center justify-center transition-all hover:bg-white/90 shadow-xs">
           <div className="w-16 h-16 rounded-3xl bg-white shadow-xs border border-teal-100 text-teal-500 flex items-center justify-center mb-3">
             <FlaskConical className="w-8 h-8 stroke-[1.5]" />
           </div>

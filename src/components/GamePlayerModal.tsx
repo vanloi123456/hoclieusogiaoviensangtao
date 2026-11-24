@@ -9,7 +9,6 @@ import {
   CloudCheck,
   ChevronRight,
   Home,
-  ExternalLink,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ContentItem, UserRole } from '../types';
@@ -206,26 +205,16 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
                 </span>
               )}
             </nav>
-            <h2 className="text-base font-bold text-white font-display truncate max-w-lg">
-              {item.title}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold text-white font-display truncate max-w-lg">
+                {item.title}
+              </h2>
+            </div>
           </div>
         </div>
 
         {/* Action controls */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {sourceInfo.url && (
-            <a
-              href={sourceInfo.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-200 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 rounded-xl transition-colors"
-              title="Mở liên kết học liệu trong tab mới"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span className="hidden sm:inline">Mở tab mới</span>
-            </a>
-          )}
 
           <button
             type="button"
@@ -271,12 +260,12 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
         </div>
       </div>
 
-      {/* Embedded Safe Game Frame or External Link Launcher */}
+      {/* Embedded Safe Game Frame */}
       <div className="flex-1 w-full h-full relative bg-slate-900 overflow-hidden flex items-center justify-center p-2 sm:p-4">
-        {sourceInfo.iframeBlockedLikely && sourceInfo.url ? (
+        {sourceInfo.iframeBlockedLikely ? (
           <div className="w-full max-w-xl bg-slate-950/90 border border-indigo-500/30 rounded-3xl p-8 text-center text-white shadow-2xl space-y-5">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 flex items-center justify-center">
-              <ExternalLink className="w-8 h-8" />
+              <Gamepad2 className="w-8 h-8" />
             </div>
             <div className="space-y-2">
               <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
@@ -291,19 +280,8 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
                 </p>
               )}
               <p className="text-xs text-slate-400 leading-relaxed pt-1">
-                Nền tảng {sourceInfo.label} không cho phép nhúng trực tiếp vào khung trình duyệt bên ngoài vì lý do bảo mật. Vui lòng nhấn nút bên dưới để mở học liệu đầy đủ trong tab mới.
+                Nền tảng {sourceInfo.label} không cho phép nhúng trực tiếp vào khung trình duyệt. Chức năng mở tab mới đã được tắt đối với trò chơi tương tác trong Học Liệu Số.
               </p>
-            </div>
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-              <a
-                href={sourceInfo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-sky-600 hover:from-indigo-400 hover:to-sky-500 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Mở học liệu trên {sourceInfo.label}</span>
-              </a>
             </div>
           </div>
         ) : (

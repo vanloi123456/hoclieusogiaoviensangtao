@@ -56,5 +56,49 @@
     "subject": "Không gian ảo 3D",
     "createdAt": 1795336428617,
     "updatedAt": 1795440017422
+  },
+  {
+    "id": "item_lichsu_dialy4_bai10_bacbo_t1",
+    "zone": "games",
+    "type": "game",
+    "title": "Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)",
+    "description": "Trò chơi tương tác \"Hành trình về làng quê Bắc Bộ\" gồm 4 chặng khám phá dấu ấn làng quê truyền thống, nếp nhà ba gian – năm gian, nhà ở xưa và nay và cách ứng xử văn minh ở không gian chung.",
+    "order": 1,
+    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_v_l_ng_qu_b_c_b_942da8de.html\" title=\"Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "createdAt": 1795513232058,
+    "updatedAt": 1795513232058
+  },
+  {
+    "id": "item_lichsu_dialy4_bai10_bacbo_t2",
+    "zone": "games",
+    "type": "game",
+    "title": "Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)",
+    "description": "Trò chơi tương tác \"Hành trình hội xuân Bắc Bộ\" gồm 3 chặng khám phá sân hội mùa xuân, bức tranh làng quê và góc ứng xử văn minh khi tham gia lễ hội.",
+    "order": 2,
+    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_h_i_xu_n_b_c_b_b1831bc9.html\" title=\"Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "createdAt": 1795513741864,
+    "updatedAt": 1795513741864
+  },
+  {
+    "id": "item_ngontay_vercel",
+    "zone": "apps",
+    "title": "Trò Chơi Giơ Ngón Tay – Chọn Đáp Án",
+    "description": "Thử thách trả lời câu hỏi trắc nghiệm bằng cách giơ ngón tay trước camera với công nghệ AI nhận diện cử chỉ tay thời gian thực.",
+    "type": "app",
+    "order": 3,
+    "embedCode": "https://thuthachtraloibangngontay.vercel.app/",
+    "createdAt": 1795520567601,
+    "updatedAt": 1795520567601
+  },
+  {
+    "id": "item_nghiengdau_vercel",
+    "zone": "apps",
+    "title": "Trò Chơi Nghiêng Đầu Chọn Đáp Án",
+    "description": "Trò chơi tương tác lớp học sử dụng camera nhận diện chuyển động nghiêng đầu trái/phải để chọn đáp án nhanh chóng.",
+    "type": "app",
+    "order": 4,
+    "embedCode": "https://nghiengdauchondapan.vercel.app/",
+    "createdAt": 1795520567601,
+    "updatedAt": 1795520567601
   }
 ]

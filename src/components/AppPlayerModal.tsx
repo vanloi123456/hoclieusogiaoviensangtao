@@ -123,10 +123,18 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
   const disableNewTab = useMemo(() => {
     if (!item) return false;
     const titleLower = (item.title || '').toLowerCase();
+    const urlLower = (sourceInfo.url || '').toLowerCase();
     return (
       item.id === 'item_lophocaophienban2_3d' ||
+      item.id === 'item_ngontay_vercel' ||
+      item.id === 'item_nghiengdau_vercel' ||
       (titleLower.includes('lớp học ảo 3d') && titleLower.includes('phiên bản 2')) ||
-      Boolean(sourceInfo.url && sourceInfo.url.toLowerCase().includes('lophocaophienban2.vercel.app'))
+      titleLower.includes('giơ ngón tay') ||
+      titleLower.includes('trả lời bằng ngón tay') ||
+      titleLower.includes('nghiêng đầu chọn đáp án') ||
+      urlLower.includes('lophocaophienban2.vercel.app') ||
+      urlLower.includes('thuthachtraloibangngontay.vercel.app') ||
+      urlLower.includes('nghiengdauchondapan.vercel.app')
     );
   }, [item, sourceInfo.url]);
 

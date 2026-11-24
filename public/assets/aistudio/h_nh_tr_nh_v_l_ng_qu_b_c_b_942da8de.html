@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hành trình về làng quê Bắc Bộ</title>
+  <style>
+    /* ==========================================================================
+       1. BIẾN MÀU SẮC & THIẾT LẬP CƠ BẢN (BẢNG MÀU CHỦ ĐẠO & PHẢN HỒI)
+       ========================================================================== */
+    :root {
+      --green-main: #2E7D32;
+      --green-dark: #1B5E20;
+      --green-light: #E8F5E9;
+      --amber-main: #D97706;
+      --amber-light: #FEF3C7;
+      --amber-border: #F59E0B;
+      --bg-cream: #FFFDF7;
+      --bg-white: #FFFFFF;
+      --navy-text: #1E3A5F;
+      --navy-muted: #475569;
+
+      /* Màu phản hồi sư phạm */
+      --ok-text: #15803D;
+      --ok-bg: #DCFCE7;
+      --ok-border: #22C55E;
+
+      --warn-text: #C2410C;
+      --warn-bg: #FFEDD5;
+      --warn-border: #FB923C;
+
+      --hint-text: #0369A1;
+      --hint-bg: #E0F2FE;
+      --hint-border: #38BDF8;
+
+      --border-soft: #CBD5E1;
+      --shadow-sm: 0 2px 6px rgba(30, 58, 95, 0.08);
+      --shadow-md: 0 6px 18px rgba(30, 58, 95, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-cream);
+      color: var(--navy-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.45;
+      user-select: none;
+    }
+
+    /* ==========================================================================
+       2. THANH TRÊN CÙNG (TIÊU ĐỀ, TIẾN ĐỘ, KHAY 4 HUY HIỆU, ÂM THANH)
+       ========================================================================== */
+    .top-bar {
+      background-color: var(--bg-white);
+      border-bottom: 3px solid var(--amber-border);
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--amber-light);
+      border: 2px solid var(--amber-main);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--green-main);
+    }
+
+    /* Thanh tiến độ chặng */
+    .progress-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 220px;
+    }
+
+    .progress-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--navy-text);
+    }
+
+    .progress-track {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 260px;
+    }
+
+    .progress-step {
+      flex: 1;
+      height: 12px;
+      border-radius: 999px;
+      background-color: #E2E8F0;
+      border: 1px solid #CBD5E1;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .progress-step.active {
+      background-color: var(--amber-main);
+      border-color: var(--amber-main);
+    }
+
+    .progress-step.done {
+      background-color: var(--green-main);
+      border-color: var(--green-main);
+    }
+
+    /* Khay 4 huy hiệu & nút điều khiển phụ */
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badges-tray {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-cream);
+      border: 2px solid var(--amber-light);
+      padding: 4px 10px;
+      border-radius: 14px;
+    }
+
+    .badge-slot {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 10px;
+      background: #F1F5F9;
+      border: 1.5px dashed #94A3B8;
+      opacity: 0.55;
+      transition: all 0.3s ease;
+    }
+
+    .badge-slot.earned {
+      opacity: 1;
+      background: var(--amber-light);
+      border: 1.5px solid var(--amber-main);
+      animation: popBadge 0.4s ease;
+    }
+
+    @keyframes popBadge {
+      0% { transform: scale(0.85); }
+      60% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .badge-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy-text);
+      max-width: 110px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge-slot:not(.earned) .badge-name {
+      display: none;
+    }
+
+    .btn-icon {
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 2px solid var(--border-soft);
+      background: var(--bg-white);
+      color: var(--navy-text);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: #F8FAFC;
+      border-color: var(--navy-text);
+    }
+
+    /* ==========================================================================
+       3. KHU VỰC TRUNG TÂM (NỘI DUNG CHẶNG & THAO TÁC)
+       ========================================================================== */
+    .main-container {
+      flex: 1;
+      width: 100%;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .screen-card {
+      background: var(--bg-white);
+      border: 2px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 22px 26px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Màn hình mở đầu */
+    .intro-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .intro-visual {
+      background: linear-gradient(180deg, #E0F2FE 0%, #FEF3C7 65%, #DCFCE7 100%);
+      border: 2px solid var(--amber-border);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .intro-Stops-preview {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      width: 100%;
+    }
+
+    .stop-chip {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1.5px solid var(--amber-main);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--navy-text);
+    }
+
+    .intro-content {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .game-heading {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--green-main);
+      line-height: 1.25;
+    }
+
+    .intro-greeting {
+      font-size: 18px;
+      color: var(--navy-text);
+      background: var(--bg-cream);
+      padding: 12px 16px;
+      border-radius: 14px;
+      border-left: 5px solid var(--amber-main);
+    }
+
+    .rules-box {
+      background: var(--green-light);
+      border: 2px solid #A5D6A7;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 17px;
+    }
+
+    /* Tiêu đề & Hướng dẫn mỗi chặng */
+    .stage-header {
+      background: var(--amber-light);
+      border: 2px solid var(--amber-border);
+      border-radius: 14px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stage-icon-box {
+      width: 52px;
+      height: 52px;
+      background: var(--bg-white);
+      border: 2px solid var(--amber-main);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stage-instruction {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy-text);
+    }
+
+    .helper-note {
+      font-size: 15px;
+      color: var(--navy-muted);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    /* ==========================================================================
+       4. VÙNG TƯƠNG TÁC CHẶNG 1 (GHÉP CẶP)
+       ========================================================================== */
+    .match-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .match-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .col-label {
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--navy-muted);
+      padding-left: 4px;
+    }
+
+    .match-left-card, .match-right-slot {
+      min-height: 76px;
+      border-radius: 14px;
+      padding: 12px 16px;
+      background: var(--bg-white);
+      border: 2.5px solid var(--border-soft);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy-text);
+      transition: all 0.2s ease;
+    }
+
+    .match-left-card:hover, .match-right-slot:hover {
+      border-color: var(--amber-main);
+      background: #FFFBEB;
+    }
+
+    .match-left-card.selected {
+      border-color: var(--green-main);
+      background: var(--green-light);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.25);
+    }
+
+    .match-left-card.paired {
+      border-color: var(--amber-main);
+      background: var(--amber-light);
+    }
+
+    .match-right-slot {
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .paired-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--amber-main);
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 8px;
+    }
+
+    .match-right-slot.paired {
+      border-color: var(--amber-main);
+      background: #FFFBEB;
+    }
+
+    /* ==========================================================================
+       5. VÙNG TƯƠNG TÁC CHẶNG 2 & 3 (PHÂN LOẠI: BẤM CHỌN HOẶC KÉO-THẢ)
+       ========================================== */
+    .sort-pool-wrapper {
+      background: var(--bg-cream);
+      border: 2px dashed #94A3B8;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sort-pool {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      min-height: 62px;
+      align-items: center;
+    }
+
+    .sort-card {
+      background: var(--bg-white);
+      border: 2.5px solid var(--amber-main);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy-text);
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .sort-card:hover {
+      background: #FFFBEB;
+      transform: translateY(-1px);
+    }
+
+    .sort-card.selected {
+      background: var(--green-light);
+      border-color: var(--green-main);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.28);
+    }
+
+    .sort-buckets {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+
+    .bucket-box {
+      background: var(--bg-white);
+      border: 3px solid var(--navy-text);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 170px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .bucket-box:hover, .bucket-box.drag-over {
+      background: #F0F9FF;
+      border-color: var(--green-main);
+    }
+
+    .bucket-title {
+      background: var(--navy-text);
+      color: #FFFFFF;
+      font-size: 19px;
+      font-weight: 800;
+      padding: 10px 14px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .bucket-items {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .bucket-placeholder {
+      color: #64748B;
+      font-size: 16px;
+      text-align: center;
+      margin: auto 0;
+      font-style: italic;
+    }
+
+    /* ==========================================================================
+       6. VÙNG TƯƠNG TÁC CHẶNG 4 & CỦNG CỐ (CHỌN TÌNH HUỐNG / TRẮC NGHIỆM)
+       ========================================================================== */
+    .situations-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .situation-card {
+      background: var(--bg-cream);
+      border: 2px solid #CBD5E1;
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .situation-question {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--navy-text);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .options-grid.single-col {
+      grid-template-columns: 1fr;
+    }
+
+    .option-btn {
+      min-height: 54px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 2.5px solid var(--border-soft);
+      background: var(--bg-white);
+      color: var(--navy-text);
+      font-size: 18px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .option-btn:hover {
+      border-color: var(--amber-main);
+      background: #FFFBEB;
+    }
+
+    .option-btn.selected {
+      border-color: var(--green-main);
+      background: var(--green-light);
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.22);
+    }
+
+    /* Trạng thái đúng / chưa đúng trực quan sau khi bấm Kiểm tra */
+    .state-correct {
+      border-color: var(--ok-border) !important;
+      background-color: var(--ok-bg) !important;
+    }
+
+    .state-wrong {
+      border-color: var(--warn-border) !important;
+      background-color: var(--warn-bg) !important;
+    }
+
+    /* ==========================================================================
+       7. DẢI ĐIỀU KHIỂN PHÍA DƯỚI & HỘP PHẢN HỒI
+       ========================================================================== */
+    .bottom-bar {
+      background: var(--bg-white);
+      border-top: 2px solid #E2E8F0;
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      box-shadow: 0 -2px 8px rgba(30, 58, 95, 0.05);
+    }
+
+    .feedback-box {
+      flex: 1;
+      min-width: 280px;
+      min-height: 52px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: #F1F5F9;
+      border: 2px solid #CBD5E1;
+      color: var(--navy-text);
+      font-size: 17px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .feedback-box.ok {
+      background: var(--ok-bg);
+      border-color: var(--ok-border);
+      color: var(--ok-text);
+    }
+
+    .feedback-box.warn {
+      background: var(--warn-bg);
+      border-color: var(--warn-border);
+      color: var(--warn-text);
+    }
+
+    .feedback-box.hint {
+      background: var(--hint-bg);
+      border-color: var(--hint-border);
+      color: var(--hint-text);
+    }
+
+    .actions-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      min-height: 48px;
+      padding: 0 20px;
+      border-radius: 12px;
+      border: none;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.1s ease, background-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--green-main);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover {
+      background: var(--green-dark);
+    }
+
+    .btn-amber {
+      background: var(--amber-main);
+      color: #FFFFFF;
+    }
+
+    .btn-amber:hover {
+      background: #B45309;
+    }
+
+    .btn-hint {
+      background: var(--hint-bg);
+      color: var(--hint-text);
+      border: 2px solid var(--hint-border);
+    }
+
+    .btn-hint:hover {
+      background: #BAE6FD;
+    }
+
+    .btn-secondary {
+      background: #F1F5F9;
+      color: var(--navy-text);
+      border: 2px solid #CBD5E1;
+    }
+
+    .btn-secondary:hover {
+      background: #E2E8F0;
+    }
+
+    /* ==========================================================================
+       8. MÀN HÌNH TỔNG KẾT & HỘP XÁC NHẬN CHƠI LẠI
+       ========================================================================== */
+    .summary-box {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 0;
+    }
+
+    .summary-badges {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+    }
+
+    .summary-badge-card {
+      background: var(--amber-light);
+      border: 2px solid var(--amber-main);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--navy-text);
+    }
+
+    .conclusion-panel {
+      background: var(--green-light);
+      border: 2.5px solid var(--green-main);
+      border-radius: 16px;
+      padding: 18px 22px;
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--navy-text);
+      text-align: left;
+      max-width: 920px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: var(--bg-white);
+      border: 3px solid var(--amber-main);
+      border-radius: 20px;
+      padding: 24px 28px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .modal-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy-text);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* ==========================================================================
+       9. RESPONSIVE CHO MÀN HÌNH NHỎ / BẢNG TƯƠNG TÁC
+       ========================================================================== */
+    @media (max-width: 860px) {
+      .intro-layout {
+        grid-template-columns: 1fr;
+      }
+      .match-grid, .sort-buckets, .options-grid {
+        grid-template-columns: 1fr;
+      }
+      .summary-badges {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .badge-name {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       THANH TRÊN CÙNG: TÊN TRÒ CHƠI, TIẾN ĐỘ CHẶNG, KHAY 4 HUY HIỆU & ÂM THANH
+       ======================================================================== -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <!-- Biểu tượng Cổng làng -->
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 9l10-5 10 5"/>
+          <path d="M5 9v11M19 9v11"/>
+          <path d="M9 20v-6a3 3 0 0 1 6 0v6"/>
+          <path d="M2 20h20"/>
+        </svg>
+      </div>
+      <div class="brand-title">Hành trình về làng quê Bắc Bộ</div>
+    </div>
+
+    <div class="progress-area" id="progressArea">
+      <div class="progress-label" id="progressLabel">Chặng 1/4</div>
+      <div class="progress-track">
+        <div class="progress-step" id="stepBar1"></div>
+        <div class="progress-step" id="stepBar2"></div>
+        <div class="progress-step" id="stepBar3"></div>
+        <div class="progress-step" id="stepBar4"></div>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <div class="badges-tray" title="Khay 4 huy hiệu Người bạn văn hoá">
+        <div class="badge-slot" id="badgeSlot1">
+          <span>🏅</span>
+          <span class="badge-name">Làng quê truyền thống</span>
+        </div>
+        <div class="badge-slot" id="badgeSlot2">
+          <span>🏅</span>
+          <span class="badge-name">Nếp nhà ba gian – năm gian</span>
+        </div>
+        <div class="badge-slot" id="badgeSlot3">
+          <span>🏅</span>
+          <span class="badge-name">Nhà ở xưa và nay</span>
+        </div>
+        <div class="badge-slot" id="badgeSlot4">
+          <span>🏅</span>
+          <span class="badge-name">Ứng xử văn minh</span>
+        </div>
+      </div>
+
+      <button type="button" class="btn-icon" id="btnSoundToggle" aria-label="Bật hoặc tắt âm thanh">
+        <span id="soundIcon">🔇</span>
+        <span id="soundText">Tắt tiếng</span>
+      </button>
+
+      <button type="button" class="btn-icon hidden" id="btnTopRestart">
+        <span>↺</span>
+        <span>Chơi lại</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       KHU VỰC TRUNG TÂM HIỂN THỊ CÁC MÀN HÌNH TRÒ CHƠI
+       ======================================================================== -->
+  <main class="main-container">
+    <section class="screen-card" id="screenContent" aria-live="polite">
+      <!-- Nội dung từng màn hình sẽ được JavaScript dựng tại đây -->
+    </section>
+  </main>
+
+  <!-- ========================================================================
+       DẢI ĐIỀU KHIỂN PHÍA DƯỚI: HỘP PHẢN HỒI / GỢI Ý & CÁC NÚT HÀNH ĐỘNG
+       ======================================================================== -->
+  <footer class="bottom-bar hidden" id="bottomBar">
+    <div class="feedback-box" id="feedbackBox">
+      <span id="feedbackIcon">💡</span>
+      <span id="feedbackText">Các em hãy trao đổi nhóm và thực hiện nhiệm vụ nhé!</span>
+    </div>
+
+    <div class="actions-group" id="actionsGroup">
+      <button type="button" class="btn btn-hint" id="btnHint">💡 Gợi ý</button>
+      <button type="button" class="btn btn-secondary" id="btnResetStage">↺ Làm lại</button>
+      <button type="button" class="btn btn-primary" id="btnCheck">✔ Kiểm tra</button>
+      <button type="button" class="btn btn-amber hidden" id="btnNext">Tiếp tục ➔</button>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       HỘP XÁC NHẬN KHI BẤM "CHƠI LẠI" GIỮA HÀNH TRÌNH
+       ======================================================================== -->
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-text">Bạn có muốn bắt đầu lại hành trình từ đầu không?</div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnConfirmYes">Có</button>
+        <button type="button" class="btn btn-secondary" id="btnConfirmNo">Không</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       LOGIC TRÒ CHƠI HỌC TẬP (VANILLA JAVASCRIPT THUẦN, CHẠY NGOẠI TUYẾN)
+       ======================================================================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      /* ----------------------------------------------------------------------
+         A. DỮ LIỆU KIẾN THỨC BÀI HỌC (BÁM SÁT ĐẶC TẢ TIẾT 1 - BÀI 10)
+         ---------------------------------------------------------------------- */
+      const GAME_DATA = {
+        badges: [
+          { id: 1, title: "Làng quê truyền thống" },
+          { id: 2, title: "Nếp nhà ba gian – năm gian" },
+          { id: 3, title: "Nhà ở xưa và nay" },
+          { id: 4, title: "Ứng xử văn minh" }
+        ],
+        stage1: {
+          title: "Chặng 1: Dấu ấn làng quê truyền thống",
+          instruction: "Ghép mỗi nơi ở làng quê với vai trò hoặc ý nghĩa phù hợp.",
+          hint: "Gợi ý: Hãy nghĩ xem dân làng thường tụ họp, lấy nước hay đi qua ở đâu.",
+          explain: "Cổng làng là cửa ngõ ra vào, nơi dừng nghỉ và vui chơi; giếng nước cung cấp nước sinh hoạt trước đây và là nơi gặp gỡ; đình thờ Thành hoàng ở trung tâm và sân đình là nơi sinh hoạt văn hoá chung.",
+          leftItems: [
+            { id: "cong_lang", label: "Cổng làng", icon: "gate" },
+            { id: "gieng_nuoc", label: "Giếng nước", icon: "well" },
+            { id: "dinh_lang", label: "Đình – sân đình", icon: "communal" }
+          ],
+          rightItems: [
+            {
+              id: "r_gieng",
+              correctFor: "gieng_nuoc",
+              text: "Cung cấp nước sinh hoạt cho dân làng trước đây và là nơi gặp gỡ, trò chuyện"
+            },
+            {
+              id: "r_dinh",
+              correctFor: "dinh_lang",
+              text: "Đình thường ở vị trí trung tâm, thờ Thành hoàng; sân đình là nơi sinh hoạt văn hoá chung"
+            },
+            {
+              id: "r_cong",
+              correctFor: "cong_lang",
+              text: "Cửa ngõ ra vào làng, nơi dừng nghỉ, hóng mát và trẻ em vui chơi"
+            }
+          ]
+        },
+        stage2: {
+          title: "Chặng 2: Cấu trúc và công năng nếp nhà xưa",
+          instruction: "Phân loại công năng của nhà ở truyền thống vào đúng gian.",
+          hint: "Gợi ý: Gian chính giữa trang trọng dùng để thờ cúng và tiếp khách, còn hai gian bên thì sao?",
+          explain: "Nhà ở truyền thống thường có ba gian hoặc năm gian: gian chính giữa là nơi thờ cúng và tiếp khách; hai gian bên là phòng ngủ hoặc nơi chứa thóc, gạo, đồ dùng sinh hoạt.",
+          buckets: [
+            { id: "gian_giua", title: "Gian chính giữa" },
+            { id: "hai_gian_ben", title: "Hai gian bên" }
+          ],
+          cards: [
+            { id: "c2_1", text: "Nơi thờ cúng và tiếp khách", target: "gian_giua" },
+            { id: "c2_2", text: "Phòng ngủ", target: "hai_gian_ben" },
+            { id: "c2_3", text: "Nơi chứa thóc, gạo, đồ dùng sinh hoạt", target: "hai_gian_ben" }
+          ]
+        },
+        stage3: {
+          title: "Chặng 3: Nhà ở truyền thống và nhà ở hiện nay",
+          instruction: "Phân loại đặc điểm vào đúng kiểu nhà.",
+          hint: "Gợi ý: Hãy đối chiếu nếp nhà mái lá/ngói xưa với nhà kiên cố, tiện nghi ngày nay.",
+          explain: "Nhà ở truyền thống thường đắp đất hoặc xây gạch, mái lợp lá hoặc ngói, có ba gian hoặc năm gian. Ngày nay nhà ở đa dạng, xây kiên cố, hiện đại và tiện nghi hơn nhưng nhiều gia đình vẫn giữ bàn thờ, sân vườn hoặc nếp sinh hoạt truyền thống.",
+          buckets: [
+            { id: "nha_truyen_thong", title: "Nhà ở truyền thống" },
+            { id: "nha_hien_nay", title: "Nhà ở hiện nay" }
+          ],
+          cards: [
+            { id: "c3_1", text: "Đắp bằng đất hoặc xây bằng gạch, mái lợp lá hoặc ngói", target: "nha_truyen_thong" },
+            { id: "c3_2", text: "Đa dạng hơn, nhiều nhà xây kiên cố, hiện đại và tiện nghi hơn", target: "nha_hien_nay" },
+            { id: "c3_3", text: "Thường có ba gian hoặc năm gian", target: "nha_truyen_thong" },
+            { id: "c3_4", text: "Vẫn có thể giữ bàn thờ, sân, vườn hoặc nếp sinh hoạt truyền thống", target: "nha_hien_nay" }
+          ]
+        },
+        stage4: {
+          title: "Chặng 4: Ứng xử văn minh ở không gian chung",
+          instruction: "Chọn cách làm phù hợp trong mỗi tình huống.",
+          hint: "Gợi ý: Hãy nhớ cách ứng xử tôn trọng không gian chung và mọi người xung quanh.",
+          explain: "Mỗi người đều có quyền tham gia và thụ hưởng đời sống văn hoá. Vì vậy khi đến đình làng, cổng làng hay sinh hoạt cộng đồng, ta cần giữ trật tự, không xả rác và không viết vẽ lên di tích.",
+          situations: [
+            {
+              id: "s4_1",
+              question: "Tình huống 1: Khi cùng gia đình đến thăm đình làng, em nên làm gì?",
+              options: [
+                { id: "opt1_a", text: "Đi nhẹ, nói khẽ, giữ trật tự và không viết vẽ lên di tích", isCorrect: true },
+                { id: "opt1_b", text: "Chen lấn lên trước và xả rác quanh sân đình", isCorrect: false }
+              ]
+            },
+            {
+              id: "s4_2",
+              question: "Tình huống 2: Khi tham gia sinh hoạt văn hoá cộng đồng, vì sao cần giữ trật tự, không xả rác?",
+              options: [
+                { id: "opt2_a", text: "Vì chỉ cần giữ chỗ cho riêng mình", isCorrect: false },
+                { id: "opt2_b", text: "Để tôn trọng quyền tham gia, thụ hưởng đời sống văn hoá của mọi người", isCorrect: true }
+              ]
+            }
+          ]
+        },
+        consolidation: {
+          title: "Điểm danh kiến thức sau hành trình",
+          instruction: "Thử thách nhỏ cuối hành trình: Chọn mô tả đúng nhất về nét văn hoá ở vùng Đồng bằng Bắc Bộ.",
+          options: [
+            {
+              id: "A",
+              text: "A. Làng quê truyền thống có cổng làng, cây đa, giếng nước, sân đình; nhà ở hiện nay đa dạng, kiên cố và tiện nghi hơn nhà ở truyền thống.",
+              isCorrect: true
+            },
+            {
+              id: "B",
+              text: "B. Nhà ở truyền thống chỉ có một gian và dùng làm nơi vui chơi, còn đình làng là nơi ở của mọi gia đình.",
+              isCorrect: false
+            },
+            {
+              id: "C",
+              text: "C. Khi đến không gian văn hoá chung, ta nên chen lấn và xả rác để giữ chỗ cho riêng mình.",
+              isCorrect: false
+            }
+          ],
+          okMsg: "Chính xác! Cả lớp đã nắm vững nét văn hoá làng quê, sự thay đổi của nhà ở và cách ứng xử văn minh rồi đấy.",
+          warnMsg: "Hãy kiểm tra lại đặc điểm của đình làng, nhà ở truyền thống – hiện nay và cách ứng xử ở không gian chung nhé."
+        },
+        conclusion: {
+          heading: "Chúc mừng cả lớp đã hoàn thành Hành trình về làng quê Bắc Bộ!",
+          summary: "Làng quê truyền thống vùng Đồng bằng Bắc Bộ gắn với cổng làng, cây đa, giếng nước, sân đình; nhà ở có sự thay đổi từ nhà ở truyền thống sang nhà ở hiện nay khang trang, tiện nghi hơn; mỗi người cần ứng xử văn minh, tôn trọng không gian văn hoá chung.",
+          replayNote: "Em có thể bấm \"Chơi lại\" để ôn tập thêm cùng các bạn."
+        }
+      };
+
+      /* ----------------------------------------------------------------------
+         B. TRẠNG THÁI ỨNG DỤNG
+         ---------------------------------------------------------------------- */
+      const state = {
+        screen: "intro", // "intro" | "stage1" | "stage2" | "stage3" | "stage4" | "consolidation" | "summary"
+        earnedBadges: [false, false, false, false],
+        stageCompleted: false,
+        wrongAttempts: 0,
+        soundEnabled: false,
+
+        // Trạng thái Chặng 1 (Ghép cặp)
+        s1SelectedLeft: null,
+        s1Pairs: {}, // { rightId: leftId }
+        s1CheckedResults: {}, // { rightId: boolean }
+
+        // Trạng thái Chặng 2 & 3 (Phân loại)
+        sortSelectedCard: null,
+        sortPlacements: {}, // { cardId: bucketId | null }
+        sortCheckedResults: {}, // { cardId: boolean }
+
+        // Trạng thái Chặng 4 (Tình huống)
+        s4Selections: {}, // { situationId: optionId }
+        s4CheckedResults: {}, // { situationId: boolean }
+
+        // Trạng thái Củng cố
+        conSelected: null,
+        conCheckedCorrect: null
+      };
+
+      /* ----------------------------------------------------------------------
+         C. ÂM THANH TỔNG HỢP WEB AUDIO API (CHỈ PHÁT KHI BẬT & CÓ TƯƠNG TÁC)
+         ---------------------------------------------------------------------- */
+      let audioCtx = null;
+
+      function playTone(type) {
+        if (!state.soundEnabled) return;
+        try {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) audioCtx = new AudioContextClass();
+          }
+          if (!audioCtx) return;
+          if (audioCtx.state === "suspended") audioCtx.resume();
+
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          if (type === "click") {
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(520, now);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+            osc.start(now);
+            osc.stop(now + 0.08);
+          } else if (type === "success") {
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.1);
+            osc.frequency.setValueAtTime(783.99, now + 0.2);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+            osc.start(now);
+            osc.stop(now + 0.38);
+          } else if (type === "warn") {
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(330, now);
+            osc.frequency.setValueAtTime(293.66, now + 0.12);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+            osc.start(now);
+            osc.stop(now + 0.28);
+          }
+        } catch (err) {
+          // Bỏ qua lỗi âm thanh nếu trình duyệt hạn chế
+        }
+      }
+
+      /* ----------------------------------------------------------------------
+         D. BIỂU TƯỢNG SVG THUẦN CHO TỪNG CHẶNG
+         ---------------------------------------------------------------------- */
+      function getSvgIcon(name) {
+        const icons = {
+          gate: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.2"><path d="M2 9l10-5 10 5"/><path d="M5 9v11M19 9v11"/><path d="M9 20v-6a3 3 0 0 1 6 0v6"/><path d="M2 20h20"/></svg>',
+          well: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="2.2"><ellipse cx="12" cy="14" rx="8" ry="4"/><path d="M4 14v4c0 2.2 3.6 4 8 4s8-1.8 8-4v-4"/><path d="M7 12V6l5-3 5 3v6"/></svg>',
+          communal: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2"><path d="M2 11c3 0 6-2 10-5 4 3 7 5 10 5"/><path d="M4 11v8M9 11v8M15 11v8M20 11v8"/><path d="M2 19h20"/></svg>',
+          houseOld: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2"><path d="M2 12L12 5l10 7"/><path d="M4 12v8h16v-8"/><path d="M9 20v-6h6v6"/></svg>',
+          houseNew: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="2.2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h3M13 9h3M8 13h3M13 13h3M10 20v-3h4v3"/></svg>',
+          community: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.2"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 19c0-3 2.5-5 5-5s5 2 5 5"/><path d="M13 19c0-2.5 2-4.5 4.5-4.5S22 16.5 22 19"/></svg>'
+        };
+        return icons[name] || icons.gate;
+      }
+
+      /* ----------------------------------------------------------------------
+         E. CẬP NHẬT THANH TRÊN CÙNG, HỘP PHẢN HỒI & NÚT ĐIỀU KHIỂN
+         ---------------------------------------------------------------------- */
+      const screenContent = document.getElementById("screenContent");
+      const bottomBar = document.getElementById("bottomBar");
+      const feedbackBox = document.getElementById("feedbackBox");
+      const feedbackIcon = document.getElementById("feedbackIcon");
+      const feedbackText = document.getElementById("feedbackText");
+      const progressLabel = document.getElementById("progressLabel");
+      const btnHint = document.getElementById("btnHint");
+      const btnResetStage = document.getElementById("btnResetStage");
+      const btnCheck = document.getElementById("btnCheck");
+      const btnNext = document.getElementById("btnNext");
+      const btnTopRestart = document.getElementById("btnTopRestart");
+
+      function updateTopBar() {
+        const stageMap = {
+          intro: { num: 0, text: "Chuẩn bị hành trình" },
+          stage1: { num: 1, text: "Chặng 1/4" },
+          stage2: { num: 2, text: "Chặng 2/4" },
+          stage3: { num: 3, text: "Chặng 3/4" },
+          stage4: { num: 4, text: "Chặng 4/4" },
+          consolidation: { num: 4, text: "Củng cố cuối hành trình" },
+          summary: { num: 4, text: "Hoàn thành 4/4" }
+        };
+
+        const info = stageMap[state.screen] || stageMap.intro;
+        progressLabel.textContent = info.text;
+
+        for (let i = 1; i <= 4; i++) {
+          const stepEl = document.getElementById("stepBar" + i);
+          stepEl.classList.remove("active", "done");
+          if (state.earnedBadges[i - 1]) {
+            stepEl.classList.add("done");
+          } else if (info.num === i) {
+            stepEl.classList.add("active");
+          }
+
+          const badgeEl = document.getElementById("badgeSlot" + i);
+          if (state.earnedBadges[i - 1]) {
+            badgeEl.classList.add("earned");
+          } else {
+            badgeEl.classList.remove("earned");
+          }
+        }
+
+        if (state.screen === "intro") {
+          btnTopRestart.classList.add("hidden");
+        } else {
+          btnTopRestart.classList.remove("hidden");
+        }
+      }
+
+      function setFeedback(type, message) {
+        feedbackBox.classList.remove("ok", "warn", "hint");
+        if (type === "ok") {
+          feedbackBox.classList.add("ok");
+          feedbackIcon.textContent = "🎉";
+        } else if (type === "warn") {
+          feedbackBox.classList.add("warn");
+          feedbackIcon.textContent = "🤔";
+        } else if (type === "hint") {
+          feedbackBox.classList.add("hint");
+          feedbackIcon.textContent = "💡";
+        } else {
+          feedbackIcon.textContent = "💬";
+        }
+        feedbackText.textContent = message;
+      }
+
+      function updateBottomControls() {
+        if (state.screen === "intro" || state.screen === "summary") {
+          bottomBar.classList.add("hidden");
+          return;
+        }
+
+        bottomBar.classList.remove("hidden");
+
+        if (state.screen === "consolidation") {
+          btnHint.classList.add("hidden");
+          btnResetStage.classList.add("hidden");
+          if (state.conCheckedCorrect) {
+            btnCheck.classList.add("hidden");
+            btnNext.classList.remove("hidden");
+            btnNext.textContent = "Xem kết luận ➔";
+          } else {
+            btnCheck.classList.remove("hidden");
+            btnNext.classList.add("hidden");
+          }
+          return;
+        }
+
+        btnHint.classList.remove("hidden");
+        btnResetStage.classList.remove("hidden");
+
+        if (state.stageCompleted) {
+          btnCheck.classList.add("hidden");
+          btnNext.classList.remove("hidden");
+          btnNext.textContent = state.screen === "stage4" ? "Sang nhiệm vụ củng cố ➔" : "Tiếp tục ➔";
+        } else {
+          btnCheck.classList.remove("hidden");
+          btnNext.classList.add("hidden");
+        }
+      }
+
+      /* ----------------------------------------------------------------------
+         F. KHỞI TẠO & ĐẶT LẠI TRẠNG THÁI CHẶNG
+         ---------------------------------------------------------------------- */
+      function initStageState(stageName) {
+        state.stageCompleted = false;
+        state.wrongAttempts = 0;
+
+        if (stageName === "stage1") {
+          state.s1SelectedLeft = null;
+          state.s1Pairs = {};
+          state.s1CheckedResults = {};
+          setFeedback("neutral", "Bấm chọn một nơi ở bên trái, sau đó bấm chọn vai trò tương ứng ở bên phải.");
+        } else if (stageName === "stage2") {
+          state.sortSelectedCard = null;
+          state.sortPlacements = {};
+          state.sortCheckedResults = {};
+          GAME_DATA.stage2.cards.forEach(c => { state.sortPlacements[c.id] = null; });
+          setFeedback("neutral", "Bấm chọn một thẻ công năng (hoặc kéo-thả) rồi đưa vào đúng gian nhà.");
+        } else if (stageName === "stage3") {
+          state.sortSelectedCard = null;
+          state.sortPlacements = {};
+          state.sortCheckedResults = {};
+          GAME_DATA.stage3.cards.forEach(c => { state.sortPlacements[c.id] = null; });
+          setFeedback("neutral", "Bấm chọn từng thẻ đặc điểm (hoặc kéo-thả) để xếp vào đúng kiểu nhà.");
+        } else if (stageName === "stage4") {
+          state.s4Selections = {};
+          state.s4CheckedResults = {};
+          setFeedback("neutral", "Đọc kỹ từng tình huống và bấm chọn cách ứng xử văn minh nhất.");
+        } else if (stageName === "consolidation") {
+          state.conSelected = null;
+          state.conCheckedCorrect = null;
+          setFeedback("neutral", "Chọn một nhận định đúng nhất rồi bấm Kiểm tra.");
+        }
+      }
+
+      function resetEntireGame() {
+        state.screen = "intro";
+        state.earnedBadges = [false, false, false, false];
+        state.stageCompleted = false;
+        state.wrongAttempts = 0;
+        render();
+      }
+
+      /* ----------------------------------------------------------------------
+         G. DỰNG GIAO DIỆN TỪNG MÀN HÌNH
+         ---------------------------------------------------------------------- */
+      function renderIntro() {
+        screenContent.innerHTML = `
+          <div class="intro-layout">
+            <div class="intro-visual">
+              <div style="font-size:17px; font-weight:800; color:#1E3A5F;">4 ĐIỂM DỪNG KHÁM PHÁ</div>
+              <div class="intro-Stops-preview">
+                <div class="stop-chip">${getSvgIcon("gate")}<span>1. Làng quê truyền thống</span></div>
+                <div class="stop-chip">${getSvgIcon("houseOld")}<span>2. Nếp nhà ba gian – năm gian</span></div>
+                <div class="stop-chip">${getSvgIcon("houseNew")}<span>3. Nhà ở xưa và nay</span></div>
+                <div class="stop-chip">${getSvgIcon("community")}<span>4. Ứng xử văn minh</span></div>
+              </div>
+              <div style="font-size:15px; color:#475569; font-weight:600; text-align:center;">
+                Hoàn thành mỗi chặng để nhận huy hiệu <strong>"Người bạn văn hoá"</strong>!
+              </div>
+            </div>
+
+            <div class="intro-content">
+              <h1 class="game-heading">Hành trình về làng quê Bắc Bộ</h1>
+              <p class="intro-greeting">
+                Chào các bạn nhỏ! Hãy cùng dạo chơi qua các điểm dừng quen thuộc ở vùng Đồng bằng Bắc Bộ để khám phá nét văn hoá làng quê, nếp nhà và cách ứng xử văn minh nhé.
+              </p>
+              <div class="rules-box">
+                <div><strong>🎯 Nhiệm vụ:</strong> Hoàn thành 4 chặng để thu thập 4 huy hiệu "Người bạn văn hoá".</div>
+                <div><strong>📖 Luật chơi:</strong> Chọn và ghép/phân loại đúng kiến thức bài học; nếu chưa đúng, em sẽ nhận gợi ý để thử lại.</div>
+              </div>
+              <div>
+                <button type="button" class="btn btn-primary" id="btnStartGame" style="min-width: 200px; font-size: 20px;">
+                  ▶ Bắt đầu
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btnStartGame").addEventListener("click", function () {
+          playTone("click");
+          state.screen = "stage1";
+          initStageState("stage1");
+          render();
+        });
+      }
+
+      /* --- CHẶNG 1: GHÉP CẶP --- */
+      function renderStage1() {
+        const data = GAME_DATA.stage1;
+        const pairedLeftIds = Object.values(state.s1Pairs);
+
+        let leftHtml = data.leftItems.map(item => {
+          const isSelected = state.s1SelectedLeft === item.id;
+          const isPaired = pairedLeftIds.includes(item.id);
+          let cls = "match-left-card";
+          if (isSelected) cls += " selected";
+          else if (isPaired) cls += " paired";
+
+          return `
+            <div class="${cls}" data-left-id="${item.id}" role="button" tabindex="0">
+              ${getSvgIcon(item.icon)}
+              <span>${item.label}</span>
+            </div>
+          `;
+        }).join("");
+
+        let rightHtml = data.rightItems.map(slot => {
+          const pairedLeftId = state.s1Pairs[slot.id];
+          const pairedLeftObj = data.leftItems.find(l => l.id === pairedLeftId);
+          const checkState = state.s1CheckedResults[slot.id];
+
+          let cls = "match-right-slot";
+          if (pairedLeftObj) cls += " paired";
+          if (checkState === true) cls += " state-correct";
+          if (checkState === false) cls += " state-wrong";
+
+          const tagHtml = pairedLeftObj
+            ? `<span class="paired-tag">🔗 Đã ghép: ${pairedLeftObj.label} (bấm để gỡ)</span>`
+            : `<span style="font-size:14px; color:#64748B;">(Bấm vào đây để ghép với mục đã chọn bên trái)</span>`;
+
+          return `
+            <div class="${cls}" data-right-id="${slot.id}" role="button" tabindex="0">
+              ${tagHtml}
+              <div>${slot.text}</div>
+            </div>
+          `;
+        }).join("");
+
+        screenContent.innerHTML = `
+          <div class="stage-header">
+            <div class="stage-icon-box">${getSvgIcon("gate")}</div>
+            <div>
+              <div class="stage-instruction">${data.title}. ${data.instruction}</div>
+              <div class="helper-note">Cách thao tác: Chọn 1 ô bên trái rồi chọn ô vai trò tương ứng bên phải.</div>
+            </div>
+          </div>
+
+          <div class="match-grid">
+            <div class="match-col">
+              <div class="col-label">Không gian làng quê</div>
+              ${leftHtml}
+            </div>
+            <div class="match-col">
+              <div class="col-label">Vai trò / Ý nghĩa</div>
+              ${rightHtml}
+            </div>
+          </div>
+        `;
+
+        if (state.stageCompleted) return;
+
+        // Sự kiện bấm chọn bên trái
+        screenContent.querySelectorAll(".match-left-card").forEach(el => {
+          el.addEventListener("click", () => {
+            playTone("click");
+            const id = el.getAttribute("data-left-id");
+            state.s1SelectedLeft = (state.s1SelectedLeft === id) ? null : id;
+            render();
+          });
+        });
+
+        // Sự kiện bấm chọn ô bên phải
+        screenContent.querySelectorAll(".match-right-slot").forEach(el => {
+          el.addEventListener("click", () => {
+            playTone("click");
+            const rightId = el.getAttribute("data-right-id");
+            state.s1CheckedResults = {};
+
+            if (state.s1SelectedLeft) {
+              // Gỡ nếu leftId đang nằm ở ô khác
+              Object.keys(state.s1Pairs).forEach(rKey => {
+                if (state.s1Pairs[rKey] === state.s1SelectedLeft) {
+                  delete state.s1Pairs[rKey];
+                }
+              });
+              state.s1Pairs[rightId] = state.s1SelectedLeft;
+              state.s1SelectedLeft = null;
+            } else if (state.s1Pairs[rightId]) {
+              // Bấm lại ô đã ghép để gỡ ra ghép lại
+              delete state.s1Pairs[rightId];
+            }
+            render();
+          });
+        });
+      }
+
+      /* --- CHẶNG 2 & 3: PHÂN LOẠI --- */
+      function renderSortStage(stageKey, iconName) {
+        const data = GAME_DATA[stageKey];
+        const unplacedCards = data.cards.filter(c => !state.sortPlacements[c.id]);
+
+        const poolCardsHtml = unplacedCards.length > 0
+          ? unplacedCards.map(c => {
+              const sel = state.sortSelectedCard === c.id ? " selected" : "";
+              return `<div class="sort-card${sel}" draggable="true" data-card-id="${c.id}">${c.text}</div>`;
+            }).join("")
+          : `<div class="bucket-placeholder">Tất cả thẻ đã được xếp vào các nhóm bên dưới. Bấm "Kiểm tra" hoặc bấm thẻ để chuyển nhóm!</div>`;
+
+        const bucketsHtml = data.buckets.map(bucket => {
+          const cardsInBucket = data.cards.filter(c => state.sortPlacements[c.id] === bucket.id);
+          const innerHtml = cardsInBucket.length > 0
+            ? cardsInBucket.map(c => {
+                const checkRes = state.sortCheckedResults[c.id];
+                let extra = "";
+                if (state.sortSelectedCard === c.id) extra += " selected";
+                if (checkRes === true) extra += " state-correct";
+                if (checkRes === false) extra += " state-wrong";
+                return `<div class="sort-card${extra}" draggable="true" data-card-id="${c.id}">${c.text}</div>`;
+              }).join("")
+            : `<div class="bucket-placeholder">Bấm thẻ rồi bấm vào khung này (hoặc kéo-thả vào đây)</div>`;
+
+          return `
+            <div class="bucket-box" data-bucket-id="${bucket.id}">
+              <div class="bucket-title">${bucket.title}</div>
+              <div class="bucket-items">${innerHtml}</div>
+            </div>
+          `;
+        }).join("");
+
+        screenContent.innerHTML = `
+          <div class="stage-header">
+            <div class="stage-icon-box">${getSvgIcon(iconName)}</div>
+            <div>
+              <div class="stage-instruction">${data.title}. ${data.instruction}</div>
+              <div class="helper-note">Cách thao tác: Bấm chọn thẻ rồi bấm vào khung nhóm phù hợp (hoặc kéo-thả thẻ vào khung).</div>
+            </div>
+          </div>
+
+          <div class="sort-pool-wrapper" id="sortPoolWrapper">
+            <div class="col-label">Các thẻ thông tin cần phân loại</div>
+            <div class="sort-pool">${poolCardsHtml}</div>
+          </div>
+
+          <div class="sort-buckets">
+            ${bucketsHtml}
+          </div>
+        `;
+
+        if (state.stageCompleted) return;
+
+        // Xử lý bấm chọn thẻ & kéo thả
+        screenContent.querySelectorAll(".sort-card").forEach(cardEl => {
+          cardEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            playTone("click");
+            const cid = cardEl.getAttribute("data-card-id");
+            state.sortSelectedCard = (state.sortSelectedCard === cid) ? null : cid;
+            render();
+          });
+
+          cardEl.addEventListener("dragstart", (e) => {
+            const cid = cardEl.getAttribute("data-card-id");
+            state.sortSelectedCard = cid;
+            if (e.dataTransfer) {
+              e.dataTransfer.setData("text/plain", cid);
+            }
+          });
+        });
+
+        // Bấm vào khung nhóm đích hoặc thả vào khung nhóm
+        screenContent.querySelectorAll(".bucket-box").forEach(bucketEl => {
+          bucketEl.addEventListener("click", () => {
+            if (!state.sortSelectedCard) return;
+            playTone("click");
+            const bid = bucketEl.getAttribute("data-bucket-id");
+            state.sortPlacements[state.sortSelectedCard] = bid;
+            state.sortSelectedCard = null;
+            state.sortCheckedResults = {};
+            render();
+          });
+
+          bucketEl.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            bucketEl.classList.add("drag-over");
+          });
+
+          bucketEl.addEventListener("dragleave", () => {
+            bucketEl.classList.remove("drag-over");
+          });
+
+          bucketEl.addEventListener("drop", (e) => {
+            e.preventDefault();
+            bucketEl.classList.remove("drag-over");
+            const cid = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || state.sortSelectedCard;
+            if (!cid) return;
+            playTone("click");
+            const bid = bucketEl.getAttribute("data-bucket-id");
+            state.sortPlacements[cid] = bid;
+            state.sortSelectedCard = null;
+            state.sortCheckedResults = {};
+            render();
+          });
+        });
+
+        // Cho phép trả thẻ về vùng chờ nếu bấm vùng chờ khi đang chọn thẻ
+        const poolWrapper = document.getElementById("sortPoolWrapper");
+        poolWrapper.addEventListener("click", () => {
+          if (!state.sortSelectedCard) return;
+          playTone("click");
+          state.sortPlacements[state.sortSelectedCard] = null;
+          state.sortSelectedCard = null;
+          state.sortCheckedResults = {};
+          render();
+        });
+      }
+
+      /* --- CHẶNG 4: BẤM CHỌN THEO TÌNH HUỐNG --- */
+      function renderStage4() {
+        const data = GAME_DATA.stage4;
+        const listHtml = data.situations.map(sit => {
+          const selectedOptId = state.s4Selections[sit.id];
+          const checkRes = state.s4CheckedResults[sit.id];
+
+          const optsHtml = sit.options.map(opt => {
+            const isSel = selectedOptId === opt.id;
+            let cls = "option-btn";
+            if (isSel) cls += " selected";
+            if (isSel && checkRes === true) cls += " state-correct";
+            if (isSel && checkRes === false) cls += " state-wrong";
+
+            return `
+              <button type="button" class="${cls}" data-sit-id="${sit.id}" data-opt-id="${opt.id}">
+                <span>${isSel ? "🔘" : "⚪"}</span>
+                <span>${opt.text}</span>
+              </button>
+            `;
+          }).join("");
+
+          return `
+            <div class="situation-card">
+              <div class="situation-question">${sit.question}</div>
+              <div class="options-grid">${optsHtml}</div>
+            </div>
+          `;
+        }).join("");
+
+        screenContent.innerHTML = `
+          <div class="stage-header">
+            <div class="stage-icon-box">${getSvgIcon("community")}</div>
+            <div>
+              <div class="stage-instruction">${data.title}. ${data.instruction}</div>
+              <div class="helper-note">Cách thao tác: Bấm chọn 1 phương án đúng cho mỗi tình huống.</div>
+            </div>
+          </div>
+          <div class="situations-list">${listHtml}</div>
+        `;
+
+        if (state.stageCompleted) return;
+
+        screenContent.querySelectorAll(".option-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            playTone("click");
+            const sid = btn.getAttribute("data-sit-id");
+            const oid = btn.getAttribute("data-opt-id");
+            state.s4Selections[sid] = oid;
+            delete state.s4CheckedResults[sid];
+            render();
+          });
+        });
+      }
+
+      /* --- MÀN HÌNH CỦNG CỐ CUỐI GAME --- */
+      function renderConsolidation() {
+        const data = GAME_DATA.consolidation;
+        const optsHtml = data.options.map(opt => {
+          const isSel = state.conSelected === opt.id;
+          let cls = "option-btn";
+          if (isSel) cls += " selected";
+          if (isSel && state.conCheckedCorrect === true) cls += " state-correct";
+          if (isSel && state.conCheckedCorrect === false) cls += " state-wrong";
+
+          return `
+            <button type="button" class="${cls}" data-con-id="${opt.id}">
+              <span>${isSel ? "🔘" : "⚪"}</span>
+              <span>${opt.text}</span>
+            </button>
+          `;
+        }).join("");
+
+        screenContent.innerHTML = `
+          <div class="stage-header">
+            <div class="stage-icon-box">${getSvgIcon("communal")}</div>
+            <div>
+              <div class="stage-instruction">${data.title}</div>
+              <div class="helper-note">${data.instruction}</div>
+            </div>
+          </div>
+          <div class="options-grid single-col">${optsHtml}</div>
+        `;
+
+        if (state.conCheckedCorrect) return;
+
+        screenContent.querySelectorAll(".option-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            playTone("click");
+            state.conSelected = btn.getAttribute("data-con-id");
+            state.conCheckedCorrect = null;
+            render();
+          });
+        });
+      }
+
+      /* --- MÀN HÌNH TỔNG KẾT & KẾT LUẬN KIẾN THỨC --- */
+      function renderSummary() {
+        const data = GAME_DATA.conclusion;
+        const badgesHtml = GAME_DATA.badges.map(b => `
+          <div class="summary-badge-card">
+            <div style="font-size:32px;">🏅</div>
+            <div>Huy hiệu ${b.id}</div>
+            <div style="color:#2E7D32;">${b.title}</div>
+          </div>
+        `).join("");
+
+        screenContent.innerHTML = `
+          <div class="summary-box">
+            <h2 class="game-heading">${data.heading}</h2>
+            <div class="summary-badges">${badgesHtml}</div>
+            <div class="conclusion-panel">
+              <div style="font-weight:800; color:#2E7D32; margin-bottom:6px;">📌 Ghi nhớ kiến thức bài học:</div>
+              <div>${data.summary}</div>
+            </div>
+            <div style="font-size:17px; color:#475569; font-weight:600;">${data.replayNote}</div>
+            <div>
+              <button type="button" class="btn btn-primary" id="btnSummaryReplay" style="min-width: 190px;">
+                ↺ Chơi lại
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btnSummaryReplay").addEventListener("click", () => {
+          playTone("click");
+          resetEntireGame();
+        });
+      }
+
+      function render() {
+        updateTopBar();
+        updateBottomControls();
+
+        if (state.screen === "intro") renderIntro();
+        else if (state.screen === "stage1") renderStage1();
+        else if (state.screen === "stage2") renderSortStage("stage2", "houseOld");
+        else if (state.screen === "stage3") renderSortStage("stage3", "houseNew");
+        else if (state.screen === "stage4") renderStage4();
+        else if (state.screen === "consolidation") renderConsolidation();
+        else if (state.screen === "summary") renderSummary();
+      }
+
+      /* ----------------------------------------------------------------------
+         H. LOGIC KIỂM TRA ĐÁP ÁN, GỢI Ý, LÀM LẠI & CHUYỂN CHẶNG
+         ---------------------------------------------------------------------- */
+      function handleCheck() {
+        if (state.screen === "stage1") {
+          const data = GAME_DATA.stage1;
+          if (Object.keys(state.s1Pairs).length < data.rightItems.length) {
+            playTone("warn");
+            setFeedback("warn", "Còn một vài mục chưa hoàn thành, các em hãy chọn/ghép hết rồi bấm Kiểm tra nhé.");
+            return;
+          }
+          let allOk = true;
+          state.s1CheckedResults = {};
+          data.rightItems.forEach(slot => {
+            const ok = state.s1Pairs[slot.id] === slot.correctFor;
+            state.s1CheckedResults[slot.id] = ok;
+            if (!ok) allOk = false;
+          });
+
+          if (allOk) {
+            playTone("success");
+            state.stageCompleted = true;
+            state.earnedBadges[0] = true;
+            setFeedback("ok", `Tuyệt vời! Các em đã hoàn thành chặng này và nhận được huy hiệu "Người bạn văn hoá". ${data.explain}`);
+          } else {
+            playTone("warn");
+            state.wrongAttempts++;
+            if (state.wrongAttempts === 1) {
+              setFeedback("warn", `Chưa khớp lắm! ${data.hint} Các em cùng trao đổi và thử lại nhé!`);
+            } else {
+              setFeedback("warn", "Các em hãy cùng nhìn lại thông tin trong bài học và thử chọn lại từng mục nhé.");
+            }
+          }
+          render();
+          return;
+        }
+
+        if (state.screen === "stage2" || state.screen === "stage3") {
+          const data = GAME_DATA[state.screen];
+          const unplaced = data.cards.some(c => !state.sortPlacements[c.id]);
+          if (unplaced) {
+            playTone("warn");
+            setFeedback("warn", "Còn một vài mục chưa hoàn thành, các em hãy chọn/ghép hết rồi bấm Kiểm tra nhé.");
+            return;
+          }
+
+          let allOk = true;
+          state.sortCheckedResults = {};
+          data.cards.forEach(c => {
+            const ok = state.sortPlacements[c.id] === c.target;
+            state.sortCheckedResults[c.id] = ok;
+            if (!ok) allOk = false;
+          });
+
+          const badgeIdx = state.screen === "stage2" ? 1 : 2;
+          if (allOk) {
+            playTone("success");
+            state.stageCompleted = true;
+            state.earnedBadges[badgeIdx] = true;
+            setFeedback("ok", `Tuyệt vời! Các em đã hoàn thành chặng này và nhận được huy hiệu "Người bạn văn hoá". ${data.explain}`);
+          } else {
+            playTone("warn");
+            state.wrongAttempts++;
+            if (state.wrongAttempts === 1) {
+              setFeedback("warn", `Chưa khớp lắm! ${data.hint} Các em cùng trao đổi và thử lại nhé!`);
+            } else {
+              setFeedback("warn", "Các em hãy cùng nhìn lại thông tin trong bài học và thử chọn lại từng mục nhé.");
+            }
+          }
+          render();
+          return;
+        }
+
+        if (state.screen === "stage4") {
+          const data = GAME_DATA.stage4;
+          const incomplete = data.situations.some(s => !state.s4Selections[s.id]);
+          if (incomplete) {
+            playTone("warn");
+            setFeedback("warn", "Còn một vài mục chưa hoàn thành, các em hãy chọn/ghép hết rồi bấm Kiểm tra nhé.");
+            return;
+          }
+
+          let allOk = true;
+          state.s4CheckedResults = {};
+          data.situations.forEach(s => {
+            const chosen = s.options.find(o => o.id === state.s4Selections[s.id]);
+            const ok = Boolean(chosen && chosen.isCorrect);
+            state.s4CheckedResults[s.id] = ok;
+            if (!ok) allOk = false;
+          });
+
+          if (allOk) {
+            playTone("success");
+            state.stageCompleted = true;
+            state.earnedBadges[3] = true;
+            setFeedback("ok", `Tuyệt vời! Các em đã hoàn thành chặng này và nhận được huy hiệu "Người bạn văn hoá". ${data.explain}`);
+          } else {
+            playTone("warn");
+            state.wrongAttempts++;
+            if (state.wrongAttempts === 1) {
+              setFeedback("warn", `Chưa khớp lắm! ${data.hint} Các em cùng trao đổi và thử lại nhé!`);
+            } else {
+              setFeedback("warn", "Các em hãy cùng nhìn lại thông tin trong bài học và thử chọn lại từng mục nhé.");
+            }
+          }
+          render();
+          return;
+        }
+
+        if (state.screen === "consolidation") {
+          const data = GAME_DATA.consolidation;
+          if (!state.conSelected) {
+            playTone("warn");
+            setFeedback("warn", "Còn một vài mục chưa hoàn thành, các em hãy chọn/ghép hết rồi bấm Kiểm tra nhé.");
+            return;
+          }
+          const chosen = data.options.find(o => o.id === state.conSelected);
+          if (chosen && chosen.isCorrect) {
+            playTone("success");
+            state.conCheckedCorrect = true;
+            setFeedback("ok", data.okMsg);
+          } else {
+            playTone("warn");
+            state.conCheckedCorrect = false;
+            setFeedback("warn", data.warnMsg);
+          }
+          render();
+        }
+      }
+
+      btnCheck.addEventListener("click", handleCheck);
+
+      btnHint.addEventListener("click", () => {
+        playTone("click");
+        const stageObj = GAME_DATA[state.screen];
+        if (stageObj && stageObj.hint) {
+          setFeedback("hint", stageObj.hint);
+        }
+      });
+
+      btnResetStage.addEventListener("click", () => {
+        playTone("click");
+        initStageState(state.screen);
+        render();
+      });
+
+      btnNext.addEventListener("click", () => {
+        playTone("click");
+        const order = ["stage1", "stage2", "stage3", "stage4", "consolidation", "summary"];
+        const idx = order.indexOf(state.screen);
+        if (idx >= 0 && idx < order.length - 1) {
+          state.screen = order[idx + 1];
+          if (state.screen !== "summary") {
+            initStageState(state.screen);
+          }
+          render();
+        }
+      });
+
+      /* ----------------------------------------------------------------------
+         I. BẬT/TẮT ÂM THANH & HỘP XÁC NHẬN CHƠI LẠI
+         ---------------------------------------------------------------------- */
+      const btnSoundToggle = document.getElementById("btnSoundToggle");
+      const soundIcon = document.getElementById("soundIcon");
+      const soundText = document.getElementById("soundText");
+
+      btnSoundToggle.addEventListener("click", () => {
+        state.soundEnabled = !state.soundEnabled;
+        if (state.soundEnabled) {
+          soundIcon.textContent = "🔊";
+          soundText.textContent = "Bật tiếng";
+          playTone("click");
+        } else {
+          soundIcon.textContent = "🔇";
+          soundText.textContent = "Tắt tiếng";
+        }
+      });
+
+      const confirmModal = document.getElementById("confirmModal");
+      btnTopRestart.addEventListener("click", () => {
+        playTone("click");
+        if (state.screen === "summary") {
+          resetEntireGame();
+        } else {
+          confirmModal.classList.add("open");
+        }
+      });
+
+      document.getElementById("btnConfirmYes").addEventListener("click", () => {
+        playTone("click");
+        confirmModal.classList.remove("open");
+        resetEntireGame();
+      });
+
+      document.getElementById("btnConfirmNo").addEventListener("click", () => {
+        playTone("click");
+        confirmModal.classList.remove("open");
+      });
+
+      // Khởi chạy ứng dụng khi tải trang
+      window.addEventListener("DOMContentLoaded", render);
+    })();
+  </script>
+</body>
+</html>

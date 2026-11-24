@@ -206,9 +206,11 @@ export const SimulationPlayerModal: React.FC<SimulationPlayerModalProps> = ({
                 </span>
               )}
             </nav>
-            <h2 className="text-base font-bold text-white font-display truncate max-w-lg">
-              {item.title}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold text-white font-display truncate max-w-lg">
+                {item.title}
+              </h2>
+            </div>
           </div>
         </div>
 

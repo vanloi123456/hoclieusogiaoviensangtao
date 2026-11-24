@@ -9,7 +9,38 @@ import { GoogleGenAI } from '@google/genai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProduction = process.env.NODE_ENV === 'production';
-const PORT = Number(process.env.PORT) || 3000;
+
+function resolveServerPort(): number {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--port' || arg === '-p') {
+      const next = Number(args[i + 1]);
+      if (Number.isInteger(next) && next > 0 && next <= 65535) return next;
+    } else if (arg.startsWith('--port=')) {
+      const val = Number(arg.slice('--port='.length));
+      if (Number.isInteger(val) && val > 0 && val <= 65535) return val;
+    }
+  }
+
+  const npmPort = Number(process.env.npm_config_port);
+  if (Number.isInteger(npmPort) && npmPort > 0 && npmPort <= 65535) {
+    return npmPort;
+  }
+
+  const envPort = Number(process.env.PORT);
+  if (Number.isInteger(envPort) && envPort > 0 && envPort <= 65535) {
+    // In AI Studio dev containers, PORT=8080 is used by the outer nginx proxy which forwards to 3000.
+    if (!isProduction && envPort === 8080) {
+      return 3000;
+    }
+    return envPort;
+  }
+
+  return 3000;
+}
+
+const PORT = resolveServerPort();
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const TEACHERS_FILE = path.join(DATA_DIR, 'teachers.json');
@@ -1839,18 +1870,30 @@ async function startServer() {
 
   // --- Vite Dev Server Middleware or Static Production ---
   if (!isProduction) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        allowedHosts: true,
-        ws: {
-          server: httpServer,
+    const disableHmr = process.env.DISABLE_HMR === 'true';
+    const viteReadyPromise = (async () => {
+      const { createServer: createViteServer } = await import('vite');
+      return createViteServer({
+        server: {
+          middlewareMode: true,
+          allowedHosts: true,
+          hmr: disableHmr ? false : { server: httpServer },
+          ws: disableHmr ? false : { server: httpServer },
         },
-      },
-      appType: 'spa',
+        appType: 'spa',
+      });
+    })();
+
+    viteReadyPromise.catch((err) => {
+      console.error('Failed to initialize Vite dev middleware:', err);
+      process.exit(1);
     });
-    app.use(vite.middlewares);
+
+    app.use((req, res, next) => {
+      viteReadyPromise
+        .then((vite) => vite.middlewares(req, res, next))
+        .catch(next);
+    });
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
@@ -1858,6 +1901,11 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  httpServer.on('error', (err) => {
+    console.error(`HTTP server listen error on port ${PORT}:`, err);
+    process.exit(1);
+  });
 
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT} in ${isProduction ? 'production' : 'development'} mode`);
