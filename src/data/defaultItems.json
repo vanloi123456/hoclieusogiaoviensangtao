@@ -61,23 +61,23 @@
     "id": "item_lichsu_dialy4_bai10_bacbo_t1",
     "zone": "games",
     "type": "game",
-    "title": "Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)",
-    "description": "Trò chơi tương tác \"Hành trình về làng quê Bắc Bộ\" gồm 4 chặng khám phá dấu ấn làng quê truyền thống, nếp nhà ba gian – năm gian, nhà ở xưa và nay và cách ứng xử văn minh ở không gian chung.",
+    "title": "Môn Lịch sử và Địa lý - Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)",
+    "description": "Trò chơi tương tác \"Hành trình về làng quê Bắc Bộ\"",
     "order": 1,
-    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_v_l_ng_qu_b_c_b_942da8de.html\" title=\"Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "embedCode": "<iframe data-game-rev=\"v2-mon-lichsu-lop4\" src=\"/assets/aistudio/h_nh_tr_nh_v_l_ng_qu_b_c_b_942da8de.html\" title=\"Môn Lịch sử và Địa lý - Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 1)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
     "createdAt": 1795513232058,
-    "updatedAt": 1795513232058
+    "updatedAt": 1795523234618
   },
   {
     "id": "item_lichsu_dialy4_bai10_bacbo_t2",
     "zone": "games",
     "type": "game",
-    "title": "Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)",
-    "description": "Trò chơi tương tác \"Hành trình hội xuân Bắc Bộ\" gồm 3 chặng khám phá sân hội mùa xuân, bức tranh làng quê và góc ứng xử văn minh khi tham gia lễ hội.",
+    "title": "Môn Lịch sử và Địa lý - Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)",
+    "description": "Trò chơi tương tác \"Hành trình hội xuân Bắc Bộ\"",
     "order": 2,
-    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_h_i_xu_n_b_c_b_b1831bc9.html\" title=\"Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "embedCode": "<iframe data-game-rev=\"v2-mon-lichsu-lop4\" src=\"/assets/aistudio/h_nh_tr_nh_h_i_xu_n_b_c_b_b1831bc9.html\" title=\"Môn Lịch sử và Địa lý - Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ (Tiết 2)\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
     "createdAt": 1795513741864,
-    "updatedAt": 1795513741864
+    "updatedAt": 1795523234618
   },
   {
     "id": "item_ngontay_vercel",
@@ -100,5 +100,38 @@
     "embedCode": "https://nghiengdauchondapan.vercel.app/",
     "createdAt": 1795520567601,
     "updatedAt": 1795520567601
+  },
+  {
+    "id": "item_lichsu_dialy4_bai10_quengoai_t1",
+    "zone": "games",
+    "title": "Môn Lịch sử và Địa lý Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ - Tiết 1",
+    "description": "Trò chơi tương tác \"Hành trình khám phá về thăm quê ngoại\"",
+    "type": "game",
+    "order": 3,
+    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_kh_m_ph_v_th_m_qu_ngo_i_40e2a957.html\" title=\"Môn Lịch sử và Địa lý Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ - Tiết 1 - Trò chơi tương tác Hành trình khám phá về thăm quê ngoại\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "createdAt": 1795523234618,
+    "updatedAt": 1795523234618
+  },
+  {
+    "id": "item_lichsu_dialy4_bai10_duxuan_t2",
+    "zone": "games",
+    "title": "Môn Lịch sử và Địa lý Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ - Tiết 2",
+    "description": "Trò chơi tương tác \"Hành trình du xuân Khám phá đồng bằng Bắc Bộ\"",
+    "type": "game",
+    "order": 4,
+    "embedCode": "<iframe src=\"/assets/aistudio/h_nh_tr_nh_du_xu_n_dc5246b1.html\" title=\"Môn Lịch sử và Địa lý Lớp 4 - Bài 10 - Một số nét văn hóa ở đồng bằng Bắc Bộ - Tiết 2 - Trò chơi tương tác Hành trình du xuân Khám phá đồng bằng Bắc Bộ\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "createdAt": 1795523318761,
+    "updatedAt": 1795523318761
+  },
+  {
+    "id": "item_khoahoc4_bai1_tinhchatnuoc",
+    "zone": "simulations",
+    "title": "Môn Khoa học Lớp 4 - Bài 1 - Tính chất của nước và nước với cuộc sống",
+    "description": "Thí nghiệm mô phỏng \"Khám phá tính chất của nước\"",
+    "type": "simulation",
+    "order": 1,
+    "embedCode": "<iframe src=\"/assets/aistudio/th_nghi_m_m_ph_ng_khoa_h_c_4_n_c_v_cu_c_s_ng_7ea930fb.html\" title=\"Môn Khoa học Lớp 4 Bài 1 - Tính chất của nước và nước với cuộc sống - Thí nghiệm mô phỏng Khám phá tính chất của nước\" allow=\"autoplay; fullscreen\" allowfullscreen></iframe>",
+    "createdAt": 1795523633930,
+    "updatedAt": 1795523986000
   }
 ]

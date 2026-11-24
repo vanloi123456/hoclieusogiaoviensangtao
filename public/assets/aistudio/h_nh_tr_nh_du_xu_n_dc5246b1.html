@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hành trình du xuân - Khám phá Đồng bằng Bắc Bộ</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Mobile Drag and Drop Polyfill cho màn hình cảm ứng -->
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/scroll-behaviour.min.js"></script>
+    
+    <!-- Tone.js for Audio Synthesis -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <!-- Canvas Confetti for Fireworks -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        tet: {
+                            red: '#e53935',
+                            darkred: '#b71c1c',
+                            yellow: '#ffca28',
+                            green: '#43a047',
+                            darkgreen: '#2e7d32',
+                            cream: '#fff9c4',
+                            brown: '#5d4037'
+                        }
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #fff9c4; /* Cream background */
+            background-image: radial-gradient(#ffeb3b 1px, transparent 1px);
+            background-size: 20px 20px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid #ffca28;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(to bottom, #ffca28, #ffb300);
+            color: #b71c1c;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2), inset 0 -4px 0 rgba(0,0,0,0.1);
+            transition: all 0.1s ease;
+        }
+        
+        .btn-primary:active {
+            transform: translateY(4px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0.2), inset 0 0px 0 rgba(0,0,0,0.1);
+        }
+
+        .btn-choice {
+            background: linear-gradient(to bottom, #ffffff, #f3f4f6);
+            border: 2px solid #d1d5db;
+            color: #374151;
+            transition: all 0.2s;
+            box-shadow: 0 4px 0px #d1d5db;
+        }
+
+        .btn-choice:hover {
+            border-color: #ffca28;
+            background: #fffdf0;
+        }
+
+        .btn-choice:active {
+            transform: translateY(4px);
+            box-shadow: 0 0px 0px #d1d5db;
+        }
+
+        .draggable-item {
+            cursor: grab;
+            background: linear-gradient(135deg, #ffffff, #fffde7);
+            border: 2px dashed #ffca28;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            touch-action: none; /* Important for mobile drag drop */
+        }
+        
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .dropzone {
+            border: 3px dashed #cbd5e1;
+            background-color: rgba(255,255,255,0.5);
+            transition: all 0.2s;
+            min-height: 80px;
+        }
+        
+        .dropzone.dragover {
+            background-color: rgba(255, 202, 40, 0.3);
+            border-color: #ffca28;
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-in {
+            animation: popIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 font-sans overflow-x-hidden">
+
+    <!-- Header / HUD -->
+    <header id="hud" class="fixed top-0 w-full p-4 z-40 hidden justify-between items-center pointer-events-none">
+        <div class="bg-white rounded-full px-4 py-2 shadow-lg border-2 border-tet-yellow pointer-events-auto flex items-center gap-2">
+            <span class="text-2xl">⭐</span>
+            <span class="font-bold text-tet-darkred text-xl">Điểm: <span id="score-display">0</span></span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="toggleMute()" class="bg-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg border-2 border-tet-yellow pointer-events-auto hover:bg-gray-100 active:transform active:scale-95 transition-transform" title="Bật/Tắt âm thanh">
+                <span id="mute-icon" class="text-2xl">🔊</span>
+            </button>
+            <div class="bg-white rounded-full px-4 py-2 shadow-lg border-2 border-tet-green pointer-events-auto flex items-center">
+                <span class="font-bold text-tet-darkgreen text-lg" id="level-indicator">Màn 1/3</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Container -->
+    <div id="app" class="relative max-w-4xl mx-auto min-h-screen flex flex-col justify-center p-4 pt-20">
+
+        <!-- Screen: Home -->
+        <div id="screen-home" class="screen active flex-col items-center justify-center text-center gap-8 pop-in">
+            <div class="relative">
+                <div class="absolute inset-0 bg-tet-yellow opacity-50 blur-3xl rounded-full"></div>
+                <img src="https://placehold.co/200x200/ffca28/b71c1c?text=Hoa+Mai" alt="Hoa Mai" class="w-40 h-40 mx-auto rounded-full border-4 border-tet-red shadow-xl mb-4 hidden md:block" onerror="this.style.display='none'">
+                <h1 class="text-4xl md:text-6xl font-black text-tet-darkred uppercase drop-shadow-md relative z-10 leading-tight">
+                    Hành trình<br>
+                    <span class="text-tet-red">Du Xuân</span>
+                </h1>
+                <p class="text-xl md:text-2xl font-bold text-tet-brown mt-4 relative z-10">Khám phá Đồng bằng Bắc Bộ</p>
+            </div>
+            
+            <button onclick="startGame()" class="btn-primary text-2xl md:text-3xl font-black rounded-full px-12 py-4 mt-8 animate-bounce-slow">
+                BẮT ĐẦU CHƠI 🚀
+            </button>
+        </div>
+
+        <!-- Screen 1: Drag & Drop (Làng quê) -->
+        <div id="screen-1" class="screen flex-col w-full glass-panel rounded-3xl p-6 md:p-8">
+            <h2 class="text-2xl md:text-3xl font-bold text-tet-darkred text-center mb-2">Màn 1: Cổng làng đón khách</h2>
+            <p class="text-center text-gray-600 mb-6 font-semibold">Em hãy kéo các thẻ tên vào đúng 4 vị trí trong làng quê truyền thống nhé!</p>
+            
+            <!-- Items to drag -->
+            <div id="l1-source" class="flex flex-wrap justify-center gap-3 mb-8 min-h-[60px]" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="draggable-item rounded-xl p-3 font-bold text-lg text-center w-32" draggable="true" ondragstart="drag(event)" id="card-conglang">Cổng làng</div>
+                <div class="draggable-item rounded-xl p-3 font-bold text-lg text-center w-32" draggable="true" ondragstart="drag(event)" id="card-giengnuoc">Giếng nước</div>
+                <div class="draggable-item rounded-xl p-3 font-bold text-lg text-center w-32" draggable="true" ondragstart="drag(event)" id="card-cayda">Cây đa</div>
+                <div class="draggable-item rounded-xl p-3 font-bold text-lg text-center w-32" draggable="true" ondragstart="drag(event)" id="card-sandinh">Sân đình</div>
+                <div class="draggable-item rounded-xl p-3 font-bold text-lg text-center w-32" draggable="true" ondragstart="drag(event)" id="card-sieuthi">Siêu thị</div>
+            </div>
+
+            <!-- Drop zones -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="flex flex-col items-center">
+                    <div class="w-full h-24 dropzone rounded-2xl flex items-center justify-center p-2" id="drop-1" ondrop="dropLimit(event, 1)" ondragover="allowDrop(event)"></div>
+                    <span class="mt-2 font-bold text-tet-brown">Vị trí 1</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="w-full h-24 dropzone rounded-2xl flex items-center justify-center p-2" id="drop-2" ondrop="dropLimit(event, 1)" ondragover="allowDrop(event)"></div>
+                    <span class="mt-2 font-bold text-tet-brown">Vị trí 2</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="w-full h-24 dropzone rounded-2xl flex items-center justify-center p-2" id="drop-3" ondrop="dropLimit(event, 1)" ondragover="allowDrop(event)"></div>
+                    <span class="mt-2 font-bold text-tet-brown">Vị trí 3</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="w-full h-24 dropzone rounded-2xl flex items-center justify-center p-2" id="drop-4" ondrop="dropLimit(event, 1)" ondragover="allowDrop(event)"></div>
+                    <span class="mt-2 font-bold text-tet-brown">Vị trí 4</span>
+                </div>
+            </div>
+
+            <div class="flex justify-center">
+                <button onclick="checkLevel1()" class="btn-primary text-xl font-bold rounded-xl px-8 py-3">Kiểm tra</button>
+            </div>
+        </div>
+
+        <!-- Screen 2: True/False (Nhà ở) -->
+        <div id="screen-2" class="screen flex-col w-full glass-panel rounded-3xl p-6 md:p-8">
+            <h2 class="text-2xl md:text-3xl font-bold text-tet-darkred text-center mb-2">Màn 2: Nếp nhà truyền thống</h2>
+            <p class="text-center text-gray-600 mb-8 font-semibold" id="l2-progress">Câu hỏi 1/3</p>
+
+            <div class="bg-white border-2 border-tet-yellow rounded-2xl p-6 mb-8 text-center shadow-inner">
+                <p id="l2-question" class="text-xl md:text-2xl font-bold text-tet-brown">Đang tải câu hỏi...</p>
+            </div>
+
+            <div class="flex justify-center gap-6">
+                <button onclick="answerLevel2(true)" class="btn-choice text-2xl font-black rounded-2xl px-10 py-4 text-green-600 hover:border-green-500 hover:text-green-700">ĐÚNG</button>
+                <button onclick="answerLevel2(false)" class="btn-choice text-2xl font-black rounded-2xl px-10 py-4 text-red-600 hover:border-red-500 hover:text-red-700">SAI</button>
+            </div>
+        </div>
+
+        <!-- Screen 3: MCQ (Lễ hội) -->
+        <div id="screen-3" class="screen flex-col w-full glass-panel rounded-3xl p-6 md:p-8">
+            <h2 class="text-2xl md:text-3xl font-bold text-tet-darkred text-center mb-2">Màn 3: Rộn rã hội xuân</h2>
+            <p class="text-center text-gray-600 mb-6 font-semibold" id="l3-progress">Câu hỏi 1/3</p>
+
+            <div class="bg-white border-2 border-tet-yellow rounded-2xl p-6 mb-6 text-center shadow-inner">
+                <p id="l3-question" class="text-xl md:text-2xl font-bold text-tet-brown">Đang tải câu hỏi...</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="l3-options">
+                <!-- Options injected via JS -->
+            </div>
+        </div>
+
+        <!-- Screen Result -->
+        <div id="screen-result" class="screen flex-col items-center justify-center text-center gap-6 glass-panel rounded-3xl p-8 max-w-2xl mx-auto w-full">
+            <h1 class="text-4xl md:text-5xl font-black text-tet-darkred">KẾT QUẢ</h1>
+            <p class="text-xl text-gray-700 font-bold">Tổng điểm của em là:</p>
+            
+            <div class="text-6xl md:text-7xl font-black text-tet-red drop-shadow-lg">
+                <span id="final-score">0</span><span class="text-3xl text-tet-brown">/1000</span>
+            </div>
+
+            <div class="bg-tet-yellow text-tet-darkred px-8 py-4 rounded-2xl border-4 border-white shadow-xl transform rotate-2 my-4">
+                <p class="text-lg font-bold mb-1">Danh hiệu đạt được:</p>
+                <h2 id="final-title" class="text-3xl md:text-4xl font-black uppercase">Đang tính...</h2>
+            </div>
+
+            <button onclick="location.reload()" class="btn-primary text-xl font-bold rounded-full px-10 py-3 mt-4">
+                Chơi lại từ đầu 🔄
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center transform scale-95 transition-transform duration-300 pop-in border-4 border-tet-yellow shadow-2xl relative">
+            <div id="modal-icon" class="text-6xl mb-4">✨</div>
+            <h3 id="modal-title" class="text-2xl font-black mb-2 text-tet-darkred">Thông báo</h3>
+            <p id="modal-desc" class="text-gray-700 text-lg mb-6 font-semibold">Nội dung</p>
+            <button id="modal-btn" class="btn-primary font-bold px-8 py-3 rounded-xl text-lg w-full">Đóng</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH MOBILE DRAG DROP POLYFILL ---
+        MobileDragDrop.polyfill({
+            dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
+        });
+        window.addEventListener('touchmove', function() {}, {passive: false});
+
+        // --- GLOBAL STATE ---
+        let score = 0;
+        let currentL2Question = 0;
+        let currentL3Question = 0;
+
+        // --- TTS (Giọng đọc AI) STATE ---
+        let speechVoices = [];
+        window.speechSynthesis.onvoiceschanged = () => {
+            speechVoices = window.speechSynthesis.getVoices();
+        };
+
+        // --- AUDIO STATE & TONE.JS ---
+        let audioInited = false;
+        let isMuted = false;
+
+        const bgmSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: "square" }, // Đổi nhạc cụ điện tử cho sôi động
+            envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 1 }
+        }).toDestination();
+        bgmSynth.volume.value = -15; // Nhạc nền vừa đủ nghe
+
+        const sfxSynth = new Tone.Synth().toDestination();
+        sfxSynth.volume.value = -5;
+        
+        const correctSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+        correctSynth.volume.value = -5;
+
+        // Giai điệu rộn ràng, nhịp điệu nhanh
+        const melody = [
+            {"time": "0:0", "note": "C5", "duration": "8n"},
+            {"time": "0:0.5", "note": "A4", "duration": "8n"},
+            {"time": "0:1", "note": "G4", "duration": "8n"},
+            {"time": "0:1.5", "note": "E4", "duration": "8n"},
+            {"time": "0:2", "note": "G4", "duration": "4n"},
+            {"time": "0:3", "note": "A4", "duration": "4n"},
+            {"time": "1:0", "note": "C5", "duration": "8n"},
+            {"time": "1:0.5", "note": "A4", "duration": "8n"},
+            {"time": "1:1", "note": "G4", "duration": "8n"},
+            {"time": "1:1.5", "note": "E4", "duration": "8n"},
+            {"time": "1:2", "note": "C5", "duration": "2n"}
+        ];
+
+        async function initAudio() {
+            if(audioInited) return;
+            await Tone.start(); 
+            
+            const bgmPart = new Tone.Part((time, value) => {
+                bgmSynth.triggerAttackRelease(value.note, value.duration, time);
+            }, melody).start(0);
+            
+            bgmPart.loop = true;
+            bgmPart.loopEnd = "2m";
+            
+            Tone.Transport.bpm.value = 130; // Nhịp độ nhanh, sôi động
+            Tone.Transport.start();
+            audioInited = true;
+        }
+
+        // Hàm Đọc văn bản AI
+        function speak(text) {
+            if (isMuted) return;
+            window.speechSynthesis.cancel(); // Dừng câu trước đó nếu đang đọc
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'vi-VN'; // Đặt ngôn ngữ Tiếng Việt
+            
+            // Tìm và ưu tiên giọng Nam (nếu hệ thống có)
+            let vnVoices = speechVoices.filter(v => v.lang.includes('vi'));
+            if (vnVoices.length > 0) {
+                let southern = vnVoices.find(v => v.name.toLowerCase().includes('nam'));
+                msg.voice = southern || vnVoices[0]; 
+            }
+            
+            msg.rate = 1.05; // Đọc hơi nhanh, vui tươi
+            msg.pitch = 1.1;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            Tone.Destination.mute = isMuted;
+            if (isMuted) window.speechSynthesis.cancel();
+            document.getElementById('mute-icon').innerText = isMuted ? '🔇' : '🔊';
+        }
+
+        // Hiệu ứng pháo hoa khi trả lời đúng
+        function popConfetti() {
+            confetti({
+                particleCount: 150,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+        }
+
+        // Hiệu ứng pháo hoa hoành tráng khi chiến thắng
+        function winFireworks() {
+            var duration = 4 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+            function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+
+            var interval = setInterval(function() {
+                var timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) return clearInterval(interval);
+                var particleCount = 50 * (timeLeft / duration);
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        function playCorrect() {
+            if(!audioInited || isMuted) return;
+            correctSynth.triggerAttackRelease(["C5", "E5", "G5"], "8n");
+        }
+
+        function playWrong() {
+            if(!audioInited || isMuted) return;
+            sfxSynth.triggerAttackRelease("D3", "8n");
+            setTimeout(() => sfxSynth.triggerAttackRelease("A2", "4n"), 150);
+        }
+        
+        function playClick() {
+            if(!audioInited || isMuted) return;
+            sfxSynth.triggerAttackRelease("C5", "32n");
+        }
+
+        // --- DATA L2 (Đúng/Sai) ---
+        const l2Data = [
+            { q: "Nhà ở truyền thống thường được đắp bằng đất hoặc xây bằng gạch, mái lợp ngói.", ans: true, exp: "" },
+            { q: "Gian chính giữa của ngôi nhà truyền thống được dùng làm nhà kho chứa thóc.", ans: false, exp: "Sai rồi! Gian chính giữa thường dùng để thờ cúng và tiếp khách nhé." },
+            { q: "Ngày nay, nhà ở của người dân vùng Đồng bằng Bắc Bộ vẫn giữ nguyên hoàn toàn như xưa, không có sự thay đổi.", ans: false, exp: "Chưa đúng! Ngày nay, nhà ở đã thay đổi theo hướng khang trang, hiện đại và tiện nghi hơn." }
+        ];
+
+        // --- DATA L3 (Trắc nghiệm) ---
+        const l3Data = [
+            { 
+                q: "Lễ hội nào sau đây KHÔNG phải là lễ hội tiêu biểu ở Đồng bằng Bắc Bộ?", 
+                opts: ["A. Hội Lim", "B. Hội Gióng", "C. Lễ hội Cổ Loa", "D. Lễ hội cồng chiêng"], 
+                ans: 3, 
+                exp: "Lễ hội cồng chiêng là văn hóa đặc sắc của Tây Nguyên, không phải ở Đồng bằng Bắc Bộ." 
+            },
+            { 
+                q: "Hát Quan họ là nét văn hóa đặc sắc trong lễ hội nào?", 
+                opts: ["A. Hội chùa Hương", "B. Hội Lim", "C. Lễ hội Phủ Giầy", "D. Hội Gióng"], 
+                ans: 1, 
+                exp: "Hội Lim (Bắc Ninh) nổi tiếng với những làn điệu dân ca Quan họ giao duyên." 
+            },
+            { 
+                q: "Trong các lễ hội truyền thống, người dân KHÔNG thường tổ chức hoạt động nào dưới đây?", 
+                opts: ["A. Đánh đu, kéo co", "B. Đấu vật, cờ người", "C. Đua xe mô tô", "D. Tế lễ, rước kiệu"], 
+                ans: 2, 
+                exp: "Đua xe mô tô là hoạt động thể thao hiện đại, không thuộc về lễ hội truyền thống." 
+            }
+        ];
+
+        // --- CORE FUNCTIONS ---
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + screenId).classList.add('active');
+            
+            // Manage HUD
+            const hud = document.getElementById('hud');
+            if(screenId === 'home' || screenId === 'result') {
+                hud.classList.add('hidden');
+                hud.classList.remove('flex');
+            } else {
+                hud.classList.remove('hidden');
+                hud.classList.add('flex');
+                document.getElementById('level-indicator').innerText = `Màn ${screenId}/3`;
+            }
+        }
+
+        function updateScore(points) {
+            score += points;
+            const scoreEl = document.getElementById('score-display');
+            scoreEl.innerText = score;
+            scoreEl.parentElement.classList.add('animate-popIn');
+            setTimeout(() => scoreEl.parentElement.classList.remove('animate-popIn'), 500);
+        }
+
+        async function startGame() {
+            await initAudio();
+            playClick();
+            
+            // Kích hoạt engine giọng nói một cách im lặng để mở khóa quyền trên Mobile/iOS
+            let unlockMsg = new SpeechSynthesisUtterance('');
+            window.speechSynthesis.speak(unlockMsg);
+            
+            switchScreen('1');
+        }
+
+        // --- DRAG & DROP LOGIC ---
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            ev.target.classList.add('opacity-50');
+        }
+
+        document.addEventListener('dragend', function(ev) {
+            if(ev.target.classList) {
+                ev.target.classList.remove('opacity-50');
+            }
+        });
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+            if(ev.currentTarget.classList.contains('dropzone')) {
+                ev.currentTarget.classList.add('dragover');
+            }
+        }
+
+        document.addEventListener('dragleave', function(ev) {
+            if(ev.target.classList && ev.target.classList.contains('dropzone')) {
+                ev.target.classList.remove('dragover');
+            }
+        });
+
+        function drop(ev) {
+            ev.preventDefault();
+            if(ev.currentTarget.classList.contains('dropzone')) {
+                ev.currentTarget.classList.remove('dragover');
+            }
+            var data = ev.dataTransfer.getData("text");
+            var el = document.getElementById(data);
+            if(el) {
+                ev.currentTarget.appendChild(el);
+            }
+        }
+
+        function dropLimit(ev, max) {
+            ev.preventDefault();
+            if(ev.currentTarget.classList.contains('dropzone')) {
+                ev.currentTarget.classList.remove('dragover');
+            }
+            var currentChildrenCount = ev.currentTarget.querySelectorAll('.draggable-item').length;
+            if(currentChildrenCount >= max) {
+                // If full, don't allow drop or return item to source
+                return;
+            }
+            var data = ev.dataTransfer.getData("text");
+            var el = document.getElementById(data);
+            if(el) {
+                ev.currentTarget.appendChild(el);
+            }
+        }
+
+        // --- MODAL LOGIC ---
+        function showModal(title, text, isSuccess, btnText, callback) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-title').className = `text-2xl font-black mb-2 ${isSuccess ? 'text-green-600' : 'text-red-600'}`;
+            document.getElementById('modal-desc').innerText = text;
+            document.getElementById('modal-icon').innerText = isSuccess ? '🌟' : '💡';
+            
+            speak(text); // AI đọc nội dung thông báo
+
+            const btn = document.getElementById('modal-btn');
+            btn.innerText = btnText;
+            btn.onclick = () => {
+                window.speechSynthesis.cancel();
+                playClick();
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                if(callback) callback();
+            };
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // --- LEVEL 1 LOGIC ---
+        function checkLevel1() {
+            const drops = [
+                document.getElementById('drop-1'),
+                document.getElementById('drop-2'),
+                document.getElementById('drop-3'),
+                document.getElementById('drop-4')
+            ];
+            
+            let isFull = true;
+            let hasWrongCard = false;
+
+            drops.forEach(drop => {
+                if(drop.children.length === 0) isFull = false;
+                else {
+                    if(drop.children[0].id === 'card-sieuthi') hasWrongCard = true;
+                }
+            });
+
+            if(!isFull) {
+                playWrong();
+                showModal("Khoan đã!", "Em cần xếp đủ 4 thẻ vào 4 vị trí nhé.", false, "Thử lại");
+                return;
+            }
+
+            if(hasWrongCard) {
+                playWrong();
+                showModal("Sai rồi!", "Có một công trình không thuộc về làng quê truyền thống. Em hãy tìm và thay thế nhé!", false, "Sửa lại");
+            } else {
+                playCorrect();
+                popConfetti();
+                updateScore(400);
+                showModal("Chính xác!", "Giỏi quá! Giếng làng cung cấp nước, đình làng thờ Thành hoàng. Làng quê thật thanh bình!", true, "Đi tiếp", () => {
+                    initLevel2();
+                    switchScreen('2');
+                });
+            }
+        }
+
+        // --- LEVEL 2 LOGIC ---
+        function initLevel2() {
+            currentL2Question = 0;
+            renderLevel2();
+        }
+
+        function renderLevel2() {
+            document.getElementById('l2-progress').innerText = `Câu hỏi ${currentL2Question + 1}/${l2Data.length}`;
+            document.getElementById('l2-question').innerText = l2Data[currentL2Question].q;
+            speak(l2Data[currentL2Question].q); // AI đọc câu hỏi
+        }
+
+        function answerLevel2(userAns) {
+            const correctAns = l2Data[currentL2Question].ans;
+            if(userAns === correctAns) {
+                playCorrect();
+                popConfetti();
+                updateScore(100);
+                showModal("Đúng rồi!", "Em trả lời rất chính xác!", true, "Câu tiếp theo", nextLevel2);
+            } else {
+                playWrong();
+                showModal("Sai mất rồi", l2Data[currentL2Question].exp, false, "Đã hiểu", nextLevel2);
+            }
+        }
+
+        function nextLevel2() {
+            currentL2Question++;
+            if(currentL2Question < l2Data.length) {
+                renderLevel2();
+            } else {
+                initLevel3();
+                switchScreen('3');
+            }
+        }
+
+        // --- LEVEL 3 LOGIC ---
+        function initLevel3() {
+            currentL3Question = 0;
+            renderLevel3();
+        }
+
+        function renderLevel3() {
+            document.getElementById('l3-progress').innerText = `Câu hỏi ${currentL3Question + 1}/${l3Data.length}`;
+            document.getElementById('l3-question').innerText = l3Data[currentL3Question].q;
+            speak(l3Data[currentL3Question].q); // AI đọc câu hỏi
+            
+            const optsContainer = document.getElementById('l3-options');
+            optsContainer.innerHTML = '';
+            
+            l3Data[currentL3Question].opts.forEach((optText, index) => {
+                const btn = document.createElement('button');
+                btn.className = "btn-choice text-left font-bold text-lg md:text-xl rounded-xl px-6 py-4 flex items-center";
+                btn.innerText = optText;
+                btn.onclick = () => answerLevel3(index);
+                optsContainer.appendChild(btn);
+            });
+        }
+
+        function answerLevel3(userIndex) {
+            const correctIndex = l3Data[currentL3Question].ans;
+            if(userIndex === correctIndex) {
+                playCorrect();
+                popConfetti();
+                updateScore(100);
+                showModal("Tuyệt vời!", "Kiến thức của em rất tốt!", true, "Tiếp tục", nextLevel3);
+            } else {
+                playWrong();
+                showModal("Chưa đúng", l3Data[currentL3Question].exp, false, "Đã hiểu", nextLevel3);
+            }
+        }
+
+        function nextLevel3() {
+            currentL3Question++;
+            if(currentL3Question < l3Data.length) {
+                renderLevel3();
+            } else {
+                showResult();
+            }
+        }
+
+        // --- RESULT LOGIC ---
+        function showResult() {
+            switchScreen('result');
+            document.getElementById('final-score').innerText = score;
+            
+            const titleEl = document.getElementById('final-title');
+            if(score >= 800) {
+                titleEl.innerText = "TRẠNG NGUYÊN NHÍ 🏆";
+                titleEl.classList.add('text-red-600');
+            } else {
+                titleEl.innerText = "BẢNG NHÃN NHÍ 🏅";
+                titleEl.classList.add('text-orange-500');
+            }
+            
+            winFireworks(); // Bắn pháo hoa chiến thắng
+            speak(`Tuyệt vời! Tổng điểm của em là ${score}. Em đạt danh hiệu ${titleEl.innerText}`); // Đọc kết quả
+        }
+
+    </script>
+</body>
+</html>

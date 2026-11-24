@@ -205,10 +205,15 @@ export const GamePlayerModal: React.FC<GamePlayerModalProps> = ({
                 </span>
               )}
             </nav>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-white font-display truncate max-w-lg">
+            <div className="flex flex-col">
+              <h2 className="text-base font-bold text-white font-display truncate max-w-xl">
                 {item.title}
               </h2>
+              {item.description && (
+                <p className="text-xs text-sky-300 truncate max-w-xl">
+                  {item.description}
+                </p>
+              )}
             </div>
           </div>
         </div>

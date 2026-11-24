@@ -42,7 +42,7 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
   const sourceInfo = useMemo(() => classifyAppSource(item?.embedCode), [item?.embedCode]);
   const disableNewTab = useMemo(() => {
     if (!item) return false;
-    if (item.zone === 'games') return true;
+    if (item.zone === 'games' || item.zone === 'simulations') return true;
     const titleLower = (item.title || '').toLowerCase();
     const urlLower = (sourceInfo.url || '').toLowerCase();
     return (

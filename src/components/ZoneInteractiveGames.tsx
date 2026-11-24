@@ -238,28 +238,33 @@ export const ZoneInteractiveGames: React.FC<ZoneInteractiveGamesProps> = ({
                   />
                 )}
 
-                {/* Biểu tượng Trò chơi tương tác */}
+                {/* Biểu tượng Học liệu số */}
                 <div className="relative z-10 flex flex-col items-center gap-2 text-white">
                   <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Gamepad2 className="w-7 h-7 text-white" />
                   </div>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded-full bg-slate-950/25 border border-white/25 text-white/95">
                     <Sparkles className="w-3 h-3 text-amber-300" />
-                    <span>Trò chơi tương tác</span>
+                    <span>Học liệu số</span>
                   </span>
                 </div>
               </div>
 
-              {/* Tên Trò chơi tương tác & Nút Bắt đầu */}
+              {/* Tên Học liệu số & Nút Bắt đầu */}
               <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                <div>
+                <div className="space-y-1.5">
                   <h3
                     onClick={() => onPlayGame(item)}
-                    className="text-base font-bold text-slate-900 line-clamp-2 hover:text-indigo-600 cursor-pointer font-display leading-snug"
+                    className="text-[15px] font-bold text-slate-900 hover:text-indigo-600 cursor-pointer font-display leading-snug"
                     title={item.title}
                   >
                     {item.title}
                   </h3>
+                  {item.description && (
+                    <p className="text-xs font-semibold text-indigo-700 leading-snug">
+                      {item.description}
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex items-center gap-2">

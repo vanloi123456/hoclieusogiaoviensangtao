@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hành Trình Khám Phá: Về Thăm Quê Ngoại</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0fdf4; /* Light green background */
+            background-image: radial-gradient(#bbf7d0 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden; /* Prevent body scroll during drag */
+            touch-action: none; /* Prevent browser handling of gestures */
+        }
+        
+        /* Utility classes for hiding/showing screens */
+        .hidden-screen { display: none !important; }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+
+        @keyframes pop {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop 0.3s ease-out forwards; }
+
+        /* Game Container Styling */
+        #game-container {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border: 4px solid #16a34a;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(to bottom, #4ade80, #16a34a);
+            box-shadow: 0 4px 0 #14532d;
+            transition: all 0.1s;
+        }
+        .btn-primary:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #14532d;
+        }
+        .btn-option {
+            background: #ffffff;
+            border: 2px solid #cbd5e1;
+            box-shadow: 0 4px 0 #94a3b8;
+            transition: all 0.1s;
+        }
+        .btn-option:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #94a3b8;
+        }
+        .btn-option.correct {
+            background: #dcfce7;
+            border-color: #22c55e;
+            box-shadow: 0 4px 0 #15803d;
+        }
+        .btn-option.wrong {
+            background: #fee2e2;
+            border-color: #ef4444;
+            box-shadow: 0 4px 0 #b91c1c;
+        }
+
+        /* Drag and Drop Styling */
+        .draggable {
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.1s;
+            background: white;
+            border: 2px solid #eab308;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-weight: 600;
+            color: #78350f;
+            text-align: center;
+            position: relative; /* Important for pointer events */
+            z-index: 10;
+        }
+        .draggable:active {
+            cursor: grabbing;
+        }
+        .draggable.dragging {
+            opacity: 0.9;
+            z-index: 1000 !important;
+            transform: scale(1.05);
+            /* remove transition during drag for smoothness */
+            transition: none; 
+            pointer-events: none; /* crucial for elementFromPoint to work on dropzones beneath */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .drop-zone {
+            border: 2px dashed #94a3b8;
+            border-radius: 0.5rem;
+            background-color: #f8fafc;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            transition: all 0.2s;
+        }
+        .drop-zone.drag-over {
+            background-color: #fef08a;
+            border-color: #eab308;
+            border-style: solid;
+        }
+        
+        /* Placeholder Images */
+        .img-placeholder {
+            background-color: #e2e8f0;
+            border: 2px solid #cbd5e1;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-weight: bold;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Modal */
+        #feedback-modal {
+            backdrop-filter: blur(4px);
+        }
+
+        /* Progress Bar */
+        .progress-dot {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            background-color: #d1d5db;
+            transition: all 0.3s;
+        }
+        .progress-dot.active {
+            background-color: #eab308;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+        }
+        .progress-dot.completed {
+            background-color: #22c55e;
+        }
+        .progress-line {
+            height: 4px;
+            background-color: #d1d5db;
+            flex-grow: 1;
+            margin: 0 4px;
+        }
+        .progress-line.active {
+            background-color: #22c55e;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center p-4">
+
+    <!-- Global Audio Control -->
+    <div class="fixed top-4 right-4 z-50 flex gap-3">
+        <button id="btn-bgm" class="bg-white w-12 h-12 rounded-full shadow-lg text-2xl border-2 border-gray-200 flex items-center justify-center transition-transform hover:scale-110" title="Bật/Tắt nhạc nền">
+            🔇
+        </button>
+        <button id="btn-audio" class="bg-white w-12 h-12 rounded-full shadow-lg text-2xl border-2 border-gray-200 flex items-center justify-center transition-transform hover:scale-110" title="Bật/Tắt giọng đọc">
+            🔇
+        </button>
+    </div>
+    
+    <!-- Background Music -->
+    <audio id="bgMusic" loop>
+        <!-- Using a reliable free music loop -->
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="bg-white w-full max-w-4xl h-full max-h-[800px] rounded-3xl overflow-hidden relative flex flex-col">
+        
+        <!-- Header (Progress) -->
+        <div id="game-header" class="hidden h-16 bg-green-50 border-b-2 border-green-200 flex items-center justify-center px-8">
+            <div class="flex items-center w-full max-w-md justify-between">
+                <div class="progress-dot" id="dot-1"></div>
+                <div class="progress-line" id="line-1"></div>
+                <div class="progress-dot" id="dot-2"></div>
+                <div class="progress-line" id="line-2"></div>
+                <div class="progress-dot" id="dot-3"></div>
+                <div class="progress-line" id="line-3"></div>
+                <div class="progress-dot" id="dot-4"></div>
+            </div>
+        </div>
+
+        <!-- Scrollable Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 flex flex-col justify-center">
+
+            <!-- Welcome Screen -->
+            <div id="screen-welcome" class="screen flex flex-col items-center justify-center text-center animate-fade-in">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-green-700 mb-6 drop-shadow-sm">Hành Trình Khám Phá<br><span class="text-yellow-500 text-3xl md:text-4xl mt-2 block">Về Thăm Quê Ngoại</span></h1>
+                <p class="text-lg md:text-xl text-gray-700 max-w-2xl mb-8 leading-relaxed">
+                    Kỳ nghỉ hè này, bạn nhỏ Bo được về thăm quê ngoại ở Đồng bằng Bắc Bộ. Các bạn hãy giúp Bo vượt qua 4 trạm dừng chân trên đường làng để tìm đúng nhà bà ngoại nhé!
+                </p>
+                <div class="w-48 h-48 rounded-full border-4 border-yellow-400 overflow-hidden mb-8 shadow-lg">
+                    <img src="https://placehold.co/400x400/4ade80/ffffff?text=Bo+và+Làng+Quê" alt="Làng quê" class="w-full h-full object-cover">
+                </div>
+                <button onclick="startGame()" class="btn-primary text-white text-2xl font-bold py-4 px-12 rounded-full">
+                    Bắt Đầu Chơi
+                </button>
+            </div>
+
+            <!-- Level 1: Cổng Làng -->
+            <div id="screen-level-1" class="screen hidden-screen flex flex-col h-full animate-fade-in">
+                <h2 class="text-2xl font-bold text-green-700 mb-2 border-b-2 border-green-100 pb-2">Trạm 1: Cửa ngõ làng quê</h2>
+                
+                <div class="flex-1 flex flex-col md:flex-row gap-6 mt-4">
+                    <div class="w-full md:w-1/3 flex items-center justify-center">
+                        <!-- NPC Image -->
+                        <div class="relative">
+                            <div class="w-32 h-32 md:w-48 md:h-48 rounded-full bg-blue-100 border-4 border-blue-300 flex items-center justify-center overflow-hidden">
+                                <span class="text-6xl">👴</span>
+                            </div>
+                            <div class="absolute top-0 right-0 md:-right-8 bg-white p-3 rounded-2xl border-2 border-gray-200 shadow-md text-sm md:text-base w-48 md:w-64 animate-pop origin-bottom-left">
+                                "Chào cháu! Cháu có biết biểu tượng nào là cửa ngõ để ra vào làng, nơi người dân hay dừng chân hóng mát không?"
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full md:w-2/3 flex flex-col gap-4 justify-center">
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex items-center gap-4" onclick="checkL1('A', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold">A</span>
+                            ⛩️ Cổng làng truyền thống.
+                        </button>
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex items-center gap-4" onclick="checkL1('B', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold">B</span>
+                            🛶 Khu chợ trên sông.
+                        </button>
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex items-center gap-4" onclick="checkL1('C', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold">C</span>
+                            🏢 Tòa nhà cao tầng.
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level 2: Giếng và Cây đa -->
+            <div id="screen-level-2" class="screen hidden-screen flex flex-col h-full animate-fade-in">
+                <h2 class="text-2xl font-bold text-green-700 mb-2 border-b-2 border-green-100 pb-2">Trạm 2: Bóng mát và Dòng nước mát</h2>
+                <p class="text-gray-700 text-lg mb-4">Nhiệm vụ: Kéo thả các thẻ chữ vào đúng công dụng của từng địa điểm.</p>
+                
+                <div class="flex-1 flex flex-col justify-between">
+                    <!-- Drop zones -->
+                    <div class="flex flex-col md:flex-row gap-6 w-full mb-6">
+                        <div class="flex-1 flex flex-col items-center">
+                            <div class="w-full h-32 md:h-40 img-placeholder mb-2 bg-blue-50 border-blue-200 text-6xl shadow-sm">💧</div>
+                            <h3 class="font-bold text-blue-800 text-xl mb-2">Giếng làng</h3>
+                            <div id="drop-gieng" class="drop-zone w-full" data-accept="gieng">
+                                <span class="text-gray-400 text-sm">Thả thẻ chữ vào đây</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col items-center">
+                            <div class="w-full h-32 md:h-40 img-placeholder mb-2 bg-green-50 border-green-200 text-6xl shadow-sm">🌳</div>
+                            <h3 class="font-bold text-green-800 text-xl mb-2">Cây đa</h3>
+                            <div id="drop-cayda" class="drop-zone w-full" data-accept="cayda">
+                                <span class="text-gray-400 text-sm">Thả thẻ chữ vào đây</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draggables Source -->
+                    <div class="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+                        <h4 class="text-sm text-gray-500 font-bold mb-3 uppercase tracking-wider text-center">Các thẻ chữ</h4>
+                        <div id="drag-source-l2" class="flex flex-col md:flex-row gap-4 justify-center items-center min-h-[80px]">
+                            <div class="draggable" data-type="gieng" data-source="drag-source-l2">💧 Cung cấp nước sinh hoạt, nơi gặp gỡ</div>
+                            <div class="draggable" data-type="cayda" data-source="drag-source-l2">🌳 Tạo bóng mát đầu làng</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level 3: Sân Đình -->
+            <div id="screen-level-3" class="screen hidden-screen flex flex-col h-full animate-fade-in">
+                <h2 class="text-2xl font-bold text-green-700 mb-2 border-b-2 border-green-100 pb-2">Trạm 3: Sân đình làng</h2>
+                
+                <div class="flex-1 flex flex-col gap-6 mt-4">
+                    <div class="bg-yellow-50 p-4 md:p-6 rounded-2xl border-2 border-yellow-200 shadow-sm text-lg text-gray-800">
+                        <strong>Tình huống:</strong> Bo đi ngang qua sân đình, nơi thờ Thành hoàng làng. Bo thấy vài bạn nhỏ đang vứt vỏ kẹo và hò hét. Theo em, khi đến không gian văn hóa chung như sân đình, Bo nên ứng xử như thế nào?
+                    </div>
+                    
+                    <div class="flex flex-col gap-4">
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex gap-4 items-start" onclick="checkL3('A', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold flex-shrink-0">A</span>
+                            <span>🏃‍♂️🔊 Chạy vào chơi cùng và hò hét cho vui.</span>
+                        </button>
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex gap-4 items-start" onclick="checkL3('B', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold flex-shrink-0">B</span>
+                            <span>🤫🚮 Đi nhẹ, nói khẽ, giữ gìn vệ sinh và nhắc nhở các bạn không xả rác.</span>
+                        </button>
+                        <button class="btn-option w-full text-left p-4 rounded-xl text-lg font-semibold text-gray-700 flex gap-4 items-start" onclick="checkL3('C', this)">
+                            <span class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold flex-shrink-0">C</span>
+                            <span>🖍️ Dùng phấn vẽ lên cột đình để lưu lại kỉ niệm.</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level 4: Nhà Ngoại -->
+            <div id="screen-level-4" class="screen hidden-screen flex flex-col h-full animate-fade-in">
+                <h2 class="text-2xl font-bold text-green-700 mb-2 border-b-2 border-green-100 pb-2">Trạm 4: Tìm đúng nhà ngoại</h2>
+                <p class="text-gray-700 text-lg mb-4">Nhiệm vụ: Hãy phân loại các đặc điểm vào đúng 2 nhóm để nhận diện ngôi nhà truyền thống của bà ngoại.</p>
+                
+                <div class="flex-1 flex flex-col justify-between">
+                    <!-- Drop zones -->
+                    <div class="flex flex-col md:flex-row gap-4 w-full mb-4">
+                        <div class="flex-1 flex flex-col items-center">
+                            <div class="w-full h-20 md:h-24 img-placeholder mb-2 bg-yellow-50 border-yellow-200 text-4xl shadow-sm">🛖</div>
+                            <h3 class="font-bold text-yellow-800 text-lg mb-2">Nhà truyền thống</h3>
+                            <div id="drop-truyenthong" class="drop-zone w-full !flex-row !flex-wrap content-start" data-accept="A">
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col items-center">
+                            <div class="w-full h-20 md:h-24 img-placeholder mb-2 bg-blue-50 border-blue-200 text-4xl shadow-sm">🏢</div>
+                            <h3 class="font-bold text-blue-800 text-lg mb-2">Nhà hiện nay</h3>
+                            <div id="drop-hiennay" class="drop-zone w-full !flex-row !flex-wrap content-start" data-accept="B">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draggables Source -->
+                    <div class="bg-gray-50 p-3 rounded-xl border-2 border-gray-200">
+                        <div id="drag-source-l4" class="flex flex-row flex-wrap gap-2 justify-center items-center min-h-[80px]">
+                            <div class="draggable text-sm py-1.5 px-3" data-type="A" data-source="drag-source-l4">Mái lợp ngói</div>
+                            <div class="draggable text-sm py-1.5 px-3" data-type="B" data-source="drag-source-l4">Xây kiên cố nhiều tầng</div>
+                            <div class="draggable text-sm py-1.5 px-3" data-type="A" data-source="drag-source-l4">Gồm 3 hoặc 5 gian</div>
+                            <div class="draggable text-sm py-1.5 px-3" data-type="B" data-source="drag-source-l4">Thiết kế hiện đại, tiện nghi</div>
+                            <div class="draggable text-sm py-1.5 px-3" data-type="A" data-source="drag-source-l4">Gian giữa thờ cúng, tiếp khách</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- End Screen -->
+            <div id="screen-end" class="screen hidden-screen flex flex-col items-center justify-center text-center animate-fade-in">
+                <div class="text-6xl mb-4">🎉🏡👵</div>
+                <h1 class="text-4xl md:text-5xl font-extrabold text-green-700 mb-4">Tuyệt Vời!</h1>
+                <p class="text-xl text-gray-700 max-w-2xl mb-8">
+                    Cảm ơn các bạn đã giúp Bo vượt qua các thử thách và về đúng ngôi nhà ba gian mái ngói của ngoại. Các bạn xứng đáng là những <strong class="text-yellow-600">Đại sứ văn hóa nhí!</strong>
+                </p>
+                <button onclick="resetGame()" class="btn-primary text-white text-xl font-bold py-3 px-10 rounded-full">
+                    Chơi Lại Từ Đầu
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="fixed inset-0 bg-black/40 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl transform scale-90 transition-transform duration-300 relative text-center" id="feedback-content">
+            <div id="feedback-icon" class="text-6xl mb-4">⭐</div>
+            <h3 id="feedback-title" class="text-2xl font-bold mb-2"></h3>
+            <p id="feedback-msg" class="text-lg text-gray-700 mb-6"></p>
+            <button onclick="closeFeedbackAndNext()" class="btn-primary text-white font-bold py-3 px-8 rounded-full w-full text-lg">
+                Tiếp tục
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Audio & TTS System ---
+        let isMuted = true; // Tắt giọng đọc theo yêu cầu
+        let speechSynth = window.speechSynthesis;
+        let ttsUnlocked = false;
+        const btnAudio = document.getElementById('btn-audio');
+
+        const bgMusic = document.getElementById('bgMusic');
+        const btnBgm = document.getElementById('btn-bgm');
+        let isBgmPlaying = false;
+
+        // Xử lý bật/tắt nhạc nền
+        btnBgm.addEventListener('click', () => {
+            if (isBgmPlaying) {
+                bgMusic.pause();
+                isBgmPlaying = false;
+                btnBgm.innerText = '🔇';
+            } else {
+                bgMusic.volume = 0.3; // Chỉnh âm lượng vừa phải
+                bgMusic.play().catch(e => console.log("Lỗi phát nhạc:", e));
+                isBgmPlaying = true;
+                btnBgm.innerText = '🎵';
+            }
+        });
+
+        function unlockTTS() {
+            if (!ttsUnlocked && speechSynth) {
+                // Kích hoạt một giọng đọc rỗng để mở khóa Audio Context trên trình duyệt
+                let silent = new SpeechSynthesisUtterance('');
+                silent.volume = 0;
+                speechSynth.speak(silent);
+                ttsUnlocked = true;
+            }
+        }
+
+        btnAudio.addEventListener('click', () => {
+            unlockTTS();
+            isMuted = !isMuted;
+            btnAudio.innerText = isMuted ? '🔇' : '🔊';
+            if (isMuted) speechSynth.cancel();
+        });
+
+        function speak(text) {
+            if (isMuted || !speechSynth) return;
+            speechSynth.cancel();
+            
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.0;
+            
+            // Tìm và ưu tiên giọng Tiếng Việt, đặc biệt là các giọng miền Nam nếu có
+            let voices = speechSynth.getVoices();
+            let viVoices = voices.filter(v => v.lang.includes('vi'));
+            
+            if(viVoices.length > 0) {
+                // Ưu tiên các giọng thường là giọng miền Nam (VD: Microsoft Hoài My trên Edge)
+                let southernVoice = viVoices.find(v => 
+                    v.name.toLowerCase().includes('hoài my') || 
+                    v.name.toLowerCase().includes('nam') || 
+                    v.name.toLowerCase().includes('southern')
+                );
+                utterance.voice = southernVoice ? southernVoice : viVoices[0];
+            }
+
+            speechSynth.speak(utterance);
+        }
+
+        // Tải danh sách giọng đọc của trình duyệt càng sớm càng tốt
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => speechSynth.getVoices();
+        }
+
+        // --- Hiệu ứng Pháo hoa (Confetti) ---
+        function triggerConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#22c55e', '#eab308', '#ef4444', '#3b82f6'],
+                zIndex: 1000
+            });
+        }
+
+        function triggerFireworks() {
+            let duration = 3 * 1000;
+            let animationEnd = Date.now() + duration;
+            let defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+            function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+
+            let interval = setInterval(function() {
+                let timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) { return clearInterval(interval); }
+                let particleCount = 50 * (timeLeft / duration);
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        // --- 2. Game State & Navigation ---
+        let currentLevel = 0;
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden-screen'));
+            document.getElementById(screenId).classList.remove('hidden-screen');
+            document.getElementById(screenId).classList.remove('animate-fade-in');
+            void document.getElementById(screenId).offsetWidth; // trigger reflow
+            document.getElementById(screenId).classList.add('animate-fade-in');
+        }
+
+        function updateProgress() {
+            if (currentLevel === 0 || currentLevel > 4) {
+                document.getElementById('game-header').classList.add('hidden');
+                return;
+            }
+            document.getElementById('game-header').classList.remove('hidden');
+            
+            for(let i=1; i<=4; i++) {
+                let dot = document.getElementById(`dot-${i}`);
+                let line = document.getElementById(`line-${i}`);
+                
+                dot.className = 'progress-dot';
+                if(i < currentLevel) dot.classList.add('completed');
+                else if (i === currentLevel) dot.classList.add('active');
+
+                if(line) {
+                    line.className = 'progress-line';
+                    if(i < currentLevel) line.classList.add('active');
+                }
+            }
+        }
+
+        function startGame() {
+            unlockTTS();
+            
+            // Tự động bật nhạc khi bắt đầu nếu chưa chạy
+            if(!isBgmPlaying) {
+                bgMusic.volume = 0.3;
+                bgMusic.play().then(() => {
+                    isBgmPlaying = true;
+                    btnBgm.innerText = '🎵';
+                }).catch(e => console.log("Trình duyệt chặn autoplay audio:", e));
+            }
+
+            currentLevel = 1;
+            showScreen('screen-level-1');
+            updateProgress();
+            setTimeout(() => {
+                speak("Chào cháu! Cháu có biết biểu tượng nào là cửa ngõ để ra vào làng, nơi người dân hay dừng chân hóng mát không?");
+            }, 500);
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            if (currentLevel === 2) {
+                showScreen('screen-level-2');
+                speak("Trạm 2. Kéo thả các thẻ chữ vào đúng công dụng của Giếng làng và Cây đa.");
+            } else if (currentLevel === 3) {
+                showScreen('screen-level-3');
+                speak("Trạm 3. Sân đình. Bo đi ngang qua sân đình, nơi thờ Thành hoàng làng. Bo thấy vài bạn nhỏ đang vứt vỏ kẹo và hò hét. Khi đến không gian văn hóa chung như sân đình, Bo nên ứng xử như thế nào?");
+            } else if (currentLevel === 4) {
+                showScreen('screen-level-4');
+                speak("Trạm 4. Tìm nhà ngoại. Đâu là đặc điểm nhận diện đúng ngôi nhà truyền thống của bà ngoại?");
+            } else {
+                showScreen('screen-end');
+                speak("Tuyệt vời! Cảm ơn các bạn đã giúp Bo vượt qua các thử thách và về đúng nhà bà ngoại.");
+                triggerFireworks();
+            }
+            updateProgress();
+        }
+
+        function resetGame() {
+            currentLevel = 0;
+            showScreen('screen-welcome');
+            updateProgress();
+            
+            // Reset L1, L3 buttons
+            document.querySelectorAll('.btn-option').forEach(btn => {
+                btn.classList.remove('correct', 'wrong');
+                btn.disabled = false;
+            });
+
+            // Reset Drag & Drop L2 & L4
+            const l2Source = document.getElementById('drag-source-l2');
+            document.querySelectorAll('#screen-level-2 .draggable').forEach(el => l2Source.appendChild(el));
+            
+            const l4Source = document.getElementById('drag-source-l4');
+            document.querySelectorAll('#screen-level-4 .draggable').forEach(el => l4Source.appendChild(el));
+        }
+
+        // --- 3. Feedback System ---
+        function showFeedback(isCorrect, message) {
+            const modal = document.getElementById('feedback-modal');
+            const content = document.getElementById('feedback-content');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            const msg = document.getElementById('feedback-msg');
+
+            modal.classList.remove('hidden');
+            // small delay for transition
+            setTimeout(() => {
+                content.classList.remove('scale-90');
+                content.classList.add('scale-100');
+            }, 10);
+
+            if (isCorrect) {
+                triggerConfetti();
+                icon.innerText = '🎉';
+                title.innerText = 'Chính xác!';
+                title.className = 'text-2xl font-bold mb-2 text-green-600';
+            } else {
+                icon.innerText = '😅';
+                title.innerText = 'Chưa chính xác!';
+                title.className = 'text-2xl font-bold mb-2 text-red-600';
+                message = "Hãy thử lại nhé!";
+            }
+            msg.innerText = message;
+            speak(message);
+        }
+
+        function closeFeedbackAndNext() {
+            const modal = document.getElementById('feedback-modal');
+            const content = document.getElementById('feedback-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                // Only move to next level if it was a success message (we rely on logic before calling showFeedback)
+                // Actually, let's keep it simple: if modal is closed, and we passed a level, nextLevel is called elsewhere or here.
+                // Let's refine: feedback for wrong answers shouldn't advance.
+                if(document.getElementById('feedback-title').innerText === 'Chính xác!') {
+                    nextLevel();
+                }
+            }, 300);
+        }
+
+        // --- 4. Level Logic ---
+        
+        // Level 1
+        function checkL1(ans, btn) {
+            const btns = btn.parentElement.querySelectorAll('.btn-option');
+            btns.forEach(b => b.disabled = true); // disable all temporarily
+            
+            if (ans === 'A') {
+                btn.classList.add('correct');
+                setTimeout(() => showFeedback(true, "Chính xác! Cổng làng là cửa ngõ ra vào làng, nơi người dân dừng chân hóng mát và trẻ em tụ tập vui đùa."), 500);
+            } else {
+                btn.classList.add('wrong');
+                setTimeout(() => {
+                    showFeedback(false, "");
+                    btns.forEach(b => {
+                        b.disabled = false;
+                        b.classList.remove('wrong');
+                    });
+                }, 500);
+            }
+        }
+
+        // Level 3
+        function checkL3(ans, btn) {
+            const btns = btn.parentElement.querySelectorAll('.btn-option');
+            btns.forEach(b => b.disabled = true);
+            
+            if (ans === 'B') {
+                btn.classList.add('correct');
+                setTimeout(() => showFeedback(true, "Tuyệt vời! Chúng ta phải biết tôn trọng không gian chung, không xả rác và không vẽ bậy để bảo vệ di tích nhé!"), 500);
+            } else {
+                btn.classList.add('wrong');
+                setTimeout(() => {
+                    showFeedback(false, "");
+                    btns.forEach(b => {
+                        b.disabled = false;
+                        b.classList.remove('wrong');
+                    });
+                }, 500);
+            }
+        }
+
+        // --- 5. Universal Custom Drag & Drop System (Pointer Events) ---
+        let draggedEl = null;
+        let startX, startY;
+        let initialTransform;
+
+        const draggables = document.querySelectorAll('.draggable');
+        draggables.forEach(el => {
+            el.addEventListener('pointerdown', handlePointerDown);
+        });
+
+        function handlePointerDown(e) {
+            if(e.button !== 0 && e.type !== 'touchstart') return; // only left click or touch
+            e.preventDefault();
+            draggedEl = this;
+            
+            // Get initial cursor position
+            startX = e.clientX || (e.touches && e.touches[0].clientX);
+            startY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            draggedEl.classList.add('dragging');
+            
+            // Bind move and up to document so we don't lose it if cursor moves fast
+            document.addEventListener('pointermove', handlePointerMove);
+            document.addEventListener('pointerup', handlePointerUp);
+            document.addEventListener('pointercancel', handlePointerUp); // handle edge cases
+        }
+
+        function handlePointerMove(e) {
+            if (!draggedEl) return;
+            e.preventDefault();
+            
+            const currentX = e.clientX || (e.touches && e.touches[0].clientX);
+            const currentY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            const dx = currentX - startX;
+            const dy = currentY - startY;
+            
+            draggedEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+
+            // Visual feedback for dropzones
+            draggedEl.style.visibility = 'hidden'; // Hide temp to find element underneath
+            const elemBelow = document.elementFromPoint(currentX, currentY);
+            draggedEl.style.visibility = 'visible';
+
+            document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+            if(elemBelow) {
+                const zone = elemBelow.closest('.drop-zone');
+                if(zone) zone.classList.add('drag-over');
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (!draggedEl) return;
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+
+            const currentX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+            const currentY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+
+            // Find drop zone
+            draggedEl.style.visibility = 'hidden';
+            const elemBelow = document.elementFromPoint(currentX, currentY);
+            draggedEl.style.visibility = 'visible';
+            
+            document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+
+            const dropZone = elemBelow ? elemBelow.closest('.drop-zone') : null;
+
+            if (dropZone) {
+                // Determine logic based on current level
+                if (currentLevel === 2) {
+                    const existingItem = dropZone.querySelector('.draggable');
+                    if(existingItem) {
+                        returnToSource(draggedEl);
+                    } else {
+                        dropZone.appendChild(draggedEl);
+                        draggedEl.style.transform = 'none';
+                        draggedEl.classList.remove('dragging');
+                        checkL2Completion();
+                    }
+                } else if (currentLevel === 4) {
+                    dropZone.appendChild(draggedEl);
+                    draggedEl.style.transform = 'none';
+                    draggedEl.classList.remove('dragging');
+                    checkL4Completion();
+                }
+            } else {
+                // Invalid drop, return to original source container
+                returnToSource(draggedEl);
+            }
+            
+            draggedEl = null;
+        }
+
+        function returnToSource(el) {
+            const sourceId = el.getAttribute('data-source');
+            document.getElementById(sourceId).appendChild(el);
+            el.style.transform = 'none';
+            el.classList.remove('dragging');
+        }
+
+        // Logic check for Level 2
+        function checkL2Completion() {
+            const zGieng = document.getElementById('drop-gieng');
+            const zCayda = document.getElementById('drop-cayda');
+            
+            if (zGieng.children.length === 2 && zCayda.children.length === 2) { // Includes the span placeholder
+                const itemGieng = zGieng.querySelector('.draggable');
+                const itemCayda = zCayda.querySelector('.draggable');
+                
+                if (itemGieng && itemCayda) {
+                    if (itemGieng.getAttribute('data-type') === 'gieng' && itemCayda.getAttribute('data-type') === 'cayda') {
+                        setTimeout(() => showFeedback(true, "Giỏi lắm! Giếng làng và cây đa là những hình ảnh vô cùng gắn bó với đời sống sinh hoạt của người dân Bắc Bộ."), 500);
+                    } else {
+                        setTimeout(() => {
+                            showFeedback(false, "Có vẻ thẻ chức năng bị nhầm vị trí rồi. Em hãy đổi lại nhé!");
+                            returnToSource(itemGieng);
+                            returnToSource(itemCayda);
+                        }, 500);
+                    }
+                }
+            }
+        }
+
+        // Logic check for Level 4
+        function checkL4Completion() {
+            const zTruyenThong = document.getElementById('drop-truyenthong');
+            const zHienNay = document.getElementById('drop-hiennay');
+            
+            const itemsA = zTruyenThong.querySelectorAll('.draggable');
+            const itemsB = zHienNay.querySelectorAll('.draggable');
+            
+            if (itemsA.length + itemsB.length === 5) {
+                let isCorrect = true;
+                itemsA.forEach(item => { if (item.getAttribute('data-type') !== 'A') isCorrect = false; });
+                itemsB.forEach(item => { if (item.getAttribute('data-type') !== 'B') isCorrect = false; });
+                
+                if (isCorrect) {
+                    setTimeout(() => showFeedback(true, "Chúc mừng! Bo đã nhận ra đúng các đặc điểm của ngôi nhà truyền thống ba gian mái ngói của ngoại rồi!"), 500);
+                } else {
+                    setTimeout(() => {
+                        showFeedback(false, "Có một số đặc điểm chưa chính xác. Em hãy thử sắp xếp lại nhé!");
+                        itemsA.forEach(item => returnToSource(item));
+                        itemsB.forEach(item => returnToSource(item));
+                    }, 800);
+                }
+            }
+        }
+
+        // Fix voices loading asynchronously in some browsers
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => speechSynth.getVoices();
+        }
+    </script>
+</body>
+</html>

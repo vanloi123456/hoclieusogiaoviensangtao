@@ -61,6 +61,9 @@ const BUNDLED_ADDON_IDS = new Set<string>([
   'item_lophocaophienban2_3d',
   'item_lichsu_dialy4_bai10_bacbo_t1',
   'item_lichsu_dialy4_bai10_bacbo_t2',
+  'item_lichsu_dialy4_bai10_quengoai_t1',
+  'item_lichsu_dialy4_bai10_duxuan_t2',
+  'item_khoahoc4_bai1_tinhchatnuoc',
   'item_ngontay_vercel',
   'item_nghiengdau_vercel',
 ]);
@@ -202,6 +205,19 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   if (
     candidate.id === 'item_lophocaophienban2_3d' &&
     !exEmbed.includes('data-lophocao3dv2-rev="v3-no-newtab-cloud-sync"')
+  ) {
+    return true;
+  }
+  if (
+    (candidate.id === 'item_lichsu_dialy4_bai10_bacbo_t1' ||
+      candidate.id === 'item_lichsu_dialy4_bai10_bacbo_t2') &&
+    !exEmbed.includes('data-game-rev="v2-mon-lichsu-lop4"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_khoahoc4_bai1_tinhchatnuoc' &&
+    !exEmbed.includes('th_nghi_m_m_ph_ng_khoa_h_c_4_n_c_v_cu_c_s_ng_7ea930fb.html')
   ) {
     return true;
   }

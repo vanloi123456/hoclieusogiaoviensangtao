@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phòng Thí Nghiệm Khoa Học 4: Khám Phá Về Nước</title>
+    <!-- Tải font chữ Nunito tròn trịa, thân thiện với học sinh tiểu học -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           PHẦN 1: CẤU HÌNH MÀU SẮC & GIAO DIỆN CHUNG (DỄ DÀNG TÙY CHỈNH)
+           ========================================================================== */
+        :root {
+            --bg-sky: #E0F2FE;          /* Màu nền bầu trời nhạt */
+            --card-bg: #FFFFFF;         /* Màu nền khung thí nghiệm */
+            --primary-blue: #0284C7;    /* Màu xanh nước biển chủ đạo */
+            --light-blue: #38BDF8;      /* Màu nước trong cốc */
+            --water-deep: #0369A1;      /* Màu nước đậm */
+            --accent-yellow: #FACC15;   /* Màu vàng nổi bật cho nút/mặt trời */
+            --accent-green: #22C55E;    /* Màu xanh lá chúc mừng */
+            --accent-orange: #F97316;   /* Màu cam nhấn */
+            --text-dark: #1E293B;       /* Màu chữ chính */
+            --text-muted: #475569;      /* Màu chữ phụ */
+            --border-radius: 24px;      /* Độ bo góc mềm mại */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
+            user-select: none; /* Tránh bôi đen nhầm khi trẻ thao tác nhiều lần */
+        }
+
+        body {
+            background: linear-gradient(180deg, #7DD3FC 0%, #BAE6FD 35%, #E0F2FE 70%, #F0F9FF 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 18px 15px 30px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Đám mây trang trí trôi nhẹ trên nền trời */
+        .bg-cloud {
+            position: fixed;
+            font-size: 4.5rem;
+            opacity: 0.45;
+            pointer-events: none;
+            z-index: 0;
+            animation: driftCloud 45s linear infinite;
+        }
+        @keyframes driftCloud {
+            from { transform: translateX(-15vw); }
+            to { transform: translateX(110vw); }
+        }
+
+        /* ==========================================================================
+           PHẦN 2: HEADER & THANH CHUYỂN ĐỔI 5 TRẠM THÍ NGHIỆM
+           ========================================================================== */
+        header {
+            text-align: center;
+            margin-bottom: 18px;
+            width: 100%;
+            max-width: 1000px;
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            border-radius: 28px;
+            border: 3px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.12);
+        }
+
+        header h1 {
+            font-size: clamp(1.55rem, 3.2vw, 2.3rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, #0369A1 0%, #0284C7 50%, #0EA5E9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 0px rgba(255,255,255,0.9));
+            margin-bottom: 6px;
+        }
+
+        header p {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        /* Thanh tiến độ hoàn thành 5 trạm */
+        .progress-pill {
+            background: #E0F2FE;
+            border: 2px solid #7DD3FC;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.92rem;
+            font-weight: 800;
+            color: #0369A1;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-bar-wrap {
+            width: 90px;
+            height: 10px;
+            background: #BAE6FD;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #22C55E, #16A34A);
+            border-radius: 10px;
+            transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Thanh điều hướng 5 trạm */
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 1000px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid #7DD3FC;
+            border-radius: 20px;
+            padding: 11px 18px;
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 5px 0 #7DD3FC, 0 8px 15px rgba(2, 132, 199, 0.1);
+        }
+
+        .tab-btn:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary-blue);
+            background: #FFFFFF;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(180deg, #0EA5E9 0%, #0284C7 100%);
+            color: #FFFFFF;
+            border-color: #0369A1;
+            box-shadow: 0 5px 0 #0369A1, 0 10px 20px rgba(2, 132, 199, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn .badge-done {
+            background: var(--accent-green);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        .tab-btn.completed .badge-done {
+            display: inline-flex;
+            animation: popUp 0.35s ease;
+        }
+
+        /* Nút điều khiển nhạc nền */
+        .music-toggle-btn {
+            background: linear-gradient(135deg, #F59E0B, #EA580C);
+            color: white;
+            border: 2px solid #FEF3C7;
+            border-radius: 20px;
+            padding: 7px 16px;
+            font-size: 0.92rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ==========================================================================
+           PHẦN 2: HEADER & THANH CHUYỂN ĐỔI 5 TRẠM THÍ NGHIỆM
+           ========================================================================== */
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        header h1 {
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            font-weight: 900;
+            color: var(--water-deep);
+            text-shadow: 2px 2px 0px #FFFFFF;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        /* Thanh điều hướng 5 trạm */
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .tab-btn {
+            background: #FFFFFF;
+            border: 3px solid #BAE6FD;
+            border-radius: 18px;
+            padding: 10px 16px;
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 0 #BAE6FD;
+        }
+
+        .tab-btn:hover {
+            transform: translateY(-3px);
+            border-color: var(--light-blue);
+        }
+
+        .tab-btn.active {
+            background: var(--primary-blue);
+            color: #FFFFFF;
+            border-color: var(--water-deep);
+            box-shadow: 0 4px 0 var(--water-deep);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn .badge-done {
+            background: var(--accent-green);
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 0.8rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-btn.completed .badge-done {
+            display: inline-flex;
+        }
+
+        /* Nút điều khiển nhạc nền */
+        .music-toggle-btn {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: white;
+            border: 3px solid #FEF3C7;
+            border-radius: 20px;
+            padding: 8px 18px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .music-toggle-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .music-toggle-btn.playing {
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-color: #D1FAE5;
+            animation: pulseMusic 1.5s infinite;
+        }
+
+        @keyframes pulseMusic {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        }
+
+        /* Canvas hiệu ứng pháo hoa toàn màn hình */
+        #fireworksCanvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        /* ==========================================================================
+           PHẦN 3: KHUNG BÀN THÍ NGHIỆM CHÍNH & BẢNG HƯỚNG DẪN
+           ========================================================================== */
+        .lab-container {
+            background: rgba(255, 255, 255, 0.95);
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 30px;
+            border: 4px solid #FFFFFF;
+            box-shadow: 0 18px 40px rgba(2, 132, 199, 0.18), 0 0 0 4px #7DD3FC;
+            padding: 24px;
+            position: relative;
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        /* Bảng hướng dẫn nhiệm vụ cho học sinh */
+        .instruction-banner {
+            background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%);
+            border: 3px dashed #EAB308;
+            border-radius: 22px;
+            padding: 15px 22px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 12px rgba(234, 179, 8, 0.15);
+        }
+
+        .instruction-text {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #713F12;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Các nút bấm thao tác chung */
+        .btn-action {
+            background: linear-gradient(180deg, #FB923C 0%, #EA580C 100%);
+            color: white;
+            border: 2px solid #FFEDD5;
+            border-radius: 18px;
+            padding: 12px 22px;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #9A3412, 0 8px 15px rgba(234, 88, 12, 0.25);
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            filter: brightness(1.06);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:active:not(:disabled) {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #9A3412;
+        }
+
+        .btn-action:disabled {
+            background: #CBD5E1;
+            border-color: #E2E8F0;
+            box-shadow: 0 5px 0 #94A3B8;
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            background: linear-gradient(180deg, #64748B 0%, #475569 100%);
+            border-color: #E2E8F0;
+            box-shadow: 0 5px 0 #1E293B;
+        }
+        .btn-reset:active {
+            box-shadow: 0 2px 0 #1E293B;
+        }
+
+        /* Khu vực sân khấu thí nghiệm */
+        .experiment-stage {
+            min-height: 370px;
+            background: radial-gradient(circle at top, #FFFFFF 0%, #F1F5F9 100%);
+            border-radius: 24px;
+            border: 3px solid #E2E8F0;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: inset 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        /* Bảng hướng dẫn nhiệm vụ cho học sinh */
+        .instruction-banner {
+            background: #FEF9C3;
+            border: 3px dashed #FACC15;
+            border-radius: 18px;
+            padding: 14px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .instruction-text {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #854D0E;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Các nút bấm thao tác chung */
+        .btn-action {
+            background: var(--accent-orange);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 12px 22px;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #C2410C;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:active:not(:disabled) {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #C2410C;
+        }
+
+        .btn-action:disabled {
+            background: #CBD5E1;
+            box-shadow: 0 5px 0 #94A3B8;
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            background: #64748B;
+            box-shadow: 0 5px 0 #334155;
+        }
+        .btn-reset:active {
+            box-shadow: 0 2px 0 #334155;
+        }
+
+        /* Khu vực sân khấu thí nghiệm */
+        .experiment-stage {
+            min-height: 360px;
+            background: #F8FAFC;
+            border-radius: 20px;
+            border: 2px solid #E2E8F0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .tab-panel {
+            display: none;
+            width: 100%;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* ==========================================================================
+           TRẠM 5: VÒNG TUẦN HOÀN CỦA NƯỚC TRONG THIÊN NHIÊN (NÂNG CẤP SINH ĐỘNG)
+           ========================================================================== */
+        .cycle-scene {
+            width: 100%;
+            height: 310px;
+            background: linear-gradient(180deg, #38BDF8 0%, #BAE6FD 62%, #4ADE80 62%, #16A34A 100%);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            border: 4px solid #0284C7;
+            transition: background 0.8s ease;
+        }
+
+        .cycle-scene.rainy-sky {
+            background: linear-gradient(180deg, #475569 0%, #94A3B8 62%, #22C55E 62%, #15803D 100%);
+        }
+
+        /* Mặt trời & tia nắng xoay */
+        .sun-obj {
+            position: absolute;
+            top: 15px;
+            left: 25px;
+            font-size: 3.6rem;
+            transition: transform 0.3s ease, filter 0.3s ease;
+            z-index: 4;
+            filter: drop-shadow(0 0 15px rgba(250, 204, 21, 0.8));
+        }
+
+        /* Ngọn núi vẽ bằng CSS */
+        .mountain {
+            position: absolute;
+            bottom: 38%;
+            right: 4%;
+            width: 0;
+            height: 0;
+            border-left: 125px solid transparent;
+            border-right: 125px solid transparent;
+            border-bottom: 150px solid #15803D;
+            z-index: 2;
+        }
+        .mountain::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -38px;
+            border-left: 38px solid transparent;
+            border-right: 38px solid transparent;
+            border-bottom: 45px solid #FFFFFF; /* Đỉnh núi tuyết */
+        }
+
+        /* Dòng suối chảy từ núi xuống biển khi có mưa */
+        .mountain-stream {
+            position: absolute;
+            bottom: 34%;
+            right: 26%;
+            width: 120px;
+            height: 22px;
+            background: linear-gradient(90deg, #38BDF8, #0284C7, #38BDF8);
+            background-size: 200% 100%;
+            border-radius: 20px;
+            transform: rotate(-16deg);
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            z-index: 3;
+            animation: flowStream 1s linear infinite;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+        }
+
+        .mountain-stream.active {
+            opacity: 1;
+        }
+
+        @keyframes flowStream {
+            0% { background-position: 0% 50%; }
+            100% { background-position: -200% 50%; }
+        }
+
+        /* Biển / Sông */
+        .sea-water {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 68%;
+            height: 38%;
+            background: linear-gradient(180deg, #0284C7 0%, #0369A1 100%);
+            border-top-right-radius: 45px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 1.05rem;
+            box-shadow: inset 0 6px 12px rgba(255,255,255,0.25);
+        }
+
+        /* Nhãn chỉ dẫn giai đoạn trên bầu trời */
+        .cycle-badge {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0369A1;
+            padding: 4px 12px;
+            border-radius: 14px;
+            font-size: 0.85rem;
+            font-weight: 900;
+            border: 2px solid #38BDF8;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+            z-index: 6;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+        }
+
+        .cycle-badge.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Hơi nước bay lên */
+        .steam-group {
+            position: absolute;
+            bottom: 38%;
+            left: 14%;
+            display: flex;
+            gap: 28px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 4;
+        }
+        .steam-arrow {
+            font-size: 1.7rem;
+            animation: floatUp 1.5s infinite linear;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(10px); opacity: 0.2; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-75px); opacity: 0; }
+        }
+
+        /* Đám mây */
+        .cloud-obj {
+            position: absolute;
+            top: 22px;
+            left: 30%;
+            font-size: 4.8rem;
+            transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.15));
+        }
+
+        /* Hạt mưa */
+        .rain-container {
+            position: absolute;
+            top: 98px;
+            right: 11%;
+            width: 160px;
+            height: 120px;
+            display: none;
+            justify-content: space-around;
+            z-index: 4;
+        }
+        .rain-drop {
+            font-size: 1.3rem;
+            animation: rainFall 0.75s infinite linear;
+        }
+        @keyframes rainFall {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(105px); opacity: 0; }
+        }
+
+        /* ==========================================================================
+           TRẠM 1: HÌNH DẠNG CỦA NƯỚC
+           ========================================================================== */
+        .shapes-arena {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            width: 100%;
+            max-width: 780px;
+            height: 225px;
+            padding: 0 20px 14px;
+            border-bottom: 14px solid #D97706; /* Mặt bàn gỗ phòng thí nghiệm */
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 8px 0 #92400E, 0 14px 20px rgba(146, 64, 14, 0.15);
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .container-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container-item strong {
+            background: #E0F2FE;
+            color: #0369A1;
+            padding: 4px 14px;
+            border-radius: 12px;
+            font-size: 0.98rem;
+            border: 2px solid #BAE6FD;
+        }
+
+        /* 1. Cốc hình trụ với hiệu ứng thủy tinh phản chiếu */
+        .glass-cylinder {
+            width: 96px;
+            height: 145px;
+            border: 5px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 18px 18px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.85) 0%, rgba(241,245,249,0.5) 30%, rgba(255,255,255,0.9) 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 -6px 12px rgba(2, 132, 199, 0.1), 0 6px 12px rgba(0,0,0,0.06);
+        }
+
+        .glass-cylinder::before, .glass-bowl::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            width: 8px;
+            height: 75%;
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: 10px;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* 2. Bình tam giác (dùng clip-path) */
+        .glass-triangle-wrap {
+            width: 136px;
+            height: 145px;
+            position: relative;
+            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.1));
+        }
+        .glass-triangle {
+            width: 100%;
+            height: 100%;
+            background: #64748B;
+            clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
+            padding: 5px;
+            padding-top: 0;
+        }
+        .glass-triangle-inner {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #FFFFFF 0%, #F1F5F9 50%, #FFFFFF 100%);
+            clip-path: polygon(36% 0%, 64% 0%, 96% 97%, 4% 97%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 3. Bát tròn */
+        .glass-bowl {
+            width: 158px;
+            height: 90px;
+            border: 5px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 80px 80px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.85) 0%, rgba(241,245,249,0.5) 30%, rgba(255,255,255,0.9) 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 -6px 12px rgba(2, 132, 199, 0.1), 0 6px 12px rgba(0,0,0,0.06);
+        }
+
+        /* Lớp nước dâng lên bên trong vật chứa */
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(180deg, #38BDF8 0%, #0284C7 100%);
+            transition: height 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+            opacity: 0.9;
+        }
+
+        .water-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -20%;
+            width: 140%;
+            height: 7px;
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: 50%;
+            animation: waveSurface 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes waveSurface {
+            from { transform: translateX(-5px); }
+            to { transform: translateX(5px); }
+        }
+
+        /* ==========================================================================
+           TRẠM 2: TÍNH CHẤT CHẢY LAN RA MỌI PHÍA
+           ========================================================================== */
+        .spread-tray {
+            width: 92%;
+            max-width: 580px;
+            height: 230px;
+            background: radial-gradient(circle, #F8FAFC 0%, #E2E8F0 100%);
+            border: 8px solid #64748B;
+            border-radius: 28px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.08);
+        }
+
+        .container-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* 1. Cốc hình trụ */
+        .glass-cylinder {
+            width: 90px;
+            height: 140px;
+            border: 5px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 16px 16px;
+            background: rgba(255, 255, 255, 0.7);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.05);
+        }
+
+        /* 2. Bình tam giác (dùng clip-path) */
+        .glass-triangle-wrap {
+            width: 130px;
+            height: 140px;
+            position: relative;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.1));
+        }
+        .glass-triangle {
+            width: 100%;
+            height: 100%;
+            background: #64748B;
+            clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
+            padding: 5px;
+            padding-top: 0;
+        }
+        .glass-triangle-inner {
+            width: 100%;
+            height: 100%;
+            background: #F1F5F9;
+            clip-path: polygon(36% 0%, 64% 0%, 96% 97%, 4% 97%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 3. Bát tròn */
+        .glass-bowl {
+            width: 150px;
+            height: 85px;
+            border: 5px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 75px 75px;
+            background: rgba(255, 255, 255, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Lớp nước dâng lên bên trong vật chứa */
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(180deg, #38BDF8 0%, #0284C7 100%);
+            transition: height 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+            opacity: 0.88;
+        }
+
+        .water-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* ==========================================================================
+           TRẠM 2: TÍNH CHẤT CHẢY LAN RA MỌI PHÍA
+           ========================================================================== */
+        .spread-tray {
+            width: 90%;
+            max-width: 550px;
+            height: 220px;
+            background: #E2E8F0;
+            border: 6px solid #94A3B8;
+            border-radius: 24px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: inset 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        /* Mũi tên chỉ hướng chảy lan */
+        .arrows-guide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            opacity: 0;
+            transition: opacity 0.6s ease 0.4s;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .water-puddle {
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #38BDF8 30%, #0284C7 100%);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0.85;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        }
+
+        .water-puddle.spreaded {
+            transform: scale(15); /* Lan tỏa rộng ra mọi hướng */
+        }
+
+        /* ==========================================================================
+           TRẠM 3: NƯỚC THẤM QUA MỘT SỐ VẬT
+           ========================================================================== */
+        .absorb-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+            gap: 18px;
+            width: 100%;
+        }
+
+        .material-card {
+            background: #FFFFFF;
+            border: 3px solid #BAE6FD;
+            border-radius: 22px;
+            padding: 18px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            box-shadow: 0 6px 15px rgba(2, 132, 199, 0.08);
+            transition: transform 0.2s ease;
+        }
+        .material-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .material-card {
+            background: white;
+            border: 3px solid #E2E8F0;
+            border-radius: 18px;
+            padding: 15px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        /* Tấm vật liệu đặt trên miệng cốc */
+        .material-sheet {
+            width: 110px;
+            height: 22px;
+            border-radius: 8px;
+            transition: all 0.8s ease;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+
+        /* Màu sắc từng vật liệu trước và sau khi nhỏ nước */
+        .mat-paper { background: #F8FAFC; border: 2px dashed #CBD5E1; color: #475569; }
+        .mat-paper.wet { background: #7DD3FC; border-color: #0284C7; transform: scaleY(1.1); }
+
+        .mat-cloth { background: #FDE047; border: 2px solid #EAB308; color: #854D0E; }
+        .mat-cloth.wet { background: #CA8A04; border-color: #854D0E; color: white; }
+
+        .mat-plastic { background: #F43F5E; border: 2px solid #BE123C; color: white; }
+        .mat-plastic.wet::after {
+            content: '💧';
+            position: absolute;
+            top: -16px;
+            font-size: 1.2rem;
+            animation: bounce 1s infinite;
+        }
+
+        .mat-glass { background: #CFFAFE; border: 2px solid #06B6D4; color: #0E7490; }
+        .mat-glass.wet::after {
+            content: '💧';
+            position: absolute;
+            top: -16px;
+            font-size: 1.2rem;
+        }
+
+        /* Cốc hứng bên dưới */
+        .catch-cup {
+            width: 75px;
+            height: 85px;
+            border: 4px solid #94A3B8;
+            border-top: none;
+            border-radius: 0 0 14px 14px;
+            position: relative;
+            overflow: hidden;
+            background: #F1F5F9;
+        }
+
+        /* Giọt nước rơi xuyên qua vật thấm */
+        .drip-drop {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.1rem;
+            opacity: 0;
+        }
+
+        .drip-drop.falling {
+            animation: dropDown 0.9s ease-in forwards;
+        }
+
+        @keyframes dropDown {
+            0% { top: -10px; opacity: 1; }
+            100% { top: 75px; opacity: 0; }
+        }
+
+        /* ==========================================================================
+           TRẠM 4: NƯỚC HÒA TAN MỘT SỐ CHẤT
+           ========================================================================== */
+        .dissolve-arena {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+            gap: 18px;
+            width: 100%;
+        }
+
+        .beaker-box {
+            background: #FFFFFF;
+            border: 3px solid #BAE6FD;
+            border-radius: 22px;
+            padding: 18px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 6px 15px rgba(2, 132, 199, 0.08);
+            transition: transform 0.2s ease;
+        }
+        .beaker-box:hover {
+            transform: translateY(-3px);
+        }
+
+        .beaker {
+            width: 104px;
+            height: 125px;
+            border: 5px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(90deg, #FFFFFF 0%, #F1F5F9 50%, #FFFFFF 100%);
+            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.05);
+        }
+        .beaker::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            width: 7px;
+            height: 75%;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .beaker-box {
+            background: white;
+            border: 3px solid #E2E8F0;
+            border-radius: 18px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .beaker {
+            width: 100px;
+            height: 120px;
+            border: 4px solid #64748B;
+            border-top: none;
+            border-radius: 0 0 18px 18px;
+            position: relative;
+            overflow: hidden;
+            background: #F8FAFC;
+        }
+
+        .beaker-water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 75%;
+            background: rgba(56, 189, 248, 0.45);
+            transition: background 1s ease;
+        }
+
+        /* Thìa khuấy */
+        .spoon {
+            position: absolute;
+            top: -15px;
+            left: 45%;
+            font-size: 2.2rem;
+            transform-origin: top center;
+            z-index: 5;
+            display: none;
+        }
+
+        .spoon.stirring {
+            display: block;
+            animation: stirAnim 0.4s infinite alternate ease-in-out;
+        }
+
+        @keyframes stirAnim {
+            from { transform: rotate(-18deg) translateX(-8px); }
+            to { transform: rotate(18deg) translateX(8px); }
+        }
+
+        /* Hạt chất (Muối, Đường, Cát, Dầu) */
+        .solute-particles {
+            position: absolute;
+            bottom: 6px;
+            left: 15%;
+            width: 70%;
+            height: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 3px;
+            transition: all 1.5s ease;
+            z-index: 3;
+        }
+
+        .particle {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+        .p-salt { background: #FFFFFF; border: 1px solid #CBD5E1; }
+        .p-sugar { background: #FEF08A; border: 1px solid #EAB308; }
+        .p-sand { background: #92400E; }
+
+        /* Lớp dầu ăn nổi trên mặt nước */
+        .oil-layer {
+            position: absolute;
+            top: 25%; /* Đúng bằng mực nước 75% từ dưới lên */
+            width: 100%;
+            height: 12px;
+            background: #FACC15;
+            opacity: 0.9;
+            transition: all 1s ease;
+            z-index: 4;
+        }
+
+        /* Bảng điều khiển thanh trượt Trạm 5 */
+        .cycle-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            margin-top: 15px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 16px;
+            border: 2px solid #BAE6FD;
+        }
+
+        .slider-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            min-width: 220px;
+        }
+
+        .slider-box label {
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary-blue);
+            cursor: pointer;
+            height: 10px;
+        }
+
+        /* ==========================================================================
+           PHẦN 4: HỘP THOẠI KẾT LUẬN KIẾN THỨC (MODAL CHÚC MỪNG)
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-card {
+            background: #FFFFFF;
+            border: 5px solid var(--accent-green);
+            border-radius: 28px;
+            max-width: 520px;
+            width: 100%;
+            padding: 28px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            animation: popUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popUp {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-emoji {
+            font-size: 4rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .modal-title {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #15803D;
+            margin-bottom: 12px;
+        }
+
+        .modal-body {
+            background: #F0FDF4;
+            border: 2px solid #BBF7D0;
+            border-radius: 16px;
+            padding: 15px;
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: var(--text-dark);
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        /* Responsive cho màn hình nhỏ */
+        @media (max-width: 600px) {
+            .tab-btn { font-size: 0.9rem; padding: 8px 12px; }
+            .instruction-text { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ĐÁM MÂY TRANG TRÍ BẦU TRỜI -->
+    <div class="bg-cloud" style="top: 4%; left: -10%; animation-duration: 50s;">☁️</div>
+    <div class="bg-cloud" style="top: 18%; left: -20%; font-size: 3.5rem; animation-duration: 38s; animation-delay: 8s;">☁️</div>
+    <div class="bg-cloud" style="top: 10%; left: -15%; font-size: 5rem; animation-duration: 60s; animation-delay: 20s;">☁️</div>
+
+    <!-- TIÊU ĐỀ BÀI HỌC -->
+    <header>
+        <h1>🧪 KHOA HỌC LỚP 4: KHÁM PHÁ TÍNH CHẤT CỦA NƯỚC</h1>
+        <p>Bộ sách: Kết nối tri thức với cuộc sống • Bé hãy tự tay làm thí nghiệm nhé!</p>
+        <div class="header-controls">
+            <div class="progress-pill">
+                <span>🏅 Tiến độ: <strong id="progressText">0/5 trạm</strong></span>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+            </div>
+            <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleBackgroundMusic()">
+                🔇 Bật nhạc nền sôi động
+            </button>
+        </div>
+    </header>
+
+    <!-- CANVAS PHÁO HOA CHÚC MỪNG -->
+    <canvas id="fireworksCanvas"></canvas>
+
+    <!-- THANH CHỌN 5 TRẠM THÍ NGHIỆM -->
+    <nav class="nav-tabs" id="navTabs">
+        <button class="tab-btn active" onclick="switchTab(1)" id="tab-btn-1">
+            <span>1️⃣ Hình dạng</span>
+            <span class="badge-done">✓</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab(2)" id="tab-btn-2">
+            <span>2️⃣ Chảy lan</span>
+            <span class="badge-done">✓</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab(3)" id="tab-btn-3">
+            <span>3️⃣ Tính thấm</span>
+            <span class="badge-done">✓</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab(4)" id="tab-btn-4">
+            <span>4️⃣ Hòa tan</span>
+            <span class="badge-done">✓</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab(5)" id="tab-btn-5">
+            <span>5️⃣ Vòng tuần hoàn</span>
+            <span class="badge-done">✓</span>
+        </button>
+    </nav>
+
+    <!-- KHUNG BÀN THÍ NGHIỆM CHÍNH -->
+    <main class="lab-container">
+
+        <!-- ======================================================================
+             TRẠM 1: HÌNH DẠNG CỦA NƯỚC
+             ====================================================================== -->
+        <section class="tab-panel active" id="panel-1">
+            <div class="instruction-banner">
+                <div class="instruction-text">
+                    <span>💡 Nhiệm vụ:</span>
+                    <span>Nhấn nút <b>"Rót nước vào bình"</b> và quan sát hình dạng của nước trong 3 vật chứa khác nhau!</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action" id="btnPour1" onclick="runExp1()">🫗 Rót nước vào bình</button>
+                    <button class="btn-action btn-reset" onclick="resetExp1()">🔄 Làm lại</button>
+                </div>
+            </div>
+
+            <div class="experiment-stage">
+                <div class="shapes-arena">
+                    <!-- Cốc hình trụ -->
+                    <div class="container-item">
+                        <div class="glass-cylinder">
+                            <div class="water-fill" id="water1-a"></div>
+                        </div>
+                        <strong>Cốc hình trụ</strong>
+                    </div>
+
+                    <!-- Bình tam giác -->
+                    <div class="container-item">
+                        <div class="glass-triangle-wrap">
+                            <div class="glass-triangle">
+                                <div class="glass-triangle-inner">
+                                    <div class="water-fill" id="water1-b"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <strong>Bình tam giác</strong>
+                    </div>
+
+                    <!-- Bát tròn -->
+                    <div class="container-item">
+                        <div class="glass-bowl">
+                            <div class="water-fill" id="water1-c"></div>
+                        </div>
+                        <strong>Bát tròn</strong>
+                    </div>
+                </div>
+                <p style="margin-top: 12px; font-weight: 700; color: var(--water-deep);">
+                    👀 Gợi ý quan sát: Nước có hình dạng cố định của riêng nó không?
+                </p>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             TRẠM 2: TÍNH CHẤT CHẢY LAN RA MỌI PHÍA
+             ====================================================================== -->
+        <section class="tab-panel" id="panel-2">
+            <div class="instruction-banner">
+                <div class="instruction-text">
+                    <span>💡 Nhiệm vụ:</span>
+                    <span>Nhấn nút <b>"Đổ nước lên khay phẳng"</b> để xem nước di chuyển như thế nào nhé!</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action" id="btnSpread" onclick="runExp2()">💧 Đổ nước lên khay</button>
+                    <button class="btn-action btn-reset" onclick="resetExp2()">🔄 Làm lại</button>
+                </div>
+            </div>
+
+            <div class="experiment-stage">
+                <div class="spread-tray">
+                    <div class="arrows-guide" id="arrowsGuide">
+                        ↖️ ⬆️ ↗️ <br> ⬅️ 💧 ➡️ <br> ↙️ ⬇️ ↘️
+                    </div>
+                    <div class="water-puddle" id="waterPuddle"></div>
+                </div>
+                <p style="margin-top: 12px; font-weight: 700; color: var(--water-deep);">
+                    👀 Gợi ý quan sát: Khi đổ xuống mặt phẳng nằm ngang, nước chỉ chảy về một hướng hay lan ra mọi phía?
+                </p>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             TRẠM 3: NƯỚC THẤM QUA MỘT SỐ VẬT
+             ====================================================================== -->
+        <section class="tab-panel" id="panel-3">
+            <div class="instruction-banner">
+                <div class="instruction-text">
+                    <span>💡 Nhiệm vụ:</span>
+                    <span>Nhấn <b>"Nhỏ nước lên các vật liệu"</b> xem vật nào cho nước thấm qua, vật nào không!</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action" id="btnAbsorb" onclick="runExp3()">💦 Nhỏ nước thử nghiệm</button>
+                    <button class="btn-action btn-reset" onclick="resetExp3()">🔄 Làm lại</button>
+                </div>
+            </div>
+
+            <div class="experiment-stage">
+                <div class="absorb-grid">
+                    <!-- 1. Giấy ăn -->
+                    <div class="material-card">
+                        <strong>📄 Giấy ăn</strong>
+                        <div class="material-sheet mat-paper" id="mat-paper">Giấy mỏng</div>
+                        <div class="catch-cup">
+                            <span class="drip-drop" id="drip-paper">💧</span>
+                            <div class="water-fill" id="cup-paper"></div>
+                        </div>
+                        <span id="status-paper" style="font-size: 0.9rem; font-weight: 800; color: #64748B;">Chưa thử</span>
+                    </div>
+
+                    <!-- 2. Vải bông -->
+                    <div class="material-card">
+                        <strong>👕 Vải bông</strong>
+                        <div class="material-sheet mat-cloth" id="mat-cloth">Khăn vải</div>
+                        <div class="catch-cup">
+                            <span class="drip-drop" id="drip-cloth">💧</span>
+                            <div class="water-fill" id="cup-cloth"></div>
+                        </div>
+                        <span id="status-cloth" style="font-size: 0.9rem; font-weight: 800; color: #64748B;">Chưa thử</span>
+                    </div>
+
+                    <!-- 3. Tấm nhựa -->
+                    <div class="material-card">
+                        <strong>🥡 Tấm nhựa</strong>
+                        <div class="material-sheet mat-plastic" id="mat-plastic">Nhựa dẻo</div>
+                        <div class="catch-cup">
+                            <div class="water-fill" id="cup-plastic"></div>
+                        </div>
+                        <span id="status-plastic" style="font-size: 0.9rem; font-weight: 800; color: #64748B;">Chưa thử</span>
+                    </div>
+
+                    <!-- 4. Tấm kính -->
+                    <div class="material-card">
+                        <strong>🪟 Tấm kính</strong>
+                        <div class="material-sheet mat-glass" id="mat-glass">Kính trong</div>
+                        <div class="catch-cup">
+                            <div class="water-fill" id="cup-glass"></div>
+                        </div>
+                        <span id="status-glass" style="font-size: 0.9rem; font-weight: 800; color: #64748B;">Chưa thử</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             TRẠM 4: NƯỚC HÒA TAN MỘT SỐ CHẤT
+             ====================================================================== -->
+        <section class="tab-panel" id="panel-4">
+            <div class="instruction-banner">
+                <div class="instruction-text">
+                    <span>💡 Nhiệm vụ:</span>
+                    <span>Nhấn <b>"Khuấy đều 4 cốc"</b> để xem chất nào tan trong nước, chất nào không tan!</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action" id="btnDissolve" onclick="runExp4()">🥄 Khuấy đều 4 cốc</button>
+                    <button class="btn-action btn-reset" onclick="resetExp4()">🔄 Làm lại</button>
+                </div>
+            </div>
+
+            <div class="experiment-stage">
+                <div class="dissolve-arena">
+                    <!-- Cốc 1: Muối ăn -->
+                    <div class="beaker-box">
+                        <strong>🧂 Muối ăn</strong>
+                        <div class="beaker">
+                            <span class="spoon" id="spoon-1">🥄</span>
+                            <div class="beaker-water"></div>
+                            <div class="solute-particles" id="salt-box"></div>
+                        </div>
+                        <span id="res-salt" style="font-weight: 800; color: #64748B;">Đang chờ khuấy...</span>
+                    </div>
+
+                    <!-- Cốc 2: Đường trắng -->
+                    <div class="beaker-box">
+                        <strong>🍬 Đường trắng</strong>
+                        <div class="beaker">
+                            <span class="spoon" id="spoon-2">🥄</span>
+                            <div class="beaker-water"></div>
+                            <div class="solute-particles" id="sugar-box"></div>
+                        </div>
+                        <span id="res-sugar" style="font-weight: 800; color: #64748B;">Đang chờ khuấy...</span>
+                    </div>
+
+                    <!-- Cốc 3: Cát sạch -->
+                    <div class="beaker-box">
+                        <strong>⏳ Cát sạch</strong>
+                        <div class="beaker">
+                            <span class="spoon" id="spoon-3">🥄</span>
+                            <div class="beaker-water"></div>
+                            <div class="solute-particles" id="sand-box"></div>
+                        </div>
+                        <span id="res-sand" style="font-weight: 800; color: #64748B;">Đang chờ khuấy...</span>
+                    </div>
+
+                    <!-- Cốc 4: Dầu ăn -->
+                    <div class="beaker-box">
+                        <strong>🌻 Dầu ăn</strong>
+                        <div class="beaker">
+                            <span class="spoon" id="spoon-4">🥄</span>
+                            <div class="oil-layer" id="oil-layer"></div>
+                            <div class="beaker-water"></div>
+                        </div>
+                        <span id="res-oil" style="font-weight: 800; color: #64748B;">Đang chờ khuấy...</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             TRẠM 5: VÒNG TUẦN HOÀN CỦA NƯỚC TRONG THIÊN NHIÊN
+             ====================================================================== -->
+        <section class="tab-panel" id="panel-5">
+            <div class="instruction-banner">
+                <div class="instruction-text">
+                    <span>💡 Nhiệm vụ:</span>
+                    <span>Bước 1: Kéo <b>Nắng Mặt Trời</b> lên cao để nước bay hơi. Bước 2: Kéo <b>Gió Lạnh</b> lên cao để tạo mưa!</span>
+                </div>
+                <button class="btn-action btn-reset" onclick="resetExp5()">🔄 Làm lại</button>
+            </div>
+
+            <div class="experiment-stage">
+                <div class="cycle-scene" id="cycleScene">
+                    <!-- Mặt trời -->
+                    <div class="sun-obj" id="sunObj">☀️</div>
+
+                    <!-- Các nhãn giai đoạn của vòng tuần hoàn -->
+                    <div class="cycle-badge" id="badgeEvap" style="bottom: 48%; left: 10%;">1️⃣ Nước bay hơi ⬆️</div>
+                    <div class="cycle-badge" id="badgeCondense" style="top: 12px; left: 45%;">2️⃣ Ngưng tụ thành mây ☁️</div>
+                    <div class="cycle-badge" id="badgeRain" style="top: 115px; right: 26%;">3️⃣ Mưa rơi xuống 🌧️</div>
+                    <div class="cycle-badge" id="badgeFlow" style="bottom: 42%; right: 28%;">4️⃣ Chảy về sông biển 🌊</div>
+
+                    <!-- Đám mây -->
+                    <div class="cloud-obj" id="cloudObj">
+                        <span id="cloudIcon">☁️</span>
+                    </div>
+
+                    <!-- Hơi nước bay lên -->
+                    <div class="steam-group" id="steamGroup">
+                        <span class="steam-arrow">⬆️💨</span>
+                        <span class="steam-arrow" style="animation-delay: 0.4s;">⬆️💨</span>
+                        <span class="steam-arrow" style="animation-delay: 0.8s;">⬆️💨</span>
+                    </div>
+
+                    <!-- Hạt mưa rơi -->
+                    <div class="rain-container" id="rainContainer">
+                        <span class="rain-drop">💧</span>
+                        <span class="rain-drop" style="animation-delay: 0.15s;">💧</span>
+                        <span class="rain-drop" style="animation-delay: 0.45s;">💧</span>
+                        <span class="rain-drop" style="animation-delay: 0.25s;">💧</span>
+                        <span class="rain-drop" style="animation-delay: 0.6s;">💧</span>
+                    </div>
+
+                    <!-- Núi, Dòng suối chảy về biển và Biển -->
+                    <div class="mountain"></div>
+                    <div class="mountain-stream" id="mountainStream"></div>
+                    <div class="sea-water">
+                        <span>🌊 Biển & Sông hồ</span>
+                        <span style="font-size: 0.85rem; opacity: 0.9;">🐟 🐠 ⛵</span>
+                    </div>
+                </div>
+
+                <!-- Thanh trượt tương tác điều khiển thời tiết -->
+                <div class="cycle-controls">
+                    <div class="slider-box">
+                        <label for="sunSlider">☀️ Nhiệt độ Mặt Trời: <span id="sunVal">25°C</span></label>
+                        <input type="range" id="sunSlider" min="20" max="45" value="25" oninput="updateWaterCycle()">
+                    </div>
+                    <div class="slider-box">
+                        <label for="coldSlider">❄️ Độ lạnh trên cao: <span id="coldVal">Ấm áp</span></label>
+                        <input type="range" id="coldSlider" min="0" max="100" value="10" oninput="updateWaterCycle()">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- HỘP THOẠI KẾT LUẬN KIẾN THỨC SAU MỖI THÍ NGHIỆM -->
+    <div class="modal-overlay" id="conclusionModal">
+        <div class="modal-card">
+            <span class="modal-emoji">🎉🌟</span>
+            <h2 class="modal-title" id="modalTitle">Chúc mừng em đã hoàn thành!</h2>
+            <div class="modal-body" id="modalBody">
+                Nội dung kiến thức khoa học sẽ hiển thị ở đây.
+            </div>
+            <button class="btn-action" style="background: var(--accent-green); box-shadow: 0 5px 0 #15803D;" onclick="closeModal()">
+                👍 Em đã hiểu bài!
+            </button>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         PHẦN 5: MÃ JAVASCRIPT XỬ LÝ TƯƠNG TÁC & HIỆU ỨNG MÔ PHỎNG
+         ========================================================================== -->
+    <script>
+        /* --------------------------------------------------------------------------
+           1. HỆ THỐNG ÂM THANH VUI NHỘN & NHẠC NỀN SÔI ĐỘNG (WEB AUDIO API)
+           -------------------------------------------------------------------------- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isMusicPlaying = false;
+        let musicInterval = null;
+        let stepIndex = 0;
+
+        // Giai điệu vui tươi, sôi động dành cho thiếu nhi (tần số Hz các nốt nhạc)
+        const upbeatMelody = [
+            523.25, 659.25, 783.99, 659.25, // C5 E5 G5 E5
+            587.33, 698.46, 880.00, 698.46, // D5 F5 A5 F5
+            659.25, 783.99, 1046.50, 783.99,// E5 G5 C6 G5
+            587.33, 659.25, 523.25, 0       // D5 E5 C5 (nghỉ)
+        ];
+        const bassLine = [
+            261.63, 261.63, 196.00, 196.00,
+            293.66, 293.66, 220.00, 220.00,
+            329.63, 329.63, 261.63, 261.63,
+            196.00, 246.94, 261.63, 261.63
+        ];
+
+        // Bật / Tắt nhạc nền sôi động
+        function toggleBackgroundMusic() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const btn = document.getElementById('musicToggleBtn');
+
+            if (isMusicPlaying) {
+                isMusicPlaying = false;
+                clearInterval(musicInterval);
+                btn.innerHTML = '🔇 Bật nhạc nền sôi động';
+                btn.classList.remove('playing');
+            } else {
+                isMusicPlaying = true;
+                btn.innerHTML = '🎵 Đang phát nhạc vui nhộn (Tắt)';
+                btn.classList.add('playing');
+                stepIndex = 0;
+                playBeatStep();
+                musicInterval = setInterval(playBeatStep, 230); // Nhịp độ rộn ràng 230ms/phách
+            }
+        }
+
+        function playBeatStep() {
+            if (!isMusicPlaying) return;
+            const now = audioCtx.currentTime;
+            const noteFreq = upbeatMelody[stepIndex % upbeatMelody.length];
+            const bassFreq = bassLine[stepIndex % bassLine.length];
+
+            // Tiếng giai điệu chính (Marimba/Chuông vui tươi)
+            if (noteFreq > 0) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(noteFreq, now);
+                gain.gain.setValueAtTime(0.06, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            // Tiếng đệm bass nhịp nhàng
+            if (bassFreq > 0) {
+                const bassOsc = audioCtx.createOscillator();
+                const bassGain = audioCtx.createGain();
+                bassOsc.type = 'sine';
+                bassOsc.frequency.setValueAtTime(bassFreq, now);
+                bassGain.gain.setValueAtTime(0.05, now);
+                bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.21);
+                bassOsc.connect(bassGain);
+                bassGain.connect(audioCtx.destination);
+                bassOsc.start(now);
+                bassOsc.stop(now + 0.21);
+            }
+
+            stepIndex++;
+        }
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'pop') {
+                // Tiếng bấm nút vui tai
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, now);
+                osc.frequency.exponentialRampToValueAtTime(780, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'water') {
+                // Tiếng nước chảy nhẹ
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(480, now + 0.35);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'win') {
+                // Giai điệu chúc mừng hoàn thành thí nghiệm
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // Đồ - Mi - Sol - Đố - Mí
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.11);
+                    g.gain.setValueAtTime(0.22, now + idx * 0.11);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.11 + 0.3);
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.start(now + idx * 0.11);
+                    o.stop(now + idx * 0.11 + 0.3);
+                });
+            }
+        }
+
+        /* --------------------------------------------------------------------------
+           1B. HỆ THỐNG HIỆU ỨNG PHÁO HOA RỰC RỠ KHI HOÀN THÀNH & CHIẾN THẮNG
+           -------------------------------------------------------------------------- */
+        const fwCanvas = document.getElementById('fireworksCanvas');
+        const fwCtx = fwCanvas.getContext('2d');
+        let fwParticles = [];
+        let fwAnimId = null;
+
+        function resizeFireworksCanvas() {
+            fwCanvas.width = window.innerWidth;
+            fwCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeFireworksCanvas);
+        resizeFireworksCanvas();
+
+        function createFireworkBurst(x, y) {
+            const colors = ['#FF3B30', '#FFCC00', '#34C759', '#00C7BE', '#32ADE6', '#AF52DE', '#FF2D55'];
+            const particleCount = 45;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.2;
+                const speed = 2.5 + Math.random() * 5.5;
+                fwParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1,
+                    radius: 3 + Math.random() * 3,
+                    gravity: 0.08
+                });
+            }
+        }
+
+        function animateFireworks() {
+            fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+            for (let i = fwParticles.length - 1; i >= 0; i--) {
+                const p = fwParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.vx *= 0.98;
+                p.alpha -= 0.015;
+
+                if (p.alpha <= 0) {
+                    fwParticles.splice(i, 1);
+                } else {
+                    fwCtx.save();
+                    fwCtx.globalAlpha = p.alpha;
+                    fwCtx.fillStyle = p.color;
+                    fwCtx.beginPath();
+                    fwCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    fwCtx.fill();
+                    fwCtx.restore();
+                }
+            }
+
+            if (fwParticles.length > 0) {
+                fwAnimId = requestAnimationFrame(animateFireworks);
+            } else {
+                fwAnimId = null;
+            }
+        }
+
+        // Bắn pháo hoa nhiều đợt chúc mừng
+        function launchFireworks(burstCount = 5) {
+            for (let i = 0; i < burstCount; i++) {
+                setTimeout(() => {
+                    const rx = fwCanvas.width * (0.2 + Math.random() * 0.6);
+                    const ry = fwCanvas.height * (0.18 + Math.random() * 0.38);
+                    createFireworkBurst(rx, ry);
+                    if (!fwAnimId) animateFireworks();
+                }, i * 320);
+            }
+        }
+
+        /* --------------------------------------------------------------------------
+           2. QUẢN LÝ CHUYỂN TRẠM THÍ NGHIỆM & HỘP THOẠI KẾT LUẬN
+           -------------------------------------------------------------------------- */
+        const completedStations = new Set();
+
+        function switchTab(tabIndex) {
+            playSound('pop');
+            // Ẩn tất cả các panel và bỏ active ở các nút
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+            // Hiển thị trạm được chọn
+            document.getElementById(`panel-${tabIndex}`).classList.add('active');
+            document.getElementById(`tab-btn-${tabIndex}`).classList.add('active');
+        }
+
+        // Hiển thị hộp thoại kết luận kiến thức, bắn pháo hoa và kiểm tra chiến thắng toàn bộ
+        function showConclusion(tabIndex, title, content) {
+            playSound('win');
+            document.getElementById(`tab-btn-${tabIndex}`).classList.add('completed');
+            completedStations.add(tabIndex);
+
+            // Cập nhật thanh tiến độ ở đầu trang
+            const count = completedStations.size;
+            document.getElementById('progressText').innerText = `${count}/5 trạm`;
+            document.getElementById('progressBarFill').style.width = `${(count / 5) * 100}%`;
+
+            // Kiểm tra xem bé đã hoàn thành cả 5 trạm thí nghiệm chưa
+            if (completedStations.size === 5) {
+                launchFireworks(10); // Bắn pháo hoa rực rỡ 10 đợt khi chiến thắng toàn bộ!
+                document.getElementById('modalTitle').innerText = "🏆 CHIẾN THẮNG! BÉ LÀ NHÀ KHOA HỌC TÀI BA! 🏆";
+                document.getElementById('modalBody').innerHTML = content +
+                    "<br><br><div style='background:#FEF08A; padding:10px; border-radius:12px; color:#854D0E; border:2px dashed #EAB308;'>🎖️ Chúc mừng em đã hoàn thành xuất sắc tất cả 5 trạm thí nghiệm về Nước!</div>";
+            } else {
+                launchFireworks(4); // Bắn pháo hoa chúc mừng hoàn thành trạm
+                document.getElementById('modalTitle').innerText = title;
+                document.getElementById('modalBody').innerHTML = content;
+            }
+
+            document.getElementById('conclusionModal').classList.add('show');
+        }
+
+        function closeModal() {
+            playSound('pop');
+            document.getElementById('conclusionModal').classList.remove('show');
+        }
+
+        /* --------------------------------------------------------------------------
+           3. LOGIC THÍ NGHIỆM 1: HÌNH DẠNG CỦA NƯỚC
+           -------------------------------------------------------------------------- */
+        function runExp1() {
+            playSound('water');
+            document.getElementById('btnPour1').disabled = true;
+
+            // Cho nước dâng lên trong cả 3 vật chứa
+            document.getElementById('water1-a').style.height = '75%';
+            document.getElementById('water1-b').style.height = '65%';
+            document.getElementById('water1-c').style.height = '75%';
+
+            setTimeout(() => {
+                showConclusion(
+                    1,
+                    "Tuyệt vời! Bé đã khám phá ra:",
+                    "💧 <b>Nước không có hình dạng nhất định!</b><br>Khi rót vào vật chứa nào (cốc trụ, bình tam giác hay bát tròn), nước sẽ có hình dạng của chính vật chứa đó."
+                );
+            }, 1500);
+        }
+
+        function resetExp1() {
+            playSound('pop');
+            document.getElementById('btnPour1').disabled = false;
+            document.getElementById('water1-a').style.height = '0%';
+            document.getElementById('water1-b').style.height = '0%';
+            document.getElementById('water1-c').style.height = '0%';
+        }
+
+        /* --------------------------------------------------------------------------
+           4. LOGIC THÍ NGHIỆM 2: TÍNH CHẤT CHẢY LAN RA MỌI PHÍA
+           -------------------------------------------------------------------------- */
+        function runExp2() {
+            playSound('water');
+            document.getElementById('btnSpread').disabled = true;
+            document.getElementById('waterPuddle').classList.add('spreaded');
+            document.getElementById('arrowsGuide').style.opacity = '1';
+
+            setTimeout(() => {
+                showConclusion(
+                    2,
+                    "Chính xác rồi! Bé nhớ nhé:",
+                    "🌊 <b>Nước chảy từ cao xuống thấp và chảy lan ra mọi phía!</b><br>Khi đổ lên mặt phẳng nằm ngang, nước tự động dàn đều ra xung quanh."
+                );
+            }, 1900);
+        }
+
+        function resetExp2() {
+            playSound('pop');
+            document.getElementById('btnSpread').disabled = false;
+            document.getElementById('waterPuddle').classList.remove('spreaded');
+            document.getElementById('arrowsGuide').style.opacity = '0';
+        }
+
+        /* --------------------------------------------------------------------------
+           5. LOGIC THÍ NGHIỆM 3: NƯỚC THẤM QUA MỘT SỐ VẬT
+           -------------------------------------------------------------------------- */
+        function runExp3() {
+            playSound('water');
+            document.getElementById('btnAbsorb').disabled = true;
+
+            // 1. Giấy ăn & Vải bông thấm nước -> đổi màu và nhỏ giọt xuống cốc
+            document.getElementById('mat-paper').classList.add('wet');
+            document.getElementById('mat-cloth').classList.add('wet');
+            document.getElementById('drip-paper').classList.add('falling');
+            document.getElementById('drip-cloth').classList.add('falling');
+
+            // 2. Nhựa & Kính không thấm nước -> giọt nước đọng lại trên mặt
+            document.getElementById('mat-plastic').classList.add('wet');
+            document.getElementById('mat-glass').classList.add('wet');
+
+            setTimeout(() => {
+                document.getElementById('cup-paper').style.height = '45%';
+                document.getElementById('cup-cloth').style.height = '35%';
+
+                document.getElementById('status-paper').innerText = '✅ Thấm nước!';
+                document.getElementById('status-paper').style.color = '#15803D';
+
+                document.getElementById('status-cloth').innerText = '✅ Thấm nước!';
+                document.getElementById('status-cloth').style.color = '#15803D';
+
+                document.getElementById('status-plastic').innerText = '❌ Không thấm';
+                document.getElementById('status-plastic').style.color = '#BE123C';
+
+                document.getElementById('status-glass').innerText = '❌ Không thấm';
+                document.getElementById('status-glass').style.color = '#BE123C';
+            }, 700);
+
+            setTimeout(() => {
+                showConclusion(
+                    3,
+                    "Bé quan sát rất tinh mắt!",
+                    "☂️ <b>Nước thấm qua một số vật</b> như giấy, vải bông... nhưng <b>không thấm qua</b> nhựa, thủy tinh, kim loại.<br>Vì vậy người ta dùng nhựa/vải dù để làm áo mưa và ô che nắng mưa đấy!"
+                );
+            }, 1900);
+        }
+
+        function resetExp3() {
+            playSound('pop');
+            document.getElementById('btnAbsorb').disabled = false;
+            ['paper', 'cloth', 'plastic', 'glass'].forEach(item => {
+                document.getElementById(`mat-${item}`).classList.remove('wet');
+                document.getElementById(`cup-${item}`).style.height = '0%';
+                const st = document.getElementById(`status-${item}`);
+                st.innerText = 'Chưa thử';
+                st.style.color = '#64748B';
+            });
+            document.getElementById('drip-paper').classList.remove('falling');
+            document.getElementById('drip-cloth').classList.remove('falling');
+        }
+
+        /* --------------------------------------------------------------------------
+           6. LOGIC THÍ NGHIỆM 4: NƯỚC HÒA TAN MỘT SỐ CHẤT
+           -------------------------------------------------------------------------- */
+        // Hàm tạo các hạt muối, đường, cát ban đầu trong cốc
+        function initParticles() {
+            const configs = [
+                { id: 'salt-box', cls: 'p-salt' },
+                { id: 'sugar-box', cls: 'p-sugar' },
+                { id: 'sand-box', cls: 'p-sand' }
+            ];
+            configs.forEach(cfg => {
+                const box = document.getElementById(cfg.id);
+                box.innerHTML = '';
+                box.style.opacity = '1';
+                for (let i = 0; i < 14; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = `particle ${cfg.cls}`;
+                    box.appendChild(dot);
+                }
+            });
+            document.getElementById('oil-layer').style.top = '25%';
+        }
+
+        // Khởi tạo hạt ngay khi tải trang
+        initParticles();
+
+        function runExp4() {
+            playSound('water');
+            document.getElementById('btnDissolve').disabled = true;
+
+            // Hiển thị 4 chiếc thìa khuấy tròn
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`spoon-${i}`).classList.add('stirring');
+            }
+
+            // Muối và đường tan biến dần
+            document.getElementById('salt-box').style.opacity = '0';
+            document.getElementById('sugar-box').style.opacity = '0';
+
+            // Dầu ăn xáo trộn nhẹ rồi lại nổi lên mặt nước
+            const oil = document.getElementById('oil-layer');
+            oil.style.top = '45%';
+            setTimeout(() => { oil.style.top = '25%'; }, 800);
+
+            setTimeout(() => {
+                // Ngừng khuấy thìa
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`spoon-${i}`).classList.remove('stirring');
+                }
+
+                document.getElementById('res-salt').innerText = '✅ Đã tan hết!';
+                document.getElementById('res-salt').style.color = '#15803D';
+
+                document.getElementById('res-sugar').innerText = '✅ Đã tan hết!';
+                document.getElementById('res-sugar').style.color = '#15803D';
+
+                document.getElementById('res-sand').innerText = '❌ Không tan (lắng đáy)';
+                document.getElementById('res-sand').style.color = '#BE123C';
+
+                document.getElementById('res-oil').innerText = '❌ Không tan (nổi trên)';
+                document.getElementById('res-oil').style.color = '#BE123C';
+
+                showConclusion(
+                    4,
+                    "Nhà khoa học nhí xuất sắc!",
+                    "🧪 <b>Nước có thể hòa tan một số chất</b> như muối, đường... và <b>không hòa tan một số chất khác</b> như cát (chìm xuống đáy) hay dầu ăn (nổi lên trên mặt nước)."
+                );
+            }, 1700);
+        }
+
+        function resetExp4() {
+            playSound('pop');
+            document.getElementById('btnDissolve').disabled = false;
+            initParticles();
+            ['salt', 'sugar', 'sand', 'oil'].forEach(item => {
+                const el = document.getElementById(`res-${item}`);
+                el.innerText = 'Đang chờ khuấy...';
+                el.style.color = '#64748B';
+            });
+        }
+
+        /* --------------------------------------------------------------------------
+           7. LOGIC THÍ NGHIỆM 5: VÒNG TUẦN HOÀN CỦA NƯỚC TRONG THIÊN NHIÊN (NÂNG CẤP)
+           -------------------------------------------------------------------------- */
+        let hasEvaporated = false;
+        let cycleCompleted = false;
+
+        function updateWaterCycle() {
+            const sunTemp = parseInt(document.getElementById('sunSlider').value);
+            const coldLevel = parseInt(document.getElementById('coldSlider').value);
+
+            // Cập nhật hiển thị chỉ số nhiệt độ và độ lạnh
+            document.getElementById('sunVal').innerText = `${sunTemp}°C`;
+            document.getElementById('coldVal').innerText = coldLevel < 40 ? 'Ấm áp' : (coldLevel < 75 ? 'Se lạnh' : 'Rất lạnh ❄️');
+
+            // Phóng to và xoay nhẹ mặt trời theo nhiệt độ
+            const scaleSun = 1 + (sunTemp - 20) * 0.022;
+            const rotateSun = (sunTemp - 20) * 4;
+            document.getElementById('sunObj').style.transform = `scale(${scaleSun}) rotate(${rotateSun}deg)`;
+
+            const steamGroup = document.getElementById('steamGroup');
+            const cloudObj = document.getElementById('cloudObj');
+            const cloudIcon = document.getElementById('cloudIcon');
+            const rainContainer = document.getElementById('rainContainer');
+            const cycleScene = document.getElementById('cycleScene');
+            const mountainStream = document.getElementById('mountainStream');
+
+            // Các nhãn giai đoạn
+            const badgeEvap = document.getElementById('badgeEvap');
+            const badgeCondense = document.getElementById('badgeCondense');
+            const badgeRain = document.getElementById('badgeRain');
+            const badgeFlow = document.getElementById('badgeFlow');
+
+            // Giai đoạn 1: Nắng nóng (>= 35°C) -> Nước bay hơi tạo thành mây
+            if (sunTemp >= 35) {
+                steamGroup.style.opacity = '1';
+                badgeEvap.classList.add('show');
+                badgeCondense.classList.add('show');
+                hasEvaporated = true;
+            } else {
+                steamGroup.style.opacity = '0';
+                badgeEvap.classList.remove('show');
+                if (!hasEvaporated) badgeCondense.classList.remove('show');
+            }
+
+            // Giai đoạn 2: Đã có hơi nước bay lên + Gặp lạnh trên cao (>= 70) -> Mây đen & Mưa rơi & Dòng suối chảy về biển
+            if (hasEvaporated && coldLevel >= 70) {
+                cloudObj.style.left = '66%'; // Mây bay về phía đỉnh núi
+                cloudIcon.innerText = '⛈️🌧️';
+                rainContainer.style.display = 'flex';
+                cycleScene.classList.add('rainy-sky');
+                mountainStream.classList.add('active');
+
+                badgeRain.classList.add('show');
+                badgeFlow.classList.add('show');
+
+                if (!cycleCompleted) {
+                    cycleCompleted = true;
+                    setTimeout(() => {
+                        showConclusion(
+                            5,
+                            "Chúc mừng bé đã tạo ra Vòng tuần hoàn của nước!",
+                            "🌦️ <b>Vòng tuần hoàn của nước trong thiên nhiên:</b><br>" +
+                            "1️⃣ Mặt Trời sưởi ấm làm nước biển, sông hồ <b>bay hơi</b>.<br>" +
+                            "2️⃣ Hơi nước bay lên cao gặp lạnh <b>ngưng tụ</b> thành mây.<br>" +
+                            "3️⃣ Các giọt nước trong mây nặng dần rơi xuống tạo thành <b>mưa</b>.<br>" +
+                            "4️⃣ Nước mưa chảy theo suối, sông trở về biển và tiếp tục vòng lặp mới!"
+                        );
+                    }, 1500);
+                }
+            } else {
+                cloudObj.style.left = hasEvaporated ? '46%' : '30%';
+                cloudIcon.innerText = hasEvaporated ? '☁️☁️' : '☁️';
+                rainContainer.style.display = 'none';
+                cycleScene.classList.remove('rainy-sky');
+                mountainStream.classList.remove('active');
+                badgeRain.classList.remove('show');
+                badgeFlow.classList.remove('show');
+            }
+        }
+
+        function resetExp5() {
+            playSound('pop');
+            hasEvaporated = false;
+            cycleCompleted = false;
+            document.getElementById('sunSlider').value = 25;
+            document.getElementById('coldSlider').value = 10;
+            updateWaterCycle();
+        }
+    </script>
+</body>
+</html>
