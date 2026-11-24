@@ -1443,12 +1443,73 @@ async function startServer() {
     Leda: 'Zephyr',
   };
 
+  const GEMINI_KEY_ENV_NAMES = [
+    'GEMINI_API_KEY',
+    'GOOGLE_GENERATIVE_AI_API_KEY',
+    'GOOGLE_API_KEY',
+    'GOOGLE_GEMINI_API_KEY',
+    'GEMINI_KEY',
+    'GENAI_API_KEY',
+    'API_KEY',
+    'VITE_GEMINI_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY',
+  ] as const;
+
+  const PLACEHOLDER_GEMINI_KEYS = new Set([
+    'MY_GEMINI_API_KEY',
+    'YOUR_GEMINI_API_KEY',
+    'YOUR_API_KEY',
+    'GEMINI_API_KEY',
+    'REPLACE_ME',
+    'UNDEFINED',
+    'NULL',
+  ]);
+
+  function normalizeEnvSecret(raw: unknown): string {
+    if (typeof raw !== 'string') return '';
+    let val = raw.trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"') && val.length >= 2) ||
+      (val.startsWith("'") && val.endsWith("'") && val.length >= 2)
+    ) {
+      val = val.slice(1, -1).trim();
+    }
+    if (!val || PLACEHOLDER_GEMINI_KEYS.has(val.toUpperCase())) {
+      return '';
+    }
+    return val;
+  }
+
+  function resolveGeminiApiKey(): string {
+    for (const name of GEMINI_KEY_ENV_NAMES) {
+      const candidate = normalizeEnvSecret(process.env[name]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return '';
+  }
+
+  function isTtsBadRequestError(err: any): boolean {
+    const status = Number(err?.status ?? err?.cause?.status ?? 0);
+    if (status === 400) return true;
+    const msg = String(err?.message || '').toUpperCase();
+    return msg.includes('400') || msg.includes('INVALID_ARGUMENT');
+  }
+
+  function setTtsCorsHeaders(res: express.Response): void {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Cache-Control', 'no-store');
+  }
+
   let cachedGeminiClient: GoogleGenAI | null = null;
   let cachedGeminiKey: string | undefined = undefined;
 
   function getGeminiClient(): GoogleGenAI | null {
-    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+    const apiKey = resolveGeminiApiKey();
+    if (!apiKey) {
       return null;
     }
     if (!cachedGeminiClient || cachedGeminiKey !== apiKey) {
@@ -1462,7 +1523,13 @@ async function startServer() {
     return cachedGeminiClient;
   }
 
+  app.options('/api/gemini/tts', (_req, res) => {
+    setTtsCorsHeaders(res);
+    return res.status(204).end();
+  });
+
   app.post('/api/gemini/tts', async (req, res) => {
+    setTtsCorsHeaders(res);
     try {
       const rawText = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
       const rawVoice = typeof req.body?.voiceName === 'string' ? req.body.voiceName.trim() : 'Kore';
@@ -1528,7 +1595,7 @@ async function startServer() {
         });
       } catch (firstErr: any) {
         // Fallback once without speechMetadata if upstream rejects style metadata
-        if (firstErr?.status === 400) {
+        if (isTtsBadRequestError(firstErr)) {
           response = await ai.models.generateContent({
             model: 'gemini-3.8-flash-lite-tts',
             contents: [
@@ -1633,7 +1700,13 @@ async function startServer() {
     },
   };
 
+  app.options('/api/tts', (_req, res) => {
+    setTtsCorsHeaders(res);
+    return res.status(204).end();
+  });
+
   app.post('/api/tts', async (req, res) => {
+    setTtsCorsHeaders(res);
     try {
       const { text, voiceId, gender, tone } = (req.body || {}) as {
         text?: string;
@@ -1700,7 +1773,7 @@ async function startServer() {
           },
         });
       } catch (firstErr: any) {
-        if (firstErr?.status === 400) {
+        if (isTtsBadRequestError(firstErr)) {
           response = await ai.models.generateContent({
             model: 'gemini-3.8-flash-lite-tts',
             contents: [

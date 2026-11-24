@@ -185,7 +185,7 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   }
   if (
     candidate.id === 'item_keotha_noiy_restored' &&
-    !exEmbed.includes('data-keotha-rev="v2-cloud-sync"')
+    !exEmbed.includes('data-keotha-rev="v3-vercel-tts-fix"')
   ) {
     return true;
   }

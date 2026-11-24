@@ -6,12 +6,96 @@ const LEGACY_VOICE_MAP: Record<string, string> = {
   Leda: 'Zephyr',
 };
 
+const GEMINI_KEY_ENV_NAMES = [
+  'GEMINI_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_GEMINI_API_KEY',
+  'GEMINI_KEY',
+  'GENAI_API_KEY',
+  'API_KEY',
+  'VITE_GEMINI_API_KEY',
+  'NEXT_PUBLIC_GEMINI_API_KEY',
+] as const;
+
+const PLACEHOLDER_KEYS = new Set([
+  'MY_GEMINI_API_KEY',
+  'YOUR_GEMINI_API_KEY',
+  'YOUR_API_KEY',
+  'GEMINI_API_KEY',
+  'REPLACE_ME',
+  'UNDEFINED',
+  'NULL',
+]);
+
 let cachedClient: GoogleGenAI | null = null;
 let cachedKey: string | undefined = undefined;
 
+function normalizeEnvSecret(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  let val = raw.trim();
+  if (
+    (val.startsWith('"') && val.endsWith('"') && val.length >= 2) ||
+    (val.startsWith("'") && val.endsWith("'") && val.length >= 2)
+  ) {
+    val = val.slice(1, -1).trim();
+  }
+  if (!val || PLACEHOLDER_KEYS.has(val.toUpperCase())) {
+    return '';
+  }
+  return val;
+}
+
+function resolveGeminiApiKey(): string {
+  for (const name of GEMINI_KEY_ENV_NAMES) {
+    const candidate = normalizeEnvSecret(process.env[name]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return '';
+}
+
+function resolveUpstreamTtsEndpoint(req: any, pathSuffix: string): string | null {
+  const candidates = [
+    process.env.TTS_UPSTREAM_URL,
+    process.env.AI_BACKEND_URL,
+    process.env.BACKEND_API_URL,
+    process.env.APP_URL,
+    process.env.VITE_API_ORIGIN,
+  ];
+  const currentHost = String(req?.headers?.['x-forwarded-host'] || req?.headers?.host || '')
+    .trim()
+    .toLowerCase();
+
+  for (const raw of candidates) {
+    const cleaned = normalizeEnvSecret(raw).replace(/\/+$/, '');
+    if (!cleaned || cleaned === 'MY_APP_URL' || !/^https?:\/\//i.test(cleaned)) {
+      continue;
+    }
+    try {
+      const parsed = new URL(cleaned);
+      if (currentHost && parsed.host.toLowerCase() === currentHost) {
+        continue;
+      }
+      return `${parsed.origin}${pathSuffix}`;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function isBadRequestError(err: any): boolean {
+  const status = Number(err?.status ?? err?.cause?.status ?? 0);
+  if (status === 400) return true;
+  const msg = String(err?.message || '').toUpperCase();
+  return msg.includes('400') || msg.includes('INVALID_ARGUMENT');
+}
+
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+  const apiKey = resolveGeminiApiKey();
+  if (!apiKey) {
     return null;
   }
   if (!cachedClient || cachedKey !== apiKey) {
@@ -114,9 +198,31 @@ export default async function handler(req: any, res: any) {
 
     const ai = getGeminiClient();
     if (!ai) {
+      const upstreamEndpoint = resolveUpstreamTtsEndpoint(req, '/api/gemini/tts');
+      if (upstreamEndpoint) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 25000);
+          const upstreamRes = await fetch(upstreamEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: rawText, voiceName: rawVoice, stylePrompt: rawStyle }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          const upstreamData = await upstreamRes.json().catch(() => null);
+          if (upstreamData && typeof upstreamData === 'object') {
+            return res.status(upstreamRes.status).json(upstreamData);
+          }
+        } catch (proxyErr) {
+          console.error('Vercel /api/gemini/tts upstream proxy error:', proxyErr);
+        }
+      }
+
       return res.status(500).json({
         success: false,
-        message: 'Máy chủ chưa được cấu hình GEMINI_API_KEY để tạo giọng đọc AI.',
+        message:
+          'Máy chủ Vercel chưa được cấu hình GEMINI_API_KEY để tạo giọng đọc AI. Vui lòng vào Vercel > Project Settings > Environment Variables, thêm biến GEMINI_API_KEY (cho Production & Preview) rồi Redeploy.',
       });
     }
 
@@ -157,7 +263,7 @@ export default async function handler(req: any, res: any) {
         },
       });
     } catch (firstErr: any) {
-      if (firstErr?.status === 400) {
+      if (isBadRequestError(firstErr)) {
         response = await ai.models.generateContent({
           model: 'gemini-3.8-flash-lite-tts',
           contents: [
@@ -210,8 +316,9 @@ export default async function handler(req: any, res: any) {
     let userMessage = 'Không thể tạo giọng đọc AI Tiếng Việt lúc này. Vui lòng thử lại sau.';
     if (status === 429) {
       userMessage = 'Hệ thống tạo giọng AI đang quá tải tạm thời. Vui lòng đợi vài giây rồi thử lại.';
-    } else if (status === 401 || status === 403) {
-      userMessage = 'Không thể xác thực dịch vụ tạo giọng đọc AI trên máy chủ.';
+    } else if (status === 401 || status === 403 || upstreamMsg.toUpperCase().includes('API_KEY_INVALID')) {
+      userMessage =
+        'Khóa GEMINI_API_KEY trên máy chủ không hợp lệ hoặc thiếu quyền. Vui lòng kiểm tra lại Environment Variables trên Vercel rồi Redeploy.';
     } else if (status === 400) {
       userMessage = 'Yêu cầu tạo giọng đọc không hợp lệ. Vui lòng kiểm tra lại câu Tiếng Việt.';
     }
