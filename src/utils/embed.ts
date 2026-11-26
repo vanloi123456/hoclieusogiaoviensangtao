@@ -348,9 +348,24 @@ export interface TeacherStorageBridgeConfig {
   role?: UserRole;
 }
 
+function getParentHostOriginSafe(): string {
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      window.location &&
+      window.location.origin &&
+      window.location.origin !== 'null'
+    ) {
+      return window.location.origin;
+    }
+  } catch {}
+  return '';
+}
+
 function buildRoleBootstrapScript(role?: UserRole): string {
   const safeRole = JSON.stringify(role || 'guest').replace(/</g, '\\u003c');
-  return `<script>window.__HOST_USER_ROLE__=${safeRole};<\/script>`;
+  const safeOrigin = JSON.stringify(getParentHostOriginSafe()).replace(/</g, '\\u003c');
+  return `<script>window.__HOST_USER_ROLE__=${safeRole};window.__HOST_ORIGIN__=${safeOrigin};<\/script>`;
 }
 
 function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
@@ -358,10 +373,12 @@ function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
   const safeTeacherId = JSON.stringify(config.teacherId).replace(/</g, '\\u003c');
   const safeItemId = JSON.stringify(config.itemId).replace(/</g, '\\u003c');
   const safeRole = JSON.stringify(config.role || 'guest').replace(/</g, '\\u003c');
+  const safeOrigin = JSON.stringify(getParentHostOriginSafe()).replace(/</g, '\\u003c');
   const readOnlyFlag = config.readOnly ? 'true' : 'false';
 
   return `<script>
 window.__HOST_USER_ROLE__ = ${safeRole};
+window.__HOST_ORIGIN__ = ${safeOrigin};
 (function() {
   var __teacherId = ${safeTeacherId};
   var __itemId = ${safeItemId};

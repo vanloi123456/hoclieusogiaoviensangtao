@@ -227,19 +227,19 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   }
   if (
     candidate.id === 'item_vongquaygoiten_vercel' &&
-    !exEmbed.includes('data-vongquay-rev="v1-no-teacher-profile"')
+    !exEmbed.includes('data-vongquay-rev="v2-universal-tts-mobile-fix"')
   ) {
     return true;
   }
   if (
     candidate.id === 'item_trochoilatmanhghep_vercel' &&
-    !exEmbed.includes('data-latmanhghep-rev="v1-teacher-cloud-sync"')
+    !exEmbed.includes('data-latmanhghep-rev="v2-universal-tts-mobile-fix"')
   ) {
     return true;
   }
   if (
     candidate.id === 'item_vonghoakienthuc_vercel' &&
-    !exEmbed.includes('data-vonghoakienthuc-rev="v1-teacher-cloud-sync"')
+    !exEmbed.includes('data-vonghoakienthuc-rev="v2-universal-tts-mobile-fix"')
   ) {
     return true;
   }

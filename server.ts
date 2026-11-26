@@ -4,7 +4,7 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from '@google/genai';
+import { handleVietnameseTts, setTtsCorsHeaders } from './api/_lib/ttsEngine';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1467,93 +1467,7 @@ async function startServer() {
     }
   });
 
-  // 12. Server-side Gemini Vietnamese Text-to-Speech (TTS)
-  const SUPPORTED_TTS_VOICES = new Set(['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr']);
-  const LEGACY_VOICE_MAP: Record<string, string> = {
-    Aoede: 'Kore',
-    Leda: 'Zephyr',
-  };
-
-  const GEMINI_KEY_ENV_NAMES = [
-    'GEMINI_API_KEY',
-    'GOOGLE_GENERATIVE_AI_API_KEY',
-    'GOOGLE_API_KEY',
-    'GOOGLE_GEMINI_API_KEY',
-    'GEMINI_KEY',
-    'GENAI_API_KEY',
-    'API_KEY',
-    'VITE_GEMINI_API_KEY',
-    'NEXT_PUBLIC_GEMINI_API_KEY',
-  ] as const;
-
-  const PLACEHOLDER_GEMINI_KEYS = new Set([
-    'MY_GEMINI_API_KEY',
-    'YOUR_GEMINI_API_KEY',
-    'YOUR_API_KEY',
-    'GEMINI_API_KEY',
-    'REPLACE_ME',
-    'UNDEFINED',
-    'NULL',
-  ]);
-
-  function normalizeEnvSecret(raw: unknown): string {
-    if (typeof raw !== 'string') return '';
-    let val = raw.trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"') && val.length >= 2) ||
-      (val.startsWith("'") && val.endsWith("'") && val.length >= 2)
-    ) {
-      val = val.slice(1, -1).trim();
-    }
-    if (!val || PLACEHOLDER_GEMINI_KEYS.has(val.toUpperCase())) {
-      return '';
-    }
-    return val;
-  }
-
-  function resolveGeminiApiKey(): string {
-    for (const name of GEMINI_KEY_ENV_NAMES) {
-      const candidate = normalizeEnvSecret(process.env[name]);
-      if (candidate) {
-        return candidate;
-      }
-    }
-    return '';
-  }
-
-  function isTtsBadRequestError(err: any): boolean {
-    const status = Number(err?.status ?? err?.cause?.status ?? 0);
-    if (status === 400) return true;
-    const msg = String(err?.message || '').toUpperCase();
-    return msg.includes('400') || msg.includes('INVALID_ARGUMENT');
-  }
-
-  function setTtsCorsHeaders(res: express.Response): void {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Cache-Control', 'no-store');
-  }
-
-  let cachedGeminiClient: GoogleGenAI | null = null;
-  let cachedGeminiKey: string | undefined = undefined;
-
-  function getGeminiClient(): GoogleGenAI | null {
-    const apiKey = resolveGeminiApiKey();
-    if (!apiKey) {
-      return null;
-    }
-    if (!cachedGeminiClient || cachedGeminiKey !== apiKey) {
-      cachedGeminiKey = apiKey;
-      cachedGeminiClient = new GoogleGenAI({
-        apiKey,
-        apiVersion: 'v1beta',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-      });
-    }
-    return cachedGeminiClient;
-  }
-
+  // 12. Unified Server-side Vietnamese Text-to-Speech (TTS) for all embedded apps & games
   app.options('/api/gemini/tts', (_req, res) => {
     setTtsCorsHeaders(res);
     return res.status(204).end();
@@ -1562,174 +1476,31 @@ async function startServer() {
   app.post('/api/gemini/tts', async (req, res) => {
     setTtsCorsHeaders(res);
     try {
-      const rawText = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
-      const rawVoice = typeof req.body?.voiceName === 'string' ? req.body.voiceName.trim() : 'Kore';
-      const rawStyle = typeof req.body?.stylePrompt === 'string' ? req.body.stylePrompt.trim() : '';
-
-      if (!rawText) {
-        return res.status(400).json({
+      const result = await handleVietnameseTts(req, req.body || {}, '/api/gemini/tts');
+      if (result.ok === false) {
+        return res.status(result.status).json({
           success: false,
-          message: 'Vui lòng nhập nội dung Tiếng Việt để tạo giọng đọc AI.',
+          message: result.error,
+          error: result.error,
+          detail: result.detail,
         });
       }
-
-      if (rawText.length > 600) {
-        return res.status(400).json({
-          success: false,
-          message: 'Nội dung cần đọc không được vượt quá 600 ký tự.',
-        });
-      }
-
-      const ai = getGeminiClient();
-      if (!ai) {
-        return res.status(500).json({
-          success: false,
-          message: 'Máy chủ chưa được cấu hình GEMINI_API_KEY để tạo giọng đọc AI.',
-        });
-      }
-
-      const mappedVoice = LEGACY_VOICE_MAP[rawVoice] || rawVoice;
-      const resolvedVoice = SUPPORTED_TTS_VOICES.has(mappedVoice) ? mappedVoice : 'Kore';
-      const styleInstruction =
-        rawStyle || 'Đọc bằng giọng Tiếng Việt tự nhiên, phát âm chuẩn, truyền cảm và rõ ràng.';
-
-      const buildPart = (withStyle: boolean) =>
-        withStyle
-          ? {
-              text: rawText,
-              speechMetadata: { style: styleInstruction },
-            }
-          : {
-              text: rawText,
-            };
-
-      let response: any;
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash-lite-tts',
-          contents: [
-            {
-              role: 'user',
-              parts: [buildPart(true)],
-            },
-          ],
-          config: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: resolvedVoice,
-                },
-              },
-            },
-          },
-        });
-      } catch (firstErr: any) {
-        // Fallback once without speechMetadata if upstream rejects style metadata
-        if (isTtsBadRequestError(firstErr)) {
-          response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash-lite-tts',
-            contents: [
-              {
-                role: 'user',
-                parts: [buildPart(false)],
-              },
-            ],
-            config: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: resolvedVoice,
-                  },
-                },
-              },
-            },
-          });
-        } else {
-          throw firstErr;
-        }
-      }
-
-      const parts = response?.candidates?.[0]?.content?.parts || [];
-      const audioPart = parts.find((p: any) => p?.inlineData?.data);
-      const inlineData = audioPart?.inlineData;
-
-      if (!inlineData?.data) {
-        return res.status(502).json({
-          success: false,
-          message: 'Gemini AI không trả về dữ liệu âm thanh. Vui lòng thử lại.',
-        });
-      }
-
       return res.json({
         success: true,
-        audioBase64: inlineData.data,
-        mimeType: inlineData.mimeType || 'audio/wav',
-        voiceName: resolvedVoice,
-        model: 'gemini-3.8-flash-lite-tts',
+        audioBase64: result.audioBase64,
+        mimeType: result.mimeType,
+        audioDataUrl: result.audioDataUrl,
+        voiceName: result.voiceName,
+        model: result.provider === 'gemini' ? 'gemini-3.8-flash-lite-tts' : result.provider,
       });
     } catch (err: any) {
       console.error('Gemini TTS error:', err);
-      const status =
-        typeof err?.status === 'number' && err.status >= 400 && err.status < 600
-          ? err.status
-          : 502;
-      const upstreamMsg = err?.message ? String(err.message) : 'Lỗi kết nối Gemini TTS';
-      let userMessage = 'Không thể tạo giọng đọc AI Tiếng Việt lúc này. Vui lòng thử lại sau.';
-      if (status === 429) {
-        userMessage = 'Hệ thống tạo giọng AI đang quá tải tạm thời. Vui lòng đợi vài giây rồi thử lại.';
-      } else if (status === 401 || status === 403) {
-        userMessage = 'Không thể xác thực dịch vụ tạo giọng đọc AI trên máy chủ.';
-      } else if (status === 400) {
-        userMessage = 'Yêu cầu tạo giọng đọc không hợp lệ. Vui lòng kiểm tra lại câu Tiếng Việt.';
-      }
-      return res.status(status).json({
+      return res.status(500).json({
         success: false,
-        message: userMessage,
-        detail: upstreamMsg,
+        message: 'Không thể tạo giọng đọc AI Tiếng Việt lúc này. Vui lòng thử lại sau.',
       });
     }
   });
-
-  // 13. Server-side Southern Vietnamese TTS endpoint (/api/tts) for Từ Ngữ Biết Bay
-  interface ServerVoiceConfig {
-    prebuiltVoice: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir';
-    personaStyle: string;
-  }
-
-  const SOUTHERN_VOICE_MAP: Record<string, ServerVoiceConfig> = {
-    nu_co_giao: {
-      prebuiltVoice: 'Kore',
-      personaStyle:
-        'Authentic Ho Chi Minh City / Southern Vietnamese female teacher (giọng nữ miền Nam Sài Gòn), warm, gentle, articulate, affectionate classroom tone',
-    },
-    nu_nang_dong: {
-      prebuiltVoice: 'Zephyr',
-      personaStyle:
-        'Authentic Southern Vietnamese young female teacher (giọng nữ miền Nam trẻ trung), bright, energetic, lively, sparkling classroom enthusiasm',
-    },
-    nu_mien_tay: {
-      prebuiltVoice: 'Kore',
-      personaStyle:
-        'Authentic Mekong Delta / Southwestern Vietnamese female speaker (giọng nữ miền Tây Nam Bộ), sweet, soft, melodious, warm storytelling rhythm',
-    },
-    nam_thay_giao: {
-      prebuiltVoice: 'Puck',
-      personaStyle:
-        'Authentic Ho Chi Minh City / Southern Vietnamese male teacher (giọng nam miền Nam Sài Gòn), friendly, cheerful, approachable, upbeat classroom tone',
-    },
-    nam_tram_am: {
-      prebuiltVoice: 'Charon',
-      personaStyle:
-        'Authentic Southern Vietnamese male teacher (giọng nam miền Nam trầm ấm), calm, deep, clear, reassuring and articulate classroom delivery',
-    },
-    nam_soi_noi: {
-      prebuiltVoice: 'Fenrir',
-      personaStyle:
-        'Authentic Mekong Delta / Southern Vietnamese lively male game host (giọng nam miền Tây sôi nổi), expressive, playful, warm and energetic',
-    },
-  };
 
   app.options('/api/tts', (_req, res) => {
     setTtsCorsHeaders(res);
@@ -1739,128 +1510,61 @@ async function startServer() {
   app.post('/api/tts', async (req, res) => {
     setTtsCorsHeaders(res);
     try {
-      const { text, voiceId, gender, tone } = (req.body || {}) as {
-        text?: string;
-        voiceId?: string;
-        gender?: 'female' | 'male';
-        tone?: 'correct' | 'wrong' | 'question' | 'sample';
-      };
-
-      const cleanText = typeof text === 'string' ? text.trim().slice(0, 360) : '';
-      if (!cleanText) {
-        return res.status(400).json({ error: 'Vui lòng nhập nội dung cần tạo giọng đọc AI.' });
-      }
-
-      const ai = getGeminiClient();
-      if (!ai) {
-        return res.status(503).json({
-          error:
-            'Chưa cấu hình khóa Gemini API trên máy chủ. Vui lòng kiểm tra mục Settings > Secrets.',
+      const result = await handleVietnameseTts(req, req.body || {}, '/api/tts');
+      if (result.ok === false) {
+        return res.status(result.status).json({
+          success: false,
+          error: result.error,
+          message: result.error,
+          detail: result.detail,
         });
       }
-
-      const fallbackId = gender === 'male' ? 'nam_thay_giao' : 'nu_co_giao';
-      const voiceCfg =
-        (voiceId && SOUTHERN_VOICE_MAP[voiceId]) || SOUTHERN_VOICE_MAP[fallbackId];
-
-      let emotionDesc =
-        'bright, joyful, enthusiastic, praising classroom tone celebrating a correct answer';
-      if (tone === 'wrong') {
-        emotionDesc =
-          'gentle, patient, warm, encouraging classroom tone motivating students to try again';
-      } else if (tone === 'question') {
-        emotionDesc =
-          'clear, expressive, steady classroom reading tone so students at the back of the room hear every word distinctly';
-      } else if (tone === 'sample') {
-        emotionDesc = 'natural, friendly, welcoming classroom introduction tone';
-      }
-
-      const styleInstruction = `Speak in natural Southern Vietnamese (tiếng Việt giọng miền Nam Việt Nam). ${voiceCfg.personaStyle}. Deliver with a ${emotionDesc}.`;
-
-      let response: any;
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash-lite-tts',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: cleanText,
-                  speechMetadata: {
-                    style: styleInstruction,
-                  },
-                },
-              ],
-            },
-          ],
-          config: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: voiceCfg.prebuiltVoice },
-              },
-            },
-          },
-        });
-      } catch (firstErr: any) {
-        if (isTtsBadRequestError(firstErr)) {
-          response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash-lite-tts',
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: cleanText }],
-              },
-            ],
-            config: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: voiceCfg.prebuiltVoice },
-                },
-              },
-            },
-          });
-        } else {
-          throw firstErr;
-        }
-      }
-
-      const parts = response?.candidates?.[0]?.content?.parts || [];
-      const audioPart = parts.find((p: any) => p?.inlineData?.data);
-      const inlineData = audioPart?.inlineData;
-
-      if (!inlineData?.data) {
-        return res.status(502).json({
-          error: 'Không nhận được dữ liệu âm thanh từ mô hình giọng đọc AI.',
-        });
-      }
-
       return res.json({
-        audioBase64: inlineData.data,
-        mimeType: inlineData.mimeType || 'audio/wav',
+        success: true,
+        audioBase64: result.audioBase64,
+        mimeType: result.mimeType,
+        audioDataUrl: result.audioDataUrl,
+        voiceName: result.voiceName,
+        provider: result.provider,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? Number((err as { status?: unknown }).status)
-          : 500;
-      console.error('TTS API error:', status, msg);
-      if (status === 429 || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-        return res.status(429).json({
-          error:
-            'Đã vượt giới hạn gọi giọng đọc AI tạm thời. Vui lòng đợi một chút rồi thử lại.',
-        });
-      }
-      if (status === 403 || msg.includes('403') || msg.includes('API_KEY_INVALID')) {
-        return res.status(403).json({
-          error:
-            'Khóa API không hợp lệ hoặc thiếu quyền. Vui lòng kiểm tra mục Settings > Secrets.',
-        });
-      }
+      console.error('TTS API error:', err);
       return res.status(500).json({
+        success: false,
+        error: 'Không thể tạo giọng đọc AI lúc này. Vui lòng thử lại.',
+      });
+    }
+  });
+
+  app.options('/api/tts/southern', (_req, res) => {
+    setTtsCorsHeaders(res);
+    return res.status(204).end();
+  });
+
+  app.post('/api/tts/southern', async (req, res) => {
+    setTtsCorsHeaders(res);
+    try {
+      const result = await handleVietnameseTts(req, req.body || {}, '/api/tts/southern');
+      if (result.ok === false) {
+        return res.status(result.status).json({
+          success: false,
+          error: result.error,
+          message: result.error,
+          detail: result.detail,
+        });
+      }
+      return res.json({
+        success: true,
+        audioBase64: result.audioBase64,
+        mimeType: result.mimeType,
+        audioDataUrl: result.audioDataUrl,
+        voiceName: result.voiceName,
+        provider: result.provider,
+      });
+    } catch (err: unknown) {
+      console.error('TTS Southern API error:', err);
+      return res.status(500).json({
+        success: false,
         error: 'Không thể tạo giọng đọc AI lúc này. Vui lòng thử lại.',
       });
     }
