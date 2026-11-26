@@ -66,6 +66,10 @@ const BUNDLED_ADDON_IDS = new Set<string>([
   'item_khoahoc4_bai1_tinhchatnuoc',
   'item_ngontay_vercel',
   'item_nghiengdau_vercel',
+  'item_vongquaygoiten_vercel',
+  'item_trochoilatmanhghep_vercel',
+  'item_vonghoakienthuc_vercel',
+  'item_huongdan_giongontay_yt',
 ]);
 const ALL_ZONES: ZoneType[] = [
   'virtual_spaces',
@@ -218,6 +222,24 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   if (
     candidate.id === 'item_khoahoc4_bai1_tinhchatnuoc' &&
     !exEmbed.includes('th_nghi_m_m_ph_ng_khoa_h_c_4_n_c_v_cu_c_s_ng_7ea930fb.html')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_vongquaygoiten_vercel' &&
+    !exEmbed.includes('data-vongquay-rev="v1-no-teacher-profile"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_trochoilatmanhghep_vercel' &&
+    !exEmbed.includes('data-latmanhghep-rev="v1-teacher-cloud-sync"')
+  ) {
+    return true;
+  }
+  if (
+    candidate.id === 'item_vonghoakienthuc_vercel' &&
+    !exEmbed.includes('data-vonghoakienthuc-rev="v1-teacher-cloud-sync"')
   ) {
     return true;
   }
@@ -1670,7 +1692,7 @@ class StorageService {
       return { isChunked: false, mainEntries: boundedEntries, chunks: [] };
     }
 
-    const chunks = splitStringByUtf8Bytes(serialized, 320_000).slice(0, 25);
+    const chunks = splitStringByUtf8Bytes(serialized, 320_000).slice(0, 120);
     return {
       isChunked: true,
       mainEntries: {
@@ -1783,7 +1805,7 @@ class StorageService {
             updatedAt: serverTimestamp(),
           });
           // Clean up any prior chunk docs for this itemId if payload shrunk
-          for (let idx = 0; idx < 25; idx++) {
+          for (let idx = 0; idx < 120; idx++) {
             const chunkRef = this.getTeacherAppDocRef(teacherId, `${itemId}__chunk_${idx}`);
             const snap = await getDoc(chunkRef).catch(() => null);
             if (!snap || !snap.exists()) break;
@@ -1812,7 +1834,7 @@ class StorageService {
           updatedAt: serverTimestamp(),
         });
 
-        for (let idx = chunks.length; idx < 25; idx++) {
+        for (let idx = chunks.length; idx < 120; idx++) {
           const chunkRef = this.getTeacherAppDocRef(teacherId, `${itemId}__chunk_${idx}`);
           const snap = await getDoc(chunkRef).catch(() => null);
           if (!snap || !snap.exists()) break;

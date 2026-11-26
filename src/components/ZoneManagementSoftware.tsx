@@ -7,7 +7,6 @@ import {
   Camera,
   RotateCcw,
   Eye,
-  Plus,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
 import { processImageFile } from '../utils/image';
@@ -20,7 +19,6 @@ interface ZoneManagementSoftwareProps {
   onUploadAvatar?: (dataUrl: string) => void;
   onRemoveAvatar?: () => void;
   onSelectZone?: () => void;
-  onAddSoftware?: () => void;
   onEditItem: (item: ContentItem) => void;
   onDeleteItem: (item: ContentItem) => void;
   onViewSoftware: (item: ContentItem) => void;
@@ -34,7 +32,6 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
   onUploadAvatar,
   onRemoveAvatar,
   onSelectZone,
-  onAddSoftware,
   onEditItem,
   onDeleteItem,
   onViewSoftware,
@@ -127,20 +124,9 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
               Ứng dụng tiện ích hỗ trợ giảng dạy &amp; quản lý
             </p>
 
-            {/* Admin dedicated quick add & avatar action toolbar */}
+            {/* Admin dedicated avatar action toolbar */}
             {isAdmin && (
               <div className="flex items-center gap-2 flex-wrap mt-2">
-                {onAddSoftware && (
-                  <button
-                    type="button"
-                    onClick={onAddSoftware}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                    title="Thêm ứng dụng tiện ích mới bằng mã nhúng HTML hoặc link Gemini, AI Studio, Vercel"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Thêm ứng dụng tiện ích</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -179,21 +165,9 @@ export const ZoneManagementSoftware: React.FC<ZoneManagementSoftwareProps> = ({
           <h3 className="text-base font-semibold text-slate-800 mb-1">
             Khu vực ứng dụng tiện ích đang trống
           </h3>
-          <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            {onAddSoftware
-              ? 'Chưa có ứng dụng tiện ích nào được tải lên. Quản trị viên có thể thêm mới bằng mã nhúng HTML hoặc đường dẫn Google Gemini, Google AI Studio, Vercel.'
-              : 'Chưa có ứng dụng tiện ích nào được tải lên. Chức năng thêm mới ứng dụng tiện ích hiện đang tạm tắt.'}
+          <p className="text-xs text-slate-600 max-w-md leading-relaxed">
+            Chưa có ứng dụng tiện ích nào trong khu vực này.
           </p>
-          {isAdmin && onAddSoftware && (
-            <button
-              type="button"
-              onClick={onAddSoftware}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Thêm ứng dụng tiện ích ngay</span>
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

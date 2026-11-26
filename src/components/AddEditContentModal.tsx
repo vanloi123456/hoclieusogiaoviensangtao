@@ -112,8 +112,8 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
     e.preventDefault();
     setFormError(null);
 
-    if (!editingItem && zone !== 'guides' && zone !== 'management') {
-      setFormError('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
+    if (!editingItem) {
+      setFormError('Chức năng thêm mới nội dung hiện đang được tắt.');
       return;
     }
 
@@ -316,16 +316,18 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
+                disabled={!editingItem}
                 onClick={() => {
+                  if (!editingItem) return;
                   setZone('management');
-                  if (!editingItem && creditCost === 0) {
-                    setCreditCost(CREDIT_COST_STANDARD_ACCESS);
-                  }
                 }}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'management'
-                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'management'
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <FolderKanban className="w-4 h-4 shrink-0" />
@@ -334,11 +336,15 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setZone('guides')}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                  zone === 'guides'
-                    ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                disabled={!editingItem}
+                onClick={() => editingItem && setZone('guides')}
+                title={!editingItem ? 'Chức năng thêm mới tại khu vực này đang tạm tắt' : undefined}
+                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  !editingItem
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                    : zone === 'guides'
+                    ? 'bg-rose-600 text-white border-rose-700 shadow-xs cursor-pointer'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer'
                 }`}
               >
                 <PlayCircle className="w-4 h-4 shrink-0" />

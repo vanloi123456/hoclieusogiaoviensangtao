@@ -6,13 +6,9 @@ import {
   Edit3,
   Camera,
   RotateCcw,
-  Eye,
-  Plus,
-  Youtube,
-  Code2,
+  Sparkles,
 } from 'lucide-react';
 import { ContentItem, UserRole, UserAccount } from '../types';
-import { extractYouTubeVideoId, generateSandboxHtml } from '../utils/embed';
 import { processImageFile } from '../utils/image';
 
 interface ZoneGuidesProps {
@@ -23,10 +19,9 @@ interface ZoneGuidesProps {
   onUploadAvatar?: (dataUrl: string) => void;
   onRemoveAvatar?: () => void;
   onSelectZone?: () => void;
-  onAddGuide?: () => void;
   onEditItem: (item: ContentItem) => void;
   onDeleteItem: (item: ContentItem) => void;
-  onViewGuide: (item: ContentItem) => void;
+  onViewGuide?: (item: ContentItem) => void;
   onLaunchGuide: (item: ContentItem) => void;
 }
 
@@ -37,10 +32,8 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
   onUploadAvatar,
   onRemoveAvatar,
   onSelectZone,
-  onAddGuide,
   onEditItem,
   onDeleteItem,
-  onViewGuide,
   onLaunchGuide,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,23 +118,12 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              Hướng dẫn sử dụng — Hỗ trợ chèn mã nhúng HTML/iframe hoặc link video trên YouTube
+              Video và tài liệu hướng dẫn dành cho giáo viên và học sinh
             </p>
 
-            {/* Admin dedicated avatar & quick add toolbar */}
+            {/* Admin dedicated avatar toolbar */}
             {isAdmin && (
               <div className="flex items-center gap-2 flex-wrap mt-2">
-                {onAddGuide && (
-                  <button
-                    type="button"
-                    onClick={onAddGuide}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                    title="Thêm hướng dẫn sử dụng mới (link YouTube hoặc mã nhúng)"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Thêm hướng dẫn</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -175,148 +157,113 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
             <PlayCircle className="w-8 h-8 stroke-[1.5]" />
           </div>
           <h3 className="text-base font-semibold text-slate-800 mb-1">
-            Khu vực hướng dẫn sử dụng đang trống
+            Khu vực hướng dẫn đang trống
           </h3>
-          <p className="text-xs text-slate-600 max-w-md mb-4 leading-relaxed">
-            Chưa có video hoặc tài liệu hướng dẫn nào. Quản trị viên có thể thêm hướng dẫn bằng đường dẫn YouTube hoặc mã nhúng HTML/iframe.
+          <p className="text-xs text-slate-600 max-w-md leading-relaxed">
+            Chưa có video hoặc tài liệu hướng dẫn nào trong khu vực này.
           </p>
-          {isAdmin && onAddGuide && (
-            <button
-              type="button"
-              onClick={onAddGuide}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Thêm hướng dẫn ngay</span>
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((item) => {
-            const youtubeId = item.embedCode ? extractYouTubeVideoId(item.embedCode) : null;
-            const previewDoc = !youtubeId && item.embedCode ? generateSandboxHtml(item.embedCode) : '';
-
-            return (
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="group bg-white/95 backdrop-blur-sm rounded-2xl border border-rose-100/90 hover:border-rose-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col"
+            >
+              {/* Hình nền trang trí thẻ Hướng dẫn (không hiển thị màn hình chính) */}
               <div
-                key={item.id}
-                className="group bg-white/95 backdrop-blur-sm rounded-2xl border border-rose-100/90 hover:border-rose-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col"
+                onClick={() => onLaunchGuide(item)}
+                className="relative h-36 bg-gradient-to-br from-rose-600 via-pink-600 to-orange-500 overflow-hidden cursor-pointer flex items-center justify-center p-4"
               >
-                {/* Guide Preview Window */}
-                <div className="relative aspect-16/10 bg-slate-950 overflow-hidden">
-                  {youtubeId ? (
-                    <img
-                      src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`}
-                      alt={item.title}
-                      loading="lazy"
-                      className="w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-300"
-                    />
-                  ) : item.embedCode ? (
-                    <div className="w-full h-full relative pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
-                      <iframe
-                        srcDoc={previewDoc}
-                        title={item.title}
-                        sandbox="allow-scripts allow-same-origin"
-                        className="w-full h-full border-0 transform scale-90 origin-center"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-600">
-                      <PlayCircle className="w-12 h-12" />
-                    </div>
-                  )}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(circle at 20% 25%, #ffffff 2px, transparent 2px), radial-gradient(circle at 80% 75%, #ffffff 2px, transparent 2px)',
+                    backgroundSize: '28px 28px',
+                  }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/15 blur-xl"
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute -left-8 -bottom-8 w-28 h-28 rounded-full bg-amber-300/20 blur-xl"
+                />
 
-                  {/* Source Format Pill */}
-                  <div className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/75 text-white border border-white/15 backdrop-blur-xs">
-                    {youtubeId ? (
-                      <>
-                        <Youtube className="w-3 h-3 text-rose-400" />
-                        <span>Video YouTube</span>
-                      </>
-                    ) : (
-                      <>
-                        <Code2 className="w-3 h-3 text-sky-400" />
-                        <span>Mã nhúng</span>
-                      </>
-                    )}
+                {avatarUrl && (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-105 transition-transform duration-500"
+                  />
+                )}
+
+                <div className="relative z-10 flex flex-col items-center gap-2 text-white">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <PlayCircle className="w-7 h-7 text-white" />
                   </div>
-
-                  {/* Play Action Overlay */}
-                  <div
-                    onClick={() => onLaunchGuide(item)}
-                    className="absolute inset-0 bg-slate-950/25 hover:bg-slate-950/10 transition-colors flex items-center justify-center cursor-pointer group/btn"
-                  >
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 group-hover/btn:bg-rose-500 text-white font-bold text-xs shadow-lg group-hover/btn:scale-105 transition-all">
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>Xem hướng dẫn</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Guide Meta & Controls */}
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3
-                      onClick={() => onLaunchGuide(item)}
-                      className="text-base font-bold text-slate-800 line-clamp-1 hover:text-rose-600 cursor-pointer font-display"
-                      title={item.title}
-                    >
-                      {item.title}
-                    </h3>
-                    {item.description && (
-                      <p className="text-xs text-slate-500 line-clamp-2 mt-1">
-                        {item.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => onViewGuide(item)}
-                        className="flex items-center gap-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
-                        title="Xem chi tiết hướng dẫn"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Xem</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onLaunchGuide(item)}
-                        className="flex items-center gap-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                        title="Mở hướng dẫn toàn màn hình"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Mở</span>
-                      </button>
-                    </div>
-
-                    {canManage && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onEditItem(item)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Sửa hướng dẫn"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteItem(item)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Xóa hướng dẫn này"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded-full bg-slate-950/25 border border-white/25 text-white/95">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                    <span>Hướng dẫn sử dụng</span>
+                  </span>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Tên & Nút Bắt đầu */}
+              <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                <div className="space-y-1.5">
+                  <h3
+                    onClick={() => onLaunchGuide(item)}
+                    className="text-[15px] font-bold text-slate-900 hover:text-rose-600 cursor-pointer font-display leading-snug"
+                    title={item.title}
+                  >
+                    {item.title}
+                  </h3>
+                  {item.description && (
+                    <p className="text-xs font-semibold text-rose-700 leading-snug">
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onLaunchGuide(item)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-bold text-xs shadow-sm shadow-rose-600/20 transition-all cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Bắt đầu</span>
+                  </button>
+
+                  {canManage && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onEditItem(item)}
+                        className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        title="Sửa hướng dẫn"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteItem(item)}
+                        className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        title="Xóa hướng dẫn này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>

@@ -22,7 +22,6 @@ import {
   FolderKanban,
   PlayCircle,
   Box,
-  Plus,
   Save,
 } from 'lucide-react';
 import { authService } from '../services/auth';
@@ -50,7 +49,6 @@ interface AdminPanelModalProps {
   onUpdateBranding: (branding: SiteBranding) => void;
   managementItems?: ContentItem[];
   onUpdateItemCreditCost?: (item: ContentItem, nextCost: number) => Promise<void>;
-  onOpenAddManagementItem?: () => void;
   contentCounts: {
     virtualSpaces: number;
     apps: number;
@@ -86,7 +84,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onUpdateBranding,
   managementItems = [],
   onUpdateItemCreditCost,
-  onOpenAddManagementItem,
   contentCounts,
 }) => {
   const [activeTab, setActiveTab] = useState<'teachers' | 'pricing' | 'branding'>(
@@ -702,20 +699,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   Thiết lập số tín dụng AI bị trừ khi giáo viên mở từng ứng dụng tiện ích.
                 </p>
               </div>
-
-              {onOpenAddManagementItem && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenAddManagementItem();
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Thêm ứng dụng tiện ích</span>
-                </button>
-              )}
             </div>
 
             {managementItems.length === 0 ? (
@@ -724,22 +707,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 <h4 className="text-sm font-bold text-slate-800 mb-1">
                   Chưa có ứng dụng nào trong Ứng dụng Tiện ích
                 </h4>
-                <p className="text-xs text-slate-500 max-w-md mb-4">
-                  Quản trị viên có thể thêm mới ứng dụng tiện ích và cài đặt giá tín dụng AI riêng cho từng ứng dụng.
+                <p className="text-xs text-slate-500 max-w-md">
+                  Hiện chưa có ứng dụng nào trong khu vực Ứng dụng Tiện ích.
                 </p>
-                {onOpenAddManagementItem && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenAddManagementItem();
-                    }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Thêm ứng dụng tiện ích ngay</span>
-                  </button>
-                )}
               </div>
             ) : (
               <div className="space-y-3">

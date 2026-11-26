@@ -49,13 +49,23 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
       item.id === 'item_lophocaophienban2_3d' ||
       item.id === 'item_ngontay_vercel' ||
       item.id === 'item_nghiengdau_vercel' ||
+      item.id === 'item_vongquaygoiten_vercel' ||
+      item.id === 'item_trochoilatmanhghep_vercel' ||
+      item.id === 'item_vonghoakienthuc_vercel' ||
       (titleLower.includes('lớp học ảo 3d') && titleLower.includes('phiên bản 2')) ||
       titleLower.includes('giơ ngón tay') ||
       titleLower.includes('trả lời bằng ngón tay') ||
       titleLower.includes('nghiêng đầu chọn đáp án') ||
+      titleLower.includes('vòng quay gọi tên') ||
+      titleLower.includes('lật mảnh ghép') ||
+      titleLower.includes('vòng quay kiến thức') ||
+      titleLower.includes('vòng hoa kiến thức') ||
       urlLower.includes('lophocaophienban2.vercel.app') ||
       urlLower.includes('thuthachtraloibangngontay.vercel.app') ||
-      urlLower.includes('nghiengdauchondapan.vercel.app')
+      urlLower.includes('nghiengdauchondapan.vercel.app') ||
+      urlLower.includes('vongquaygoiten-liard.vercel.app') ||
+      urlLower.includes('trochoilatmanhghep.vercel.app') ||
+      urlLower.includes('vonghoakienthuc.vercel.app')
     );
   }, [item, sourceInfo.url]);
 

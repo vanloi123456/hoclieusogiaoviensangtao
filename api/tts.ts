@@ -208,12 +208,21 @@ export default async function handler(req: any, res: any) {
   try {
     const body = (await parseJsonBody(req)) as {
       text?: string;
+      names?: string[] | string;
+      region?: string;
       voiceId?: string;
       gender?: 'female' | 'male';
       tone?: 'correct' | 'wrong' | 'question' | 'sample';
     };
 
-    const cleanText = typeof body.text === 'string' ? body.text.trim().slice(0, 360) : '';
+    const fallbackFromNames = Array.isArray(body.names)
+      ? body.names.map((n) => String(n || '').trim()).filter(Boolean).join(', ')
+      : typeof body.names === 'string'
+      ? body.names.trim()
+      : '';
+    const cleanText = (
+      typeof body.text === 'string' && body.text.trim() ? body.text.trim() : fallbackFromNames
+    ).slice(0, 360);
     if (!cleanText) {
       return res.status(400).json({ error: 'Vui lòng nhập nội dung cần tạo giọng đọc AI.' });
     }

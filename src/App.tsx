@@ -443,6 +443,13 @@ export default function App() {
     if (window.location.pathname !== path) {
       window.history.pushState({ path }, '', path);
     }
+    try {
+      const canonical = document.getElementById('canonical-link');
+      const fullUrl = window.location.origin + path;
+      if (canonical) canonical.setAttribute('href', fullUrl);
+      const ogUrl = document.querySelector('meta[property="og:url"]');
+      if (ogUrl) ogUrl.setAttribute('content', fullUrl);
+    } catch {}
   }, []);
 
   const closeAllContentModals = useCallback(() => {
@@ -872,31 +879,7 @@ export default function App() {
         delete savedItem.creditCost;
       }
     } else {
-      const requestedZone = data.zone || 'guides';
-      if (
-        requestedZone === 'virtual_spaces' ||
-        requestedZone === 'apps' ||
-        requestedZone === 'games' ||
-        requestedZone === 'simulations'
-      ) {
-        throw new Error('Chức năng thêm mới tại khu vực này hiện đang được tạm tắt.');
-      }
-      savedItem = {
-        id: 'item_' + now + '_' + Math.random().toString(36).substr(2, 6),
-        zone: requestedZone,
-        title: data.title || '',
-        description: data.description || '',
-        type: data.type || (requestedZone === 'management' ? 'management' : 'guide'),
-        createdAt: now,
-        updatedAt: now,
-        order: items.length + 1,
-        embedCode: data.embedCode,
-        grade: data.grade,
-        subject: data.subject,
-        ...(requestedZone === 'management'
-          ? { creditCost: normalizeCreditCost(data.creditCost) ?? 0 }
-          : {}),
-      };
+      throw new Error('Chức năng thêm mới nội dung hiện đang được tắt.');
     }
 
     const res = await storageService.saveItem(savedItem);
@@ -1096,7 +1079,7 @@ export default function App() {
       <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-sky-200/80 shadow-xs">
         <div className="bg-gradient-to-r from-emerald-100/85 via-green-50/95 to-teal-100/80 border-b border-emerald-200/80 px-4 py-2 text-center">
           <h1 className="text-sm sm:text-base md:text-lg font-bold font-display tracking-wide text-emerald-950 leading-tight">
-            Học liệu số - Giáo viên sáng tạo
+            Học liệu số Giáo viên sáng tạo
           </h1>
           <p className="text-xs sm:text-sm md:text-[15px] font-medium text-emerald-800 mt-0.5 tracking-normal">
             Kết nối tri thức – Lan tỏa sáng tạo – Đổi mới giáo dục
@@ -1435,11 +1418,6 @@ export default function App() {
                 delete next.managementAvatar;
                 handleUpdateBranding(next);
               }}
-              onAddSoftware={() => {
-                setTargetZone('management');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
-              }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
               onViewSoftware={(item) => handleLaunchContentWithCredits(item, 'view', setViewingItem)}
@@ -1462,11 +1440,6 @@ export default function App() {
                 const next = { ...branding };
                 delete next.guidesAvatar;
                 handleUpdateBranding(next);
-              }}
-              onAddGuide={() => {
-                setTargetZone('guides');
-                setEditingItem(null);
-                setIsAddEditModalOpen(true);
               }}
               onEditItem={handleOpenEditModal}
               onDeleteItem={handlePromptDelete}
@@ -1624,11 +1597,6 @@ export default function App() {
         onUpdateBranding={handleUpdateBranding}
         managementItems={managementItems}
         onUpdateItemCreditCost={handleUpdateManagementItemPrice}
-        onOpenAddManagementItem={() => {
-          setTargetZone('management');
-          setEditingItem(null);
-          setIsAddEditModalOpen(true);
-        }}
         contentCounts={{
           virtualSpaces: virtualSpaceItems.length,
           apps: appItems.length,
