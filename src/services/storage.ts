@@ -163,7 +163,7 @@ function writePendingUpsertsMap(map: Record<string, number>): void {
   } catch {}
 }
 
-const RESTORE_VONGHOA_MARKER = 'hoclieuso_restore_vonghoakienthuc_v3';
+const RESTORE_VONGHOA_MARKER = 'hoclieuso_restore_vonghoakienthuc_v4';
 try {
   if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESTORE_VONGHOA_MARKER)) {
     const restoredIds = [
@@ -256,7 +256,7 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   }
   if (
     candidate.id === 'item_vonghoakienthuc_vercel' &&
-    !exEmbed.includes('data-vonghoakienthuc-rev="v3-fix-idb-white-screen"')
+    !exEmbed.includes('data-vonghoakienthuc-rev="v4-dynamic-vercel-live-sync"')
   ) {
     return true;
   }
