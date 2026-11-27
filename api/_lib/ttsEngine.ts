@@ -416,8 +416,18 @@ function resolveSpeechParams(body: TtsSynthesisRequest): {
   return { text, prebuiltVoice, styleInstruction };
 }
 
-function buildWavFromPcm24k(pcmBytes: Buffer): Buffer {
-  const sampleRate = 24000;
+function parsePcmSampleRate(rawMimeType?: string): number {
+  const match = String(rawMimeType || '').match(/rate=(\d{4,6})/i);
+  if (match) {
+    const parsed = Number(match[1]);
+    if (Number.isFinite(parsed) && parsed >= 8000 && parsed <= 96000) {
+      return parsed;
+    }
+  }
+  return 24000;
+}
+
+function buildWavFromPcm(pcmBytes: Buffer, sampleRate = 24000): Buffer {
   const numChannels = 1;
   const bitsPerSample = 16;
   const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
@@ -437,6 +447,25 @@ function buildWavFromPcm24k(pcmBytes: Buffer): Buffer {
   header.write('data', 36);
   header.writeUInt32LE(pcmBytes.length, 40);
   return Buffer.concat([header, pcmBytes]);
+}
+
+function isLikelyAudioBuffer(buf: Buffer): boolean {
+  if (buf.length < 128) return false;
+  // WAV RIFF
+  if (buf.subarray(0, 4).toString('ascii') === 'RIFF') return true;
+  // ID3 MP3
+  if (buf.subarray(0, 3).toString('ascii') === 'ID3') return true;
+  // MPEG frame sync (11 bits set)
+  if (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return true;
+  // Ogg / FLAC
+  const head4 = buf.subarray(0, 4).toString('ascii');
+  if (head4 === 'OggS' || head4 === 'fLaC') return true;
+  // Reject HTML / JSON error pages masquerading as 200
+  const prefix = buf.subarray(0, 64).toString('utf8').trimStart().toLowerCase();
+  if (prefix.startsWith('<') || prefix.startsWith('{') || prefix.startsWith('[')) {
+    return false;
+  }
+  return false;
 }
 
 function ensurePlayableAudio(base64Data: string, rawMimeType?: string): {
@@ -463,7 +492,7 @@ function ensurePlayableAudio(base64Data: string, rawMimeType?: string): {
 
   // Raw PCM (audio/l16 or headerless audio from Gemini) -> wrap in RIFF WAV header
   if (mimeLower.includes('l16') || mimeLower.includes('pcm') || mimeLower.includes('wav') || !mimeLower) {
-    const wavBuf = buildWavFromPcm24k(buf);
+    const wavBuf = buildWavFromPcm(buf, parsePcmSampleRate(rawMimeType));
     return { audioBase64: wavBuf.toString('base64'), mimeType: 'audio/wav' };
   }
 
@@ -504,6 +533,49 @@ function splitVietnameseChunks(text: string, maxLen = 175): string[] {
   return chunks;
 }
 
+async function fetchCloudChunkWithMirrors(chunk: string, ttsspeed: string): Promise<Buffer | null> {
+  const q = encodeURIComponent(chunk);
+  const candidates = [
+    `https://translate.google.com/translate_tts?ie=UTF-8&q=${q}&tl=vi&client=tw-ob&ttsspeed=${ttsspeed}`,
+    `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${q}&tl=vi&client=gtx&ttsspeed=${ttsspeed}`,
+    `https://translate.google.com/translate_tts?ie=UTF-8&q=${q}&tl=vi&client=gtx&ttsspeed=${ttsspeed}`,
+    `https://translate.google.com.vn/translate_tts?ie=UTF-8&q=${q}&tl=vi&client=tw-ob&ttsspeed=${ttsspeed}`,
+  ];
+
+  for (const url of candidates) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2400);
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          Referer: 'https://translate.google.com/',
+          Accept: 'audio/mpeg, audio/*;q=0.9, */*;q=0.5',
+        },
+        signal: controller.signal,
+      });
+      if (!resp.ok) continue;
+      const contentType = String(resp.headers.get('content-type') || '').toLowerCase();
+      if (
+        contentType &&
+        !contentType.includes('audio') &&
+        !contentType.includes('octet-stream')
+      ) {
+        continue;
+      }
+      const buf = Buffer.from(await resp.arrayBuffer());
+      if (!isLikelyAudioBuffer(buf)) continue;
+      return buf;
+    } catch {
+      // Try next mirror
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  return null;
+}
+
 async function synthesizeViaCloudVietnameseTts(
   text: string,
   speed?: string
@@ -512,35 +584,19 @@ async function synthesizeViaCloudVietnameseTts(
   if (chunks.length === 0) return null;
 
   const ttsspeed = speed === 'slow' ? '0.85' : speed === 'fast' ? '1.15' : '1';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
     const audioBuffers = await Promise.all(
-      chunks.map(async (chunk) => {
-        const url =
-          `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}` +
-          `&tl=vi&client=tw-ob&ttsspeed=${ttsspeed}`;
-        const resp = await fetch(url, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            Referer: 'https://translate.google.com/',
-          },
-          signal: controller.signal,
-        });
-        if (!resp.ok) {
-          throw new Error(`Cloud Vietnamese TTS HTTP ${resp.status}`);
-        }
-        const buf = Buffer.from(await resp.arrayBuffer());
-        if (buf.length < 128) {
-          throw new Error('Empty audio buffer from Cloud Vietnamese TTS');
-        }
-        return buf;
-      })
+      chunks.map((chunk) => fetchCloudChunkWithMirrors(chunk, ttsspeed))
     );
 
-    const merged = Buffer.concat(audioBuffers);
+    if (audioBuffers.some((b) => !b)) {
+      return null;
+    }
+
+    const validBuffers = audioBuffers as Buffer[];
+    const merged = Buffer.concat(validBuffers);
+    if (merged.length < 128) return null;
     return {
       audioBase64: merged.toString('base64'),
       mimeType: 'audio/mpeg',
@@ -548,8 +604,6 @@ async function synthesizeViaCloudVietnameseTts(
   } catch (err) {
     console.warn('Cloud Vietnamese TTS fallback error:', err);
     return null;
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -557,17 +611,17 @@ async function synthesizeViaGemini(
   text: string,
   prebuiltVoice: GeminiVoice,
   styleInstruction: string,
-  timeoutMs = 8500
+  timeoutMs = 6000
 ): Promise<{ audioBase64: string; mimeType: string } | null> {
   const ai = getGeminiClient();
   if (!ai) return null;
 
-  const runGenerate = async (withStyle: boolean) => {
+  const runGenerate = async (model: string, withStyle: boolean) => {
     const part = withStyle
       ? { text, speechMetadata: { style: styleInstruction } }
       : { text };
     return await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
+      model,
       contents: [{ role: 'user', parts: [part] }],
       config: {
         responseModalities: ['AUDIO'],
@@ -584,10 +638,10 @@ async function synthesizeViaGemini(
   try {
     const geminiPromise = (async () => {
       try {
-        return await runGenerate(true);
+        return await runGenerate('gemini-3.8-flash-lite-tts', true);
       } catch (firstErr: any) {
         if (isBadRequestError(firstErr)) {
-          return await runGenerate(false);
+          return await runGenerate('gemini-3.8-flash-lite-tts', false);
         }
         throw firstErr;
       }
@@ -610,6 +664,28 @@ async function synthesizeViaGemini(
   }
 }
 
+const ttsMemoryCache = new Map<string, { value: TtsSynthesisSuccess; cachedAt: number }>();
+const TTS_CACHE_TTL_MS = 30 * 60 * 1000;
+const TTS_CACHE_MAX_ITEMS = 80;
+
+function getCachedTts(key: string): TtsSynthesisSuccess | null {
+  const entry = ttsMemoryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > TTS_CACHE_TTL_MS) {
+    ttsMemoryCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCachedTts(key: string, value: TtsSynthesisSuccess): void {
+  if (ttsMemoryCache.size >= TTS_CACHE_MAX_ITEMS) {
+    const firstKey = ttsMemoryCache.keys().next().value;
+    if (firstKey) ttsMemoryCache.delete(firstKey);
+  }
+  ttsMemoryCache.set(key, { value, cachedAt: Date.now() });
+}
+
 export async function handleVietnameseTts(
   req: any,
   body: TtsSynthesisRequest,
@@ -625,13 +701,27 @@ export async function handleVietnameseTts(
     };
   }
 
+  const cacheKey = [
+    text,
+    prebuiltVoice,
+    body.voiceId || '',
+    body.region || '',
+    body.gender || '',
+    body.tone || '',
+    body.speed || '',
+  ].join('::');
+  const cached = getCachedTts(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   let geminiFailureDetail = '';
 
   // 1. Primary: Gemini AI TTS (when GEMINI_API_KEY is configured)
   try {
     const geminiAudio = await synthesizeViaGemini(text, prebuiltVoice, styleInstruction);
     if (geminiAudio) {
-      return {
+      const okRes: TtsSynthesisSuccess = {
         ok: true,
         audioBase64: geminiAudio.audioBase64,
         mimeType: geminiAudio.mimeType,
@@ -639,6 +729,8 @@ export async function handleVietnameseTts(
         voiceName: prebuiltVoice,
         provider: 'gemini',
       };
+      setCachedTts(cacheKey, okRes);
+      return okRes;
     }
   } catch (err: any) {
     geminiFailureDetail = err instanceof Error ? err.message : String(err);
@@ -651,7 +743,7 @@ export async function handleVietnameseTts(
     if (upstreamEndpoint) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8500);
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
         const upstreamRes = await fetch(upstreamEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -662,7 +754,7 @@ export async function handleVietnameseTts(
         const upstreamData: any = await upstreamRes.json().catch(() => null);
         if (upstreamRes.ok && upstreamData?.audioBase64) {
           const mime = upstreamData.mimeType || 'audio/wav';
-          return {
+          const okRes: TtsSynthesisSuccess = {
             ok: true,
             audioBase64: upstreamData.audioBase64,
             mimeType: mime,
@@ -671,6 +763,8 @@ export async function handleVietnameseTts(
             voiceName: upstreamData.voiceName || prebuiltVoice,
             provider: 'upstream',
           };
+          setCachedTts(cacheKey, okRes);
+          return okRes;
         }
       } catch (proxyErr) {
         console.warn('Upstream TTS proxy error:', proxyErr);
@@ -681,7 +775,7 @@ export async function handleVietnameseTts(
   // 3. Universal Cloud Vietnamese TTS Fallback (works on Vercel without env key & across all browsers/devices)
   const fallbackAudio = await synthesizeViaCloudVietnameseTts(text, body.speed);
   if (fallbackAudio) {
-    return {
+    const okRes: TtsSynthesisSuccess = {
       ok: true,
       audioBase64: fallbackAudio.audioBase64,
       mimeType: fallbackAudio.mimeType,
@@ -689,6 +783,8 @@ export async function handleVietnameseTts(
       voiceName: prebuiltVoice,
       provider: 'cloud-vi-tts',
     };
+    setCachedTts(cacheKey, okRes);
+    return okRes;
   }
 
   return {

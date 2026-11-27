@@ -66,10 +66,10 @@ const BUNDLED_ADDON_IDS = new Set<string>([
   'item_khoahoc4_bai1_tinhchatnuoc',
   'item_ngontay_vercel',
   'item_nghiengdau_vercel',
+  'item_huongdan_giongontay_yt',
   'item_vongquaygoiten_vercel',
   'item_trochoilatmanhghep_vercel',
   'item_vonghoakienthuc_vercel',
-  'item_huongdan_giongontay_yt',
 ]);
 const ALL_ZONES: ZoneType[] = [
   'virtual_spaces',
@@ -163,6 +163,23 @@ function writePendingUpsertsMap(map: Record<string, number>): void {
   } catch {}
 }
 
+const RESTORE_WHEEL_PUZZLE_MARKER = 'hoclieuso_restore_wheel_puzzle_v2';
+try {
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESTORE_WHEEL_PUZZLE_MARKER)) {
+    const restoredIds = [
+      'item_vongquaygoiten_vercel',
+      'item_trochoilatmanhghep_vercel',
+      'item_vonghoakienthuc_vercel',
+    ];
+    for (const rId of restoredIds) {
+      removeIdFromLocalStorageSet(DELETED_ADDON_STORAGE_KEY, rId);
+      removeIdFromLocalStorageSet(SEEN_FS_ADDON_STORAGE_KEY, rId);
+      removeIdFromLocalStorageSet(PENDING_DELETES_STORAGE_KEY, rId);
+    }
+    localStorage.setItem(RESTORE_WHEEL_PUZZLE_MARKER, '1');
+  }
+} catch {}
+
 function isRemovedCatalogEntry(id: string, title?: string): boolean {
   if (REMOVED_ITEM_IDS.has(id)) return true;
   const lowerTitle = String(title || '').trim().toLowerCase();
@@ -227,19 +244,19 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   }
   if (
     candidate.id === 'item_vongquaygoiten_vercel' &&
-    !exEmbed.includes('data-vongquay-rev="v2-universal-tts-mobile-fix"')
+    !exEmbed.includes('data-vongquaygoiten-rev="v2-vercel-cross-device-tts"')
   ) {
     return true;
   }
   if (
     candidate.id === 'item_trochoilatmanhghep_vercel' &&
-    !exEmbed.includes('data-latmanhghep-rev="v2-universal-tts-mobile-fix"')
+    !exEmbed.includes('data-latmanhghep-rev="v2-vercel-cross-device-tts"')
   ) {
     return true;
   }
   if (
     candidate.id === 'item_vonghoakienthuc_vercel' &&
-    !exEmbed.includes('data-vonghoakienthuc-rev="v2-universal-tts-mobile-fix"')
+    !exEmbed.includes('data-vonghoakienthuc-rev="v2-vercel-cross-device-tts"')
   ) {
     return true;
   }

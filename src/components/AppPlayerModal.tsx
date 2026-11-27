@@ -136,9 +136,9 @@ export const AppPlayerModal: React.FC<AppPlayerModalProps> = ({
       titleLower.includes('trả lời bằng ngón tay') ||
       titleLower.includes('nghiêng đầu chọn đáp án') ||
       titleLower.includes('vòng quay gọi tên') ||
-      titleLower.includes('lật mảnh ghép') ||
-      titleLower.includes('vòng quay kiến thức') ||
+      titleLower.includes('trò chơi lật mảnh ghép') ||
       titleLower.includes('vòng hoa kiến thức') ||
+      titleLower.includes('vòng quay kiến thức') ||
       urlLower.includes('lophocaophienban2.vercel.app') ||
       urlLower.includes('thuthachtraloibangngontay.vercel.app') ||
       urlLower.includes('nghiengdauchondapan.vercel.app') ||

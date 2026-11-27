@@ -4,7 +4,7 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { handleVietnameseTts, setTtsCorsHeaders } from './api/_lib/ttsEngine';
+import { handleVietnameseTts, setTtsCorsHeaders } from './api/_lib/ttsEngine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
