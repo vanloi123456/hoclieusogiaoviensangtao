@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ContentItem, UserRole } from '../types';
-import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
+import { classifyAppSource, generateSandboxHtml, parseYouTubeUrl } from '../utils/embed';
 
 interface SimulationPlayerModalProps {
   item: ContentItem | null;
@@ -117,8 +117,13 @@ export const SimulationPlayerModal: React.FC<SimulationPlayerModalProps> = ({
 
   const sourceInfo = useMemo(() => classifyAppSource(item?.embedCode), [item?.embedCode]);
 
+  const youtubeEmbedUrl = useMemo(() => {
+    if (sourceInfo.kind !== 'youtube' || !item?.embedCode) return null;
+    return parseYouTubeUrl(item.embedCode);
+  }, [sourceInfo.kind, item?.embedCode]);
+
   const sandboxContent = useMemo(() => {
-    if (!item?.embedCode || sourceInfo.iframeBlockedLikely) return '';
+    if (!item?.embedCode || sourceInfo.iframeBlockedLikely || youtubeEmbedUrl) return '';
     return generateSandboxHtml(
       item.embedCode,
       teacherId
@@ -130,7 +135,15 @@ export const SimulationPlayerModal: React.FC<SimulationPlayerModalProps> = ({
           }
         : undefined
     );
-  }, [item?.id, item?.embedCode, refreshKey, teacherId, userRole, sourceInfo.iframeBlockedLikely]);
+  }, [
+    item?.id,
+    item?.embedCode,
+    refreshKey,
+    teacherId,
+    userRole,
+    sourceInfo.iframeBlockedLikely,
+    youtubeEmbedUrl,
+  ]);
 
   if (!item || !item.embedCode) return null;
 
@@ -283,6 +296,18 @@ export const SimulationPlayerModal: React.FC<SimulationPlayerModalProps> = ({
               </p>
             </div>
           </div>
+        ) : youtubeEmbedUrl ? (
+          <div className="w-full h-full max-w-7xl bg-black rounded-2xl overflow-hidden shadow-2xl border border-teal-900/40 relative">
+            <iframe
+              key={`${item.id}_yt_${refreshKey}`}
+              src={youtubeEmbedUrl}
+              title={item.title}
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allowFullScreen
+              className="w-full h-full border-0 block"
+            />
+          </div>
         ) : (
           <div className="w-full h-full max-w-7xl bg-white rounded-2xl overflow-hidden shadow-2xl border border-teal-900/40 relative">
             <iframe
@@ -291,6 +316,7 @@ export const SimulationPlayerModal: React.FC<SimulationPlayerModalProps> = ({
               srcDoc={sandboxContent}
               onLoad={() => pushLatestDataToIframe(initialDataRef.current)}
               title={item.title}
+              referrerPolicy="strict-origin-when-cross-origin"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-autoplay allow-downloads allow-modals"
               allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen"
               className="w-full h-full border-0 block"

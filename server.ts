@@ -4,7 +4,9 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { handleVietnameseTts, setTtsCorsHeaders } from './api/_lib/ttsEngine.js';
+import { handleVietnameseTts, setTtsCorsHeaders } from './api/_lib/ttsEngine.ts';
+import robotsHandler from './api/robots.ts';
+import sitemapHandler from './api/sitemap.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1570,11 +1572,21 @@ async function startServer() {
     }
   });
 
+  app.get('/robots.txt', (req, res) => robotsHandler(req, res));
+  app.get('/sitemap.xml', (req, res) => sitemapHandler(req, res));
+
+  app.all('/api/*', (_req, res) => {
+    res.status(404).json({ success: false, message: 'API endpoint not found' });
+  });
+
   const httpServer = http.createServer(app);
 
   // --- Vite Dev Server Middleware or Static Production ---
   if (!isProduction) {
-    const disableHmr = process.env.DISABLE_HMR === 'true';
+    const disableHmr = process.env.DISABLE_HMR !== 'false';
+    if (disableHmr) {
+      process.env.DISABLE_HMR = 'true';
+    }
     const viteReadyPromise = (async () => {
       const { createServer: createViteServer } = await import('vite');
       return createViteServer({
@@ -1593,10 +1605,25 @@ async function startServer() {
       process.exit(1);
     });
 
-    app.use((req, res, next) => {
-      viteReadyPromise
-        .then((vite) => vite.middlewares(req, res, next))
-        .catch(next);
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await viteReadyPromise;
+        if (disableHmr && req.path === '/@vite/client') {
+          const transformed = await vite.transformRequest('/@vite/client');
+          if (transformed?.code) {
+            const safeCode = transformed.code.replace(
+              'transport.connect(createHMRHandler(handleMessage));',
+              '/* HMR disabled: WebSocket transport suppressed */'
+            );
+            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache');
+            return res.status(200).send(safeCode);
+          }
+        }
+        return vite.middlewares(req, res, next);
+      } catch (err) {
+        return next(err);
+      }
     });
   } else {
     const distPath = path.resolve(__dirname, 'dist');

@@ -208,24 +208,29 @@ export default function App() {
 
   // Listen to Firebase Auth state & sync user profile on boot/login (including redirect return on Vercel)
   useEffect(() => {
-    authService.handleGoogleRedirectResult().then(async (redirectRes) => {
-      setIsCloudConnected(authService.isFirebaseAdminConnected());
-      if (redirectRes?.success && redirectRes.user) {
-        setCurrentUser(redirectRes.user);
-        setRole(authService.getCurrentRole());
-        if (redirectRes.user.role === 'admin' && authService.isFirebaseAdminConnected()) {
-          await storageService.ensureCatalogSeededToFirestore().catch(() => {});
-          const [latestItems, latestBranding] = await Promise.all([
-            storageService.getAllItems(),
-            storageService.fetchBrandingFromServer(),
-          ]);
-          setItems(normalizeItems(latestItems));
-          if (latestBranding && Object.keys(latestBranding).length > 0) {
-            setBranding(latestBranding);
+    authService
+      .handleGoogleRedirectResult()
+      .then(async (redirectRes) => {
+        setIsCloudConnected(authService.isFirebaseAdminConnected());
+        if (redirectRes?.success && redirectRes.user) {
+          setCurrentUser(redirectRes.user);
+          setRole(authService.getCurrentRole());
+          if (redirectRes.user.role === 'admin' && authService.isFirebaseAdminConnected()) {
+            await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+            const [latestItems, latestBranding] = await Promise.all([
+              storageService.getAllItems(),
+              storageService.fetchBrandingFromServer(),
+            ]);
+            setItems(normalizeItems(latestItems));
+            if (latestBranding && Object.keys(latestBranding).length > 0) {
+              setBranding(latestBranding);
+            }
           }
         }
-      }
-    });
+      })
+      .catch((err) => {
+        console.error('Failed to process Google redirect result:', err);
+      });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseAuthUid(fbUser?.uid || null);
@@ -299,13 +304,17 @@ export default function App() {
 
     let cancelled = false;
     const checkAndRefreshIfDue = async () => {
-      const nextResetAt = authService.getNextFreeResetTimestamp(currentUser);
-      if (nextResetAt && Date.now() >= nextResetAt) {
-        const refreshed = await authService.refreshCurrentUser(currentUser);
-        if (!cancelled) {
-          setCurrentUser(refreshed);
-          setRole(authService.getCurrentRole());
+      try {
+        const nextResetAt = authService.getNextFreeResetTimestamp(currentUser);
+        if (nextResetAt && Date.now() >= nextResetAt) {
+          const refreshed = await authService.refreshCurrentUser(currentUser);
+          if (!cancelled) {
+            setCurrentUser(refreshed);
+            setRole(authService.getCurrentRole());
+          }
         }
+      } catch (err) {
+        console.error('Failed to refresh daily free credits:', err);
       }
     };
 
@@ -344,11 +353,16 @@ export default function App() {
       setTeacherAppData({});
       return;
     }
-    storageService.getTeacherAppData(activeTeacherId).then((data) => {
-      if (!cancelled) {
-        setTeacherAppData(data || {});
-      }
-    });
+    storageService
+      .getTeacherAppData(activeTeacherId)
+      .then((data) => {
+        if (!cancelled) {
+          setTeacherAppData(data || {});
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load teacher app data:', err);
+      });
 
     const unsubscribeTeacherFs = storageService.subscribeTeacherAppDataRealtime(
       activeTeacherId,
@@ -390,8 +404,12 @@ export default function App() {
         currentUser.role === 'teacher' &&
         (!ev.teacherId || ev.teacherId === currentUser.id)
       ) {
-        const refreshed = await authService.refreshCurrentUser(currentUser);
-        setCurrentUser(refreshed);
+        try {
+          const refreshed = await authService.refreshCurrentUser(currentUser);
+          setCurrentUser(refreshed);
+        } catch (err) {
+          console.error('Failed to refresh user from SSE update:', err);
+        }
       } else if (
         ev.type === 'teacher_app_data_updated' &&
         activeTeacherId &&
@@ -644,6 +662,18 @@ export default function App() {
     }, 6500);
   }, []);
 
+  const getReadableError = (err: unknown, fallback: string): string => {
+    if (err instanceof Error && err.message) {
+      if (err.message.includes('insufficient permissions')) {
+        return 'Không đủ quyền truy cập Cloud Firestore. Vui lòng đăng nhập lại và thử lại.';
+      }
+      if (!err.message.trim().startsWith('{')) {
+        return err.message;
+      }
+    }
+    return fallback;
+  };
+
   const handleAuthSuccess = async (user: UserAccount | null) => {
     if (user) {
       authService.setCurrentUser(user);
@@ -660,14 +690,23 @@ export default function App() {
         : authService.getCurrentRole()
     );
     if (user?.role === 'admin' && authService.isFirebaseAdminConnected()) {
-      await storageService.ensureCatalogSeededToFirestore().catch(() => {});
-      const latest = await storageService.getAllItems();
-      setItems(normalizeItems(latest));
+      try {
+        await storageService.ensureCatalogSeededToFirestore().catch(() => {});
+        const latest = await storageService.getAllItems();
+        setItems(normalizeItems(latest));
+      } catch (err) {
+        console.error('Failed to sync catalog after admin sign-in:', err);
+      }
     }
     if (user && pendingLaunch) {
       const nextLaunch = pendingLaunch;
       setPendingLaunch(null);
-      handleLaunchContentWithCredits(nextLaunch.item, nextLaunch.action, nextLaunch.opener, user);
+      await handleLaunchContentWithCredits(
+        nextLaunch.item,
+        nextLaunch.action,
+        nextLaunch.opener,
+        user
+      );
     }
   };
 
@@ -707,6 +746,12 @@ export default function App() {
       } else if (res.message) {
         showCloudNotice('warning', res.message);
       }
+    } catch (err) {
+      console.error('Cloud admin connect error:', err);
+      showCloudNotice(
+        'warning',
+        getReadableError(err, 'Không thể kết nối Google Đám mây lúc này. Vui lòng thử lại.')
+      );
     } finally {
       setIsSyncingCloud(false);
     }
@@ -729,6 +774,12 @@ export default function App() {
           `Vẫn còn ${flushRes.failedCount} thay đổi chưa đồng bộ được. Vui lòng kiểm tra kết nối mạng và thử lại.`
         );
       }
+    } catch (err) {
+      console.error('Sync pending error:', err);
+      showCloudNotice(
+        'warning',
+        getReadableError(err, 'Không thể đồng bộ lên Đám mây lúc này. Vui lòng thử lại.')
+      );
     } finally {
       setIsSyncingCloud(false);
     }
@@ -789,38 +840,46 @@ export default function App() {
       return;
     }
 
-    const res = await authService.consumeCreditsForApp(activeUser, action, item);
-    setCurrentUser(res.user);
-    setRole(authService.getCurrentRole());
+    try {
+      const res = await authService.consumeCreditsForApp(activeUser, action, item);
+      setCurrentUser(res.user);
+      setRole(authService.getCurrentRole());
 
-    const needed =
-      typeof res.requiredCredits === 'number'
-        ? res.requiredCredits
-        : authService.getCreditCostForAction(action, item);
-    const remainingCredits = authService.getTotalCredits(res.user);
+      const needed =
+        typeof res.requiredCredits === 'number'
+          ? res.requiredCredits
+          : authService.getCreditCostForAction(action, item);
+      const remainingCredits = authService.getTotalCredits(res.user);
 
-    if (needed > 0 && (res.insufficientCredits || (!res.success && remainingCredits < needed))) {
-      setPendingLaunch({ type: 'item', item, action, opener: onAuthorizedOpen });
-      setRequiredCreditsForModal(needed);
-      setCreditModalReason(
-        res.message ||
-          `Số dư tín dụng AI không đủ hoặc đã hết (cần ${needed} tín dụng AI). Vui lòng liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE} để tiếp tục sử dụng.`
+      if (needed > 0 && (res.insufficientCredits || (!res.success && remainingCredits < needed))) {
+        setPendingLaunch({ type: 'item', item, action, opener: onAuthorizedOpen });
+        setRequiredCreditsForModal(needed);
+        setCreditModalReason(
+          res.message ||
+            `Số dư tín dụng AI không đủ hoặc đã hết (cần ${needed} tín dụng AI). Vui lòng liên hệ Quản trị viên qua số điện thoại ${ADMIN_PHONE} để tiếp tục sử dụng.`
+        );
+        setIsCreditModalOpen(true);
+        return;
+      }
+
+      if (!res.success) {
+        showCloudNotice('warning', res.message || 'Không thể kiểm tra tín dụng AI. Vui lòng thử lại.');
+        return;
+      }
+
+      setPendingLaunch(null);
+      setDeepLinkBannerItem(null);
+      setActiveZoneRoute(item.zone);
+      setActiveSection(ZONE_ROUTES[item.zone].sectionId);
+      pushUrlPath(buildItemPath(item));
+      onAuthorizedOpen(item);
+    } catch (err) {
+      console.error('Failed to consume AI credits when launching content:', err);
+      showCloudNotice(
+        'warning',
+        getReadableError(err, 'Không thể kiểm tra hoặc trừ tín dụng AI lúc này. Vui lòng thử lại.')
       );
-      setIsCreditModalOpen(true);
-      return;
     }
-
-    if (!res.success) {
-      alert(res.message || 'Không thể kiểm tra tín dụng AI. Vui lòng thử lại.');
-      return;
-    }
-
-    setPendingLaunch(null);
-    setDeepLinkBannerItem(null);
-    setActiveZoneRoute(item.zone);
-    setActiveSection(ZONE_ROUTES[item.zone].sectionId);
-    pushUrlPath(buildItemPath(item));
-    onAuthorizedOpen(item);
   };
 
   // Content Handlers: Chỉ Quản trị viên có quyền thêm/sửa/xóa nội dung
@@ -965,7 +1024,7 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      alert('Không thể xuất dữ liệu học liệu.');
+      showCloudNotice('warning', 'Không thể xuất dữ liệu học liệu.');
     }
   };
 
@@ -982,9 +1041,9 @@ export default function App() {
         if (result.branding) {
           setBranding(result.branding);
         }
-        alert(`Đã nhập thành công ${result.items.length} mục nội dung!`);
+        showCloudNotice('success', `Đã nhập thành công ${result.items.length} mục nội dung!`);
       } catch (err: any) {
-        alert(err.message || 'Lỗi khi nhập tệp học liệu.');
+        showCloudNotice('warning', getReadableError(err, 'Lỗi khi nhập tệp học liệu.'));
       }
     };
     reader.readAsText(file);

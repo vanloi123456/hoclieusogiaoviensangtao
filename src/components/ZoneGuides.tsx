@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   PlayCircle,
   Play,
@@ -37,6 +37,7 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
   onLaunchGuide,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const canManage = role === 'admin';
   const isAdmin = role === 'admin';
@@ -44,11 +45,12 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !onUploadAvatar) return;
+    setUploadError(null);
     try {
       const dataUrl = await processImageFile(file, 600);
       onUploadAvatar(dataUrl);
     } catch (err: any) {
-      alert(err.message || 'Lỗi khi xử lý hình ảnh');
+      setUploadError(err.message || 'Lỗi khi xử lý hình ảnh');
     }
     e.target.value = '';
   };
@@ -145,6 +147,9 @@ export const ZoneGuides: React.FC<ZoneGuidesProps> = ({
                   </button>
                 )}
               </div>
+            )}
+            {uploadError && (
+              <p className="text-xs text-rose-600 mt-1 font-medium">{uploadError}</p>
             )}
           </div>
         </div>

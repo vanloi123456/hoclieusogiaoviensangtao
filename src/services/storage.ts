@@ -163,9 +163,9 @@ function writePendingUpsertsMap(map: Record<string, number>): void {
   } catch {}
 }
 
-const RESTORE_WHEEL_PUZZLE_MARKER = 'hoclieuso_restore_wheel_puzzle_v2';
+const RESTORE_VONGHOA_MARKER = 'hoclieuso_restore_vonghoakienthuc_v3';
 try {
-  if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESTORE_WHEEL_PUZZLE_MARKER)) {
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESTORE_VONGHOA_MARKER)) {
     const restoredIds = [
       'item_vongquaygoiten_vercel',
       'item_trochoilatmanhghep_vercel',
@@ -176,7 +176,7 @@ try {
       removeIdFromLocalStorageSet(SEEN_FS_ADDON_STORAGE_KEY, rId);
       removeIdFromLocalStorageSet(PENDING_DELETES_STORAGE_KEY, rId);
     }
-    localStorage.setItem(RESTORE_WHEEL_PUZZLE_MARKER, '1');
+    localStorage.setItem(RESTORE_VONGHOA_MARKER, '1');
   }
 } catch {}
 
@@ -250,13 +250,13 @@ function shouldUpgradeBundledAddon(existing: ContentItem, candidate: ContentItem
   }
   if (
     candidate.id === 'item_trochoilatmanhghep_vercel' &&
-    !exEmbed.includes('data-latmanhghep-rev="v2-vercel-cross-device-tts"')
+    !exEmbed.includes('data-latmanhghep-rev="v3-fix-idb-white-screen"')
   ) {
     return true;
   }
   if (
     candidate.id === 'item_vonghoakienthuc_vercel' &&
-    !exEmbed.includes('data-vonghoakienthuc-rev="v2-vercel-cross-device-tts"')
+    !exEmbed.includes('data-vonghoakienthuc-rev="v3-fix-idb-white-screen"')
   ) {
     return true;
   }

@@ -91,13 +91,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   );
   const [teachers, setTeachers] = useState<UserAccount[]>(() => authService.getTeachers());
   const [searchQuery, setSearchQuery] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(() =>
     authService.isFirebaseAdminConnected()
   );
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isRefreshingList, setIsRefreshingList] = useState(false);
+  const noticeTimerRef = useRef<number | null>(null);
 
   // Per-teacher custom top-up state
   const [customTargetId, setCustomTargetId] = useState<string | null>(null);
@@ -108,12 +109,51 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [priceDrafts, setPriceDrafts] = useState<Record<string, number>>({});
   const [savingPriceId, setSavingPriceId] = useState<string | null>(null);
 
-  const refreshData = async () => {
+  const getErrorText = (err: unknown, fallback: string): string => {
+    if (err instanceof Error && err.message) {
+      if (err.message.includes('insufficient permissions')) {
+        return 'Không đủ quyền truy cập Cloud Firestore. Vui lòng kết nối đúng tài khoản Google Quản trị.';
+      }
+      if (!err.message.trim().startsWith('{')) {
+        return err.message;
+      }
+    }
+    return fallback;
+  };
+
+  const showNotice = (msg: string, type: 'success' | 'error' = 'success') => {
+    if (noticeTimerRef.current !== null) {
+      window.clearTimeout(noticeTimerRef.current);
+    }
+    setNotice({ type, text: msg });
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimerRef.current = null;
+    }, 4500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current !== null) {
+        window.clearTimeout(noticeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const refreshData = async (silent = false) => {
     setIsRefreshingList(true);
     try {
       const list = await authService.fetchTeachersFromServer();
       setTeachers(list);
       setIsFirebaseConnected(authService.isFirebaseAdminConnected());
+    } catch (err) {
+      console.error('Failed to refresh teacher list:', err);
+      if (!silent) {
+        showNotice(
+          getErrorText(err, 'Không thể tải danh sách tài khoản từ máy chủ. Vui lòng thử lại.'),
+          'error'
+        );
+      }
     } finally {
       setIsRefreshingList(false);
     }
@@ -124,7 +164,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (initialTab) setActiveTab(initialTab);
     const connected = isCloudConnected || authService.isFirebaseAdminConnected();
     setIsFirebaseConnected(connected);
-    refreshData();
+    refreshData(true);
 
     const unsubscribeAuth = onAuthStateChanged(auth, () => {
       const nextConnected = authService.isFirebaseAdminConnected();
@@ -140,7 +180,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
     const unsubscribeSse = storageService.subscribeRealtime((ev) => {
       if (ev?.type === 'teachers_updated') {
-        refreshData();
+        refreshData(true);
       }
     });
 
@@ -149,7 +189,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       unsubscribeFs();
       unsubscribeSse();
     };
-  }, [isOpen, initialTab, isFirebaseConnected, isCloudConnected]);
+  }, [isOpen, initialTab, isCloudConnected]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,34 +211,38 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   if (!isOpen) return null;
 
-  const showNotice = (msg: string) => {
-    setNotice(msg);
-    setTimeout(() => setNotice(null), 3500);
-  };
-
   const handleConnectGoogleAdmin = async () => {
     setIsConnectingGoogle(true);
     try {
       const res = await authService.signInWithGoogle();
       setIsFirebaseConnected(authService.isFirebaseAdminConnected());
       if (res.success) {
-        await refreshData();
+        await refreshData(true);
         showNotice('Đã đồng bộ toàn bộ danh sách tài khoản từ Cloud Firestore!');
       } else if (res.message) {
-        alert(res.message);
+        showNotice(res.message, 'error');
       }
+    } catch (err) {
+      showNotice(
+        getErrorText(err, 'Không thể kết nối Google Quản trị lúc này. Vui lòng thử lại.'),
+        'error'
+      );
     } finally {
       setIsConnectingGoogle(false);
     }
   };
 
   const handleTopUp = async (teacherId: string, amount: number) => {
-    const res = await authService.adminTopUpCredits(teacherId, amount);
-    if (res.success) {
-      await refreshData();
-      showNotice(res.message || `Đã cộng +${amount} tín dụng AI thành công!`);
-    } else {
-      alert(res.message || 'Không thể cộng tín dụng AI.');
+    try {
+      const res = await authService.adminTopUpCredits(teacherId, amount);
+      if (res.success) {
+        await refreshData(true);
+        showNotice(res.message || `Đã cộng +${amount} tín dụng AI thành công!`);
+      } else {
+        showNotice(res.message || 'Không thể cộng tín dụng AI.', 'error');
+      }
+    } catch (err) {
+      showNotice(getErrorText(err, 'Không thể cộng tín dụng AI. Vui lòng thử lại.'), 'error');
     }
   };
 
@@ -214,7 +258,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const handleConfirmCustomTopUp = async (e: React.FormEvent, teacherId: string) => {
     e.preventDefault();
     if (!Number.isFinite(customCreditsInput) || customCreditsInput <= 0) {
-      alert('Vui lòng nhập số tín dụng AI hợp lệ (> 0).');
+      showNotice('Vui lòng nhập số tín dụng AI hợp lệ (> 0).', 'error');
       return;
     }
     setIsSubmittingCustom(true);
@@ -225,20 +269,27 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       );
       if (res.success) {
         setCustomTargetId(null);
-        await refreshData();
-        showNotice(res.message);
+        await refreshData(true);
+        showNotice(res.message || 'Đã cộng tín dụng AI thành công!');
       } else {
-        alert(res.message || 'Không thể cộng tín dụng cho giáo viên.');
+        showNotice(res.message || 'Không thể cộng tín dụng cho giáo viên.', 'error');
       }
+    } catch (err) {
+      showNotice(getErrorText(err, 'Không thể cộng tín dụng cho giáo viên.'), 'error');
     } finally {
       setIsSubmittingCustom(false);
     }
   };
 
   const handleDeleteTeacher = async (teacherId: string) => {
-    await authService.adminDeleteTeacher(teacherId);
-    setDeleteConfirmId(null);
-    await refreshData();
+    try {
+      await authService.adminDeleteTeacher(teacherId);
+      setDeleteConfirmId(null);
+      await refreshData(true);
+      showNotice('Đã xóa tài khoản giáo viên.');
+    } catch (err) {
+      showNotice(getErrorText(err, 'Không thể xóa tài khoản giáo viên lúc này.'), 'error');
+    }
   };
 
   const handleImageFileChange = async (
@@ -249,7 +300,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (!file) return;
 
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'].includes(file.type)) {
-      alert('Vui lòng chọn hình ảnh định dạng JPG, PNG hoặc WEBP');
+      showNotice('Vui lòng chọn hình ảnh định dạng JPG, PNG hoặc WEBP', 'error');
+      e.target.value = '';
       return;
     }
 
@@ -262,7 +314,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       });
       showNotice('Đã cập nhật hình đại diện thành công!');
     } catch (err: any) {
-      alert(err.message || 'Lỗi khi xử lý hình ảnh');
+      showNotice(err?.message || 'Lỗi khi xử lý hình ảnh', 'error');
     }
     e.target.value = '';
   };
@@ -418,9 +470,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
         {/* Notice feedback */}
         {notice && (
-          <div className="mx-6 mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{notice}</span>
+          <div
+            className={`mx-6 mt-3 p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
+              notice.type === 'error'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}
+          >
+            {notice.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>{notice.text}</span>
           </div>
         )}
 
@@ -469,7 +531,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={refreshData}
+                  onClick={() => refreshData(false)}
                   disabled={isRefreshingList}
                   className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer shrink-0"
                   title="Tải lại danh sách tài khoản mới nhất"
@@ -793,6 +855,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                   `Đã lưu giá cho "${item.title}": ${
                                     draftCost === 0 ? 'Miễn phí' : `${draftCost} tín dụng AI`
                                   }`
+                                );
+                              } catch (err) {
+                                showNotice(
+                                  getErrorText(
+                                    err,
+                                    'Không thể lưu giá ứng dụng. Vui lòng kiểm tra kết nối và thử lại.'
+                                  ),
+                                  'error'
                                 );
                               } finally {
                                 setSavingPriceId(null);

@@ -362,18 +362,25 @@ function getParentHostOriginSafe(): string {
   return '';
 }
 
+function serializeForInlineScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 function buildRoleBootstrapScript(role?: UserRole): string {
-  const safeRole = JSON.stringify(role || 'guest').replace(/</g, '\\u003c');
-  const safeOrigin = JSON.stringify(getParentHostOriginSafe()).replace(/</g, '\\u003c');
+  const safeRole = serializeForInlineScript(role || 'guest');
+  const safeOrigin = serializeForInlineScript(getParentHostOriginSafe());
   return `<script>window.__HOST_USER_ROLE__=${safeRole};window.__HOST_ORIGIN__=${safeOrigin};<\/script>`;
 }
 
 function buildStorageBridgeScript(config: TeacherStorageBridgeConfig): string {
-  const safeJson = JSON.stringify(config.initialData || {}).replace(/</g, '\\u003c');
-  const safeTeacherId = JSON.stringify(config.teacherId).replace(/</g, '\\u003c');
-  const safeItemId = JSON.stringify(config.itemId).replace(/</g, '\\u003c');
-  const safeRole = JSON.stringify(config.role || 'guest').replace(/</g, '\\u003c');
-  const safeOrigin = JSON.stringify(getParentHostOriginSafe()).replace(/</g, '\\u003c');
+  const safeJson = serializeForInlineScript(config.initialData || {});
+  const safeTeacherId = serializeForInlineScript(config.teacherId);
+  const safeItemId = serializeForInlineScript(config.itemId);
+  const safeRole = serializeForInlineScript(config.role || 'guest');
+  const safeOrigin = serializeForInlineScript(getParentHostOriginSafe());
   const readOnlyFlag = config.readOnly ? 'true' : 'false';
 
   return `<script>
@@ -547,7 +554,7 @@ export function generateSandboxHtml(code: string, storageBridge?: TeacherStorage
   const youtubeEmbed = parseYouTubeUrl(trimmed);
   if (youtubeEmbed) {
     return wrapIframe(
-      `<iframe src="${youtubeEmbed}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>`
+      `<iframe src="${youtubeEmbed}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>`
     );
   }
 
@@ -561,7 +568,7 @@ export function generateSandboxHtml(code: string, storageBridge?: TeacherStorage
   if (normalizedUrl) {
     const safeSrc = normalizedUrl.replace(/"/g, '&quot;');
     return wrapIframe(
-      `<iframe src="${safeSrc}" allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>`
+      `<iframe src="${safeSrc}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>`
     );
   }
 

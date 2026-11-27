@@ -13,7 +13,7 @@ import {
   Box,
 } from 'lucide-react';
 import { ContentItem, UserRole } from '../types';
-import { classifyAppSource, generateSandboxHtml } from '../utils/embed';
+import { classifyAppSource, generateSandboxHtml, parseYouTubeUrl } from '../utils/embed';
 
 interface ContentViewModalProps {
   item: ContentItem | null;
@@ -69,15 +69,20 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
     );
   }, [item, sourceInfo.url]);
 
+  const youtubeEmbedUrl = useMemo(() => {
+    if (sourceInfo.kind !== 'youtube' || !item?.embedCode) return null;
+    return parseYouTubeUrl(item.embedCode);
+  }, [sourceInfo.kind, item?.embedCode]);
+
   const previewHtml = useMemo(() => {
-    if (!item?.embedCode || sourceInfo.iframeBlockedLikely) return '';
+    if (!item?.embedCode || sourceInfo.iframeBlockedLikely || youtubeEmbedUrl) return '';
     return generateSandboxHtml(item.embedCode, {
       teacherId: 'preview_readonly',
       itemId: item.id,
       readOnly: true,
       role: userRole,
     });
-  }, [item?.id, item?.embedCode, sourceInfo.iframeBlockedLikely, userRole]);
+  }, [item?.id, item?.embedCode, sourceInfo.iframeBlockedLikely, userRole, youtubeEmbedUrl]);
 
   if (!item) return null;
 
@@ -226,7 +231,7 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
                 </a>
               )}
             </div>
-          ) : previewHtml ? (
+          ) : youtubeEmbedUrl || previewHtml ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-950 overflow-hidden shadow-inner">
               <div className="px-4 py-2 bg-slate-900 text-[11px] font-semibold text-slate-300 border-b border-slate-800 flex items-center justify-between">
                 <span>Bản xem trước nội dung (chế độ chỉ xem)</span>
@@ -242,14 +247,26 @@ export const ContentViewModal: React.FC<ContentViewModalProps> = ({
                   </a>
                 )}
               </div>
-              <div className="aspect-video w-full bg-white">
-                <iframe
-                  srcDoc={previewHtml}
-                  title={`Xem trước: ${item.title}`}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-                  allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen"
-                  className="w-full h-full border-0"
-                />
+              <div className={`aspect-video w-full ${youtubeEmbedUrl ? 'bg-black' : 'bg-white'}`}>
+                {youtubeEmbedUrl ? (
+                  <iframe
+                    src={youtubeEmbedUrl}
+                    title={`Xem trước: ${item.title}`}
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    allowFullScreen
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  <iframe
+                    srcDoc={previewHtml}
+                    title={`Xem trước: ${item.title}`}
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+                    allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen"
+                    className="w-full h-full border-0"
+                  />
+                )}
               </div>
             </div>
           ) : (

@@ -28,6 +28,7 @@ import {
   classifyAppSource,
   generateSandboxHtml,
   getUtf8ByteLength,
+  parseYouTubeUrl,
   validateAndFormatEmbed,
 } from '../utils/embed';
 
@@ -91,6 +92,10 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
   }, [editingItem, defaultZone, isOpen]);
 
   const sourceInfo = useMemo(() => classifyAppSource(embedCode), [embedCode]);
+  const youtubeEmbedUrl = useMemo(
+    () => (sourceInfo.kind === 'youtube' ? parseYouTubeUrl(embedCode) : null),
+    [sourceInfo.kind, embedCode]
+  );
 
   if (!isOpen) return null;
 
@@ -539,14 +544,26 @@ export const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
             {showEmbedPreview && embedValidation.isValid && embedCode && !sourceInfo.iframeBlockedLikely && (
               <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800">
                 <p className="text-xs text-slate-400 mb-2">Xem trước trong Sandbox an toàn:</p>
-                <div className="aspect-video w-full bg-white rounded-xl overflow-hidden">
-                  <iframe
-                    srcDoc={generateSandboxHtml(embedCode)}
-                    title="Xem trước"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-                    allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen"
-                    className="w-full h-full border-0"
-                  />
+                <div className={`aspect-video w-full ${youtubeEmbedUrl ? 'bg-black' : 'bg-white'} rounded-xl overflow-hidden`}>
+                  {youtubeEmbedUrl ? (
+                    <iframe
+                      src={youtubeEmbedUrl}
+                      title="Xem trước"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                      allowFullScreen
+                      className="w-full h-full border-0"
+                    />
+                  ) : (
+                    <iframe
+                      srcDoc={generateSandboxHtml(embedCode)}
+                      title="Xem trước"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+                      allow="accelerometer; autoplay; camera; clipboard-write; encrypted-media; gyroscope; microphone; picture-in-picture; fullscreen"
+                      className="w-full h-full border-0"
+                    />
+                  )}
                 </div>
               </div>
             )}

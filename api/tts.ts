@@ -3,7 +3,7 @@ import {
   parseJsonBody,
   setTtsCorsHeaders,
   type TtsSynthesisRequest,
-} from './_lib/ttsEngine.js';
+} from './_lib/ttsEngine.ts';
 
 export default async function handler(req: any, res: any) {
   setTtsCorsHeaders(res);
